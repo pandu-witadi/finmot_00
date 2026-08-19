@@ -1,0 +1,14 @@
+github.txt
+
+# Ignore .git directory
+.git
+
+# backend
+backend/dist
+backend/node_modules
+backend/package-lock.json
+
+# frontend
+frontend/dist
+frontend/node_modules
+frontend/package-lock.json
