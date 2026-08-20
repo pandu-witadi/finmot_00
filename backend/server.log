@@ -1,0 +1,27 @@
+
+> protrack-backend@0.4.1 start
+> node dist/server.js
+
+... ENV: development
+... CLIENT_URLS: http://localhost:5173,http://localhost:5200
+... MONGODB_URI: mongodb://localhost:27017/finmot_00
+... SERVE_CLIENT: true
+... CLIENT_DIST path: E:\code\dev\MFRN\finmot_00\backend\dist\frontend
+... index.html exists: true
+... assets directory exists: true
+... assets files: index-B8TdQf3g.js, index-XqZU4B7B.css
+... HOST: 0.0.0.0  port: 5200
+{"level":30,"time":1787131135211,"pid":15604,"hostname":"DESKTOP-78JTDQT","msg":"Server listening at http://127.0.0.1:5200"}
+{"level":30,"time":1787131135212,"pid":15604,"hostname":"DESKTOP-78JTDQT","msg":"Server listening at http://192.168.99.17:5200"}
+{"level":30,"time":1787195712838,"pid":15604,"hostname":"DESKTOP-78JTDQT","reqId":"req-1","req":{"method":"POST","url":"/api/auth/login","host":"localhost:5200","remoteAddress":"127.0.0.1","remotePort":58023},"msg":"incoming request"}
+{"level":30,"time":1787195712880,"pid":15604,"hostname":"DESKTOP-78JTDQT","reqId":"req-1","res":{"statusCode":401},"responseTime":40.6777999997139,"msg":"request completed"}
+{"level":30,"time":1787195733131,"pid":15604,"hostname":"DESKTOP-78JTDQT","reqId":"req-2","req":{"method":"POST","url":"/api/auth/login","host":"localhost:5200","remoteAddress":"127.0.0.1","remotePort":58023},"msg":"incoming request"}
+{"level":30,"time":1787195733134,"pid":15604,"hostname":"DESKTOP-78JTDQT","reqId":"req-2","res":{"statusCode":401},"responseTime":3.1120000034570694,"msg":"request completed"}
+{"level":30,"time":1787195946537,"pid":15604,"hostname":"DESKTOP-78JTDQT","reqId":"req-3","req":{"method":"POST","url":"/api/auth/login","host":"localhost:5200","remoteAddress":"127.0.0.1","remotePort":58053},"msg":"incoming request"}
+{"level":30,"time":1787195946540,"pid":15604,"hostname":"DESKTOP-78JTDQT","reqId":"req-3","res":{"statusCode":401},"responseTime":2.280799999833107,"msg":"request completed"}
+{"level":30,"time":1787195960235,"pid":15604,"hostname":"DESKTOP-78JTDQT","reqId":"req-4","req":{"method":"GET","url":"/api/health","host":"localhost:5200","remoteAddress":"127.0.0.1","remotePort":58053},"msg":"incoming request"}
+{"level":30,"time":1787195960236,"pid":15604,"hostname":"DESKTOP-78JTDQT","reqId":"req-4","res":{"statusCode":200},"responseTime":0.7825000062584877,"msg":"request completed"}
+{"level":30,"time":1787195961396,"pid":15604,"hostname":"DESKTOP-78JTDQT","reqId":"req-5","req":{"method":"GET","url":"/api/health","host":"localhost:5200","remoteAddress":"127.0.0.1","remotePort":58053},"msg":"incoming request"}
+{"level":30,"time":1787195961397,"pid":15604,"hostname":"DESKTOP-78JTDQT","reqId":"req-5","res":{"statusCode":200},"responseTime":0.5173999965190887,"msg":"request completed"}
+{"level":30,"time":1787195968205,"pid":15604,"hostname":"DESKTOP-78JTDQT","reqId":"req-6","req":{"method":"POST","url":"/api/auth/login","host":"localhost:5200","remoteAddress":"127.0.0.1","remotePort":58053},"msg":"incoming request"}
+{"level":30,"time":1787195968207,"pid":15604,"hostname":"DESKTOP-78JTDQT","reqId":"req-6","res":{"statusCode":401},"responseTime":2.254900000989437,"msg":"request completed"}
