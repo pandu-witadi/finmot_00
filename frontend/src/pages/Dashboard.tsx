@@ -1,16 +1,41 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card';
-import { Button } from '@components/ui/button';
-import { Plus, TrendingUp, Wallet, PieChart } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@components/ui/card.tsx';
+import { Button } from '@components/ui/button.tsx';
+import { Plus, TrendingUp, Wallet, PieChart, LogOut } from 'lucide-react';
+import { useAuth } from '@/context/AuthProvider';
+import { toast } from 'react-hot-toast';
 
 export const Dashboard = () => {
+    const { logout } = useAuth();
+
+    const handleLogout = () => {
+        toast.promise(
+            new Promise((resolve, reject) => {
+                logout();
+                resolve({ data: 'Logged out successfully' });
+            }),
+            {
+                loading: 'Logging out...',
+                success: (data) => {
+                    return data?.data || 'Logged out successfully';
+                },
+                error: (err) => err.message || 'Failed to logout',
+            }
+        );
+    };
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-                <Button>
-                    <Plus className="mr-2 h-4 w-4" />
-                    New Project
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={handleLogout}>
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Logout
+                    </Button>
+                    <Button>
+                        <Plus className="mr-2 h-4 w-4" />
+                        New Project
+                    </Button>
+                </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">

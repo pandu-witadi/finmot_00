@@ -7,11 +7,9 @@ import {
     register,
     login,
     LoginRequest,
-    RegisterRequest,
-    AuthResponse
+    RegisterRequest
 } from '../controller/auth.js';
 import { verifyToken } from '../utils/jwt.js';
-import { comparePassword } from '../utils/security.js';
 import { User } from '../model/user.js';
 
 const authRoute = async (app: FastifyInstance): Promise<void> => {
