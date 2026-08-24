@@ -24,9 +24,11 @@ const bankInfoSchema = z.object({
 
 const userSchema = z.object({
     email: z.string().email({ message: "Please enter a valid email address." }),
-    password: z.string().min(8, {
-        message: "Password must be at least 8 characters.",
-    }),
+    password: z.string()
+        .min(8, { message: "Password must be at least 8 characters." })
+        .or(z.literal(""))
+        .transform((val) => val === "" ? undefined : val)
+        .optional(),
     name: z.string().optional(),
     role: z.enum(["user", "admin", "finance", "vendor", "guest", "government"]),
     bankInfo: z.array(bankInfoSchema).optional(),
@@ -107,22 +109,25 @@ export function UserEdit() {
 
     const addBankInfo = () => {
         try {
-            bankInfoSchema.parse(bankAccount);
+            bankInfoSchema.parse(bankAccountRef.current);
             setBankErrors({});
-            setFormData(prev => ({
-                ...prev,
-                bankInfo: [...(prev.bankInfo || []), bankAccount],
-            }));
+            setFormData(prev => {
+                const newBankInfo = [...(prev.bankInfo || []), bankAccountRef.current];
+                return {
+                    ...prev,
+                    bankInfo: newBankInfo,
+                };
+            });
             setBankAccount({ bank: "", code: "", accountNo: "", name: "" });
-        } catch (error: any) {
-            if (error instanceof z.ZodError) {
-                const fieldErrors: Record<string, string> = {};
-                error.errors.forEach((err: { path: string[]; message: string }) => {
-                    if (err.path[0]) {
-                        fieldErrors[err.path[0] as string] = err.message;
-                    }
-                });
-                setBankErrors(fieldErrors);
+} catch (error: any) {
+    if (error instanceof z.ZodError && Array.isArray(error.errors)) {
+        const fieldErrors: Record<string, string> = {};
+        error.errors.forEach((err: { path: string[]; message: string }) => {
+            if (err.path[0]) {
+                fieldErrors[err.path[0] as string] = err.message;
+            }
+        });
+        setBankErrors(fieldErrors);
             }
         }
     };
@@ -142,26 +147,44 @@ export function UserEdit() {
             return;
         }
 
+        // Build the final bankInfo array locally to avoid async state update issues
+        // This ensures we include any pending bank info that was added but not yet reflected in state
+        const hasPendingBankInfo = bankAccount.bank.trim() !== "" && 
+                                   bankAccount.code.trim() !== "" && 
+                                   bankAccount.accountNo.trim() !== "" && 
+                                   bankAccount.name.trim() !== "";
+        
+        const finalBankInfo = hasPendingBankInfo 
+            ? [...(formData.bankInfo || []), bankAccount]
+            : formData.bankInfo || [];
+
+        // Validate the final bankInfo structure if not empty
+        if (finalBankInfo.length > 0) {
+            finalBankInfo.forEach(bankInfoSchema.parse);
+        }
+
         try {
-            userSchema.parse(formData);
+            // Validate form data
+            const validatedData = userSchema.parse(formData);
+            
             setErrors({});
             
             setIsLoading(true);
 
             const submitData = {
-                email: formData.email,
+                email: formData.email || undefined,
                 password: formData.password || undefined,
-                name: formData.name || "",
+                name: formData.name && formData.name.trim() !== "" ? formData.name : undefined,
                 role: formData.role,
-                bankInfo: formData.bankInfo,
+                bankInfo: finalBankInfo,
             };
 
-            await userApi.update(id, submitData);
-            
-            toast.success("User updated successfully");
+            const response = await userApi.update(id, submitData);
+
+            toast.success(hasPendingBankInfo ? "User updated successfully (bank info added)" : "User updated successfully");
             navigate("/users");
         } catch (error: any) {
-            if (error instanceof z.ZodError) {
+            if (error instanceof z.ZodError && Array.isArray(error.errors)) {
                 const fieldErrors: Record<string, string> = {};
                 error.errors.forEach((err: { path: (string | number)[]; message: string }) => {
                     if (err.path.length > 0 && err.path[0] !== "bankInfo") {
@@ -387,17 +410,16 @@ export function UserEdit() {
                                 </Button>
                             </div>
                         </div>
+                        <Button
+                            type="submit"
+                            className="w-full"
+                            disabled={isLoading}
+                        >
+                            {isLoading ? "Updating user..." : "Update User"}
+                        </Button>
                     </form>
                 </CardContent>
                 <CardFooter className="flex flex-col space-y-4">
-                    <Button
-                        type="submit"
-                        className="w-full"
-                        disabled={isLoading}
-                        onClick={handleSubmit}
-                    >
-                        {isLoading ? "Updating user..." : "Update User"}
-                    </Button>
                     <div className="text-center text-sm text-gray-600">
                         <Link to="/users" className="font-medium text-primary hover:text-primary/80">
                             Cancel

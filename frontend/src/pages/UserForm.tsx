@@ -15,21 +15,14 @@ import {
 } from "@/components/ui/card";
 import { userApi } from "@/services/api";
 
-const bankInfoSchema = z.object({
-    bank: z.string().min(1, "Bank name is required"),
-    code: z.string().min(1, "Bank code is required"),
-    accountNo: z.string().min(1, "Account number is required"),
-    name: z.string().min(1, "Account holder name is required"),
-});
-
 const userSchema = z.object({
     email: z.string().email({ message: "Please enter a valid email address." }),
-    password: z.string().min(8, {
-        message: "Password must be at least 8 characters.",
-    }),
+    password: z.string()
+        .min(8, { message: "Password must be at least 8 characters." })
+        .min(1, { message: "Password is required." })
+        .optional(),
     name: z.string().optional(),
     role: z.enum(["user", "admin", "finance", "vendor", "guest", "government"]),
-    bankInfo: z.array(bankInfoSchema).optional(),
 });
 
 type UserForm = z.infer<typeof userSchema>;
@@ -41,18 +34,10 @@ export function UserForm() {
         password: "",
         name: "",
         role: "user",
-        bankInfo: [],
     });
     const [errors, setErrors] = useState<Partial<UserForm>>({});
     const [isLoading, setIsLoading] = useState(false);
-    const [bankErrors, setBankErrors] = useState<Record<string, string>>({});
     const [showPassword, setShowPassword] = useState(false);
-    const [bankAccount, setBankAccount] = useState({
-        bank: "",
-        code: "",
-        accountNo: "",
-        name: "",
-    });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -60,47 +45,6 @@ export function UserForm() {
         if (errors[name as keyof UserForm]) {
             setErrors(prev => ({ ...prev, [name]: undefined }));
         }
-    };
-
-    const handleBankChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value } = e.target;
-        setBankAccount(prev => ({ ...prev, [name]: value }));
-        if (bankErrors[name as keyof typeof bankAccount]) {
-            setBankErrors(prev => {
-                const newErrors = { ...prev };
-                delete newErrors[name as keyof typeof bankAccount];
-                return newErrors;
-            });
-        }
-    };
-
-    const addBankInfo = () => {
-        try {
-            bankInfoSchema.parse(bankAccount);
-            setBankErrors({});
-            setFormData(prev => ({
-                ...prev,
-                bankInfo: [...(prev.bankInfo || []), bankAccount],
-            }));
-            setBankAccount({ bank: "", code: "", accountNo: "", name: "" });
-        } catch (error: any) {
-            if (error instanceof z.ZodError) {
-                const fieldErrors: Record<string, string> = {};
-                error.errors.forEach((err: { path: string[]; message: string }) => {
-                    if (err.path[0]) {
-                        fieldErrors[err.path[0] as string] = err.message;
-                    }
-                });
-                setBankErrors(fieldErrors);
-            }
-        }
-    };
-
-    const removeBankInfo = (index: number) => {
-        setFormData(prev => ({
-            ...prev,
-            bankInfo: prev.bankInfo?.filter((_, i) => i !== index),
-        }));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -117,7 +61,6 @@ export function UserForm() {
                 password: formData.password,
                 name: formData.name || "",
                 role: formData.role,
-                bankInfo: formData.bankInfo,
             };
 
             await userApi.create(submitData);
@@ -128,7 +71,7 @@ export function UserForm() {
             if (error instanceof z.ZodError) {
                 const fieldErrors: Record<string, string> = {};
                 error.errors.forEach((err: { path: (string | number)[]; message: string }) => {
-                    if (err.path.length > 0 && err.path[0] !== "bankInfo") {
+                    if (err.path.length > 0) {
                         fieldErrors[err.path[0] as string] = err.message;
                     }
                 });
@@ -157,7 +100,7 @@ export function UserForm() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    <form id="user-form" onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-2">
                             <Label htmlFor="email">Email address</Label>
                             <Input
@@ -255,102 +198,14 @@ export function UserForm() {
                                 </p>
                             )}
                         </div>
-
-                        <div className="space-y-2">
-                            <Label>Bank Information (optional)</Label>
-                            {formData.bankInfo && formData.bankInfo.length > 0 && (
-                                <div className="space-y-2 mb-2">
-                                    {formData.bankInfo.map((bank, index) => (
-                                        <div key={index} className="flex items-center justify-between rounded-md border p-2 text-sm">
-                                            <span>{bank.bank} - {bank.accountNo}</span>
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => removeBankInfo(index)}
-                                                className="h-6 w-6 p-0 text-red-500 hover:text-red-600"
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                                            </Button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                            <div className="rounded-md border p-3 space-y-2">
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="bank" className="text-xs">Bank Name</Label>
-                                        <Input
-                                            id="bank"
-                                            name="bank"
-                                            placeholder="Bank Name"
-                                            value={bankAccount.bank}
-                                            onChange={handleBankChange}
-                                            className={bankErrors.bank ? "border-red-500" : ""}
-                                        />
-                                        {bankErrors.bank && (
-                                            <p className="text-xs text-red-500">{bankErrors.bank}</p>
-                                        )}
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="code" className="text-xs">Bank Code</Label>
-                                        <Input
-                                            id="code"
-                                            name="code"
-                                            placeholder="Code"
-                                            value={bankAccount.code}
-                                            onChange={handleBankChange}
-                                            className={bankErrors.code ? "border-red-500" : ""}
-                                        />
-                                        {bankErrors.code && (
-                                            <p className="text-xs text-red-500">{bankErrors.code}</p>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="accountNo" className="text-xs">Account No</Label>
-                                        <Input
-                                            id="accountNo"
-                                            name="accountNo"
-                                            placeholder="Account Number"
-                                            value={bankAccount.accountNo}
-                                            onChange={handleBankChange}
-                                            className={bankErrors.accountNo ? "border-red-500" : ""}
-                                        />
-                                        {bankErrors.accountNo && (
-                                            <p className="text-xs text-red-500">{bankErrors.accountNo}</p>
-                                        )}
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="accountName" className="text-xs">Account Holder</Label>
-                                        <Input
-                                            id="accountName"
-                                            name="name"
-                                            placeholder="Account Holder Name"
-                                            value={bankAccount.name}
-                                            onChange={handleBankChange}
-                                            className={bankErrors.name ? "border-red-500" : ""}
-                                        />
-                                        {bankErrors.name && (
-                                            <p className="text-xs text-red-500">{bankErrors.name}</p>
-                                        )}
-                                    </div>
-                                </div>
-                                <Button type="button" variant="outline" size="sm" onClick={addBankInfo} className="w-full text-xs">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-                                    Add Bank Account
-                                </Button>
-                            </div>
-                        </div>
                     </form>
                 </CardContent>
                 <CardFooter className="flex flex-col space-y-4">
                     <Button
                         type="submit"
+                        form="user-form"
                         className="w-full"
                         disabled={isLoading}
-                        onClick={handleSubmit}
                     >
                         {isLoading ? "Creating user..." : "Create User"}
                     </Button>

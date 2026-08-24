@@ -7,7 +7,7 @@ export interface JwtPayload {
     role: string;
 }
 
-export function signToken(payload: JwtPayload, expiresIn: StringValue | number = '15m'): string {
+export function signToken(payload: JwtPayload, expiresIn: StringValue | number = '2d'): string {
     const options: SignOptions = { expiresIn };
     return jwt.sign(payload, process.env.JWT_SECRET || 'secret', options);
 }

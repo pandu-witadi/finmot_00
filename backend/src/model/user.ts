@@ -2,7 +2,7 @@ import mongoose, { Document, Schema } from "mongoose";
 
 export interface UserDoc extends Document {
     email: string;
-    password: string;
+    password?: string;
     name: string;
     role: "user" | "admin" | "finance" | "vendor" | "guest" | "government";
     bankInfo?: Array<{
@@ -49,7 +49,6 @@ const userSchema = new Schema<UserDoc>({
     },
     password: {
         type: String,
-        required: true,
         select: false,
     },
     name: {

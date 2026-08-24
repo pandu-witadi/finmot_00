@@ -55,12 +55,12 @@ export const Navbar = () => {
                                 <span className="hidden md:inline">Logout</span>
                             </Button>
                         ) : (
-                            <Button variant="outline" size="sm" asChild>
-                                <Link to="/login" className="flex items-center gap-2">
+                            <Link to="/login" className="flex items-center gap-2">
+                                <Button variant="outline" size="sm">
                                     <LogIn className="mr-2 h-4 w-4" />
                                     <span className="hidden md:inline">Login</span>
-                                </Link>
-                            </Button>
+                                </Button>
+                            </Link>
                         )}
                     </nav>
                 </div>

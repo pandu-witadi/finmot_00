@@ -34,6 +34,7 @@ export async function buildApp(config: Config) {
             ? cb(null, true)
             : cb(Object.assign(new Error('CORS'), { statusCode: 403 }), false),
             credentials: true,
+            methods: ['GET', 'HEAD', 'PUT', 'POST', 'DELETE', 'PATCH'],
         });
         console.log("... CLIENT_URLS: " + config.CLIENT_URLS)
     }

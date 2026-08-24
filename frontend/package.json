@@ -2,6 +2,14 @@
     "name": "finmot-frontend",
     "version": "0.4.1",
     "description": "frontend for finmot : multi project financial tracker",
+    "keywords": [
+        "frontend",
+        "react",
+        "vite"
+    ],
+    "author": "P&U",
+    "license": "ISC",
+
     "type": "module",
     "main": "src/main.tsx",
     "scripts": {
@@ -9,9 +17,6 @@
         "build": "tsc && vite build",
         "preview": "vite preview"
     },
-    "keywords": [],
-    "author": "",
-    "license": "ISC",
     "dependencies": {
         "@base-ui/react": "^1.7.0",
         "@fontsource-variable/geist": "^5.3.0",

@@ -17,7 +17,7 @@ export interface GetUserResponse {
 
 export interface CreateUserRequest {
     email: string;
-    password: string;
+    password?: string;
     name?: string;
     role?: string;
     bankInfo?: Array<{
@@ -66,12 +66,14 @@ export async function getAllUsers(): Promise<GetUserResponse[]> {
 }
 
 export async function createUser(body: CreateUserRequest): Promise<GetUserResponse> {
-    const hashedPassword = body.password ? await hashPassword(body.password) : undefined;
+    const hashedPassword = body.password && body.password.trim() !== '' 
+        ? await hashPassword(body.password.trim()) 
+        : undefined;
     
     const user = new User({
         email: body.email,
         password: hashedPassword,
-        name: body.name || '',
+        name: body.name?.trim() || '',
         role: body.role || 'user',
         bankInfo: body.bankInfo,
     });
@@ -81,13 +83,29 @@ export async function createUser(body: CreateUserRequest): Promise<GetUserRespon
 }
 
 export async function updateUser(id: string, body: UpdateUserRequest): Promise<GetUserResponse | null> {
-    const updateFields: any = { ...body };
+    const updateFields: any = {};
     
-    if (body.password) {
+    // Only include fields that have meaningful values
+    if (body.email !== undefined && body.email !== "") {
+        updateFields.email = body.email;
+    }
+    
+    // Only hash and update password if it's provided and non-empty
+    if (body.password && body.password !== "") {
         updateFields.password = await hashPassword(body.password);
     }
     
+    if (body.name !== undefined && body.name !== "") {
+        updateFields.name = body.name;
+    }
+    
+    if (body.role !== undefined) {
+        updateFields.role = body.role;
+    }
+    
     if (body.bankInfo !== undefined) {
+        // If empty array, explicitly set to clear bankInfo
+        // If non-empty array, set the new bankInfo
         updateFields.bankInfo = body.bankInfo;
     }
 

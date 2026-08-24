@@ -1,18 +1,17 @@
 {
-    "name": "protrack-backend",
+    "name": "finmot-backend",
     "version": "0.4.1",
-    "private": true,
+    "description": "backend for finmot : multi project financial tracker",
     "keywords": [
+        "backend",
         "fastify",
-        "node",
-        "backend"
+        "node"
     ],
     "author": "P&U",
     "license": "ISC",
+
     "type": "module",
-    "engines": {
-        "node": ">=20.11"
-    },
+    "main": "src/server.ts",
     "scripts": {
         "dev": "tsx watch src/server.ts",
         "build": "tsc --build",
@@ -37,5 +36,8 @@
         "ts-node": "^10.9.2",
         "tsx": "^4.23.12",
         "typescript": "^7.0.2"
+    },
+    "engines": {
+        "node": ">=20.11"
     }
 }
