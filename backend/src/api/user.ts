@@ -9,8 +9,14 @@ import {
     createUser,
     updateUser,
     deleteUser,
+    updateUserMainInfo,
+    updateUserBankInfo,
+    updateUserDeposit,
     CreateUserRequest,
-    UpdateUserRequest
+    UpdateUserRequest,
+    UpdateUserMainInfoRequest,
+    UpdateUserBankInfoRequest,
+    UpdateUserDepositRequest
 } from '../controller/user.js';
 import { verifyToken } from '../utils/jwt.js';
 
@@ -86,6 +92,57 @@ const userRoute = async (app: FastifyInstance): Promise<void> => {
                 reply.code(200).send(user);
             } catch (error) {
                 reply.code(500).send({ error: 'Failed to update user' });
+            }
+        }
+    );
+
+    // Update main info (email, password, name, role)
+    app.put(
+        '/user/:id/info',
+        async (request: FastifyRequest<{ Params: { id: string }; Body: UpdateUserMainInfoRequest }>, reply: FastifyReply): Promise<void> => {
+            try {
+                await verifyAuth(request, reply);
+                const user = await updateUserMainInfo(request.params.id, request.body);
+                if (!user) {
+                    return reply.code(404).send({ error: 'User not found' });
+                }
+                reply.code(200).send(user);
+            } catch (error) {
+                reply.code(500).send({ error: 'Failed to update user main info' });
+            }
+        }
+    );
+
+    // Update bank information
+    app.put(
+        '/user/:id/bank',
+        async (request: FastifyRequest<{ Params: { id: string }; Body: UpdateUserBankInfoRequest }>, reply: FastifyReply): Promise<void> => {
+            try {
+                await verifyAuth(request, reply);
+                const user = await updateUserBankInfo(request.params.id, request.body);
+                if (!user) {
+                    return reply.code(404).send({ error: 'User not found' });
+                }
+                reply.code(200).send(user);
+            } catch (error) {
+                reply.code(500).send({ error: 'Failed to update user bank info' });
+            }
+        }
+    );
+
+    // Update deposit information
+    app.put(
+        '/user/:id/deposit',
+        async (request: FastifyRequest<{ Params: { id: string }; Body: UpdateUserDepositRequest }>, reply: FastifyReply): Promise<void> => {
+            try {
+                await verifyAuth(request, reply);
+                const user = await updateUserDeposit(request.params.id, request.body);
+                if (!user) {
+                    return reply.code(404).send({ error: 'User not found' });
+                }
+                reply.code(200).send(user);
+            } catch (error) {
+                reply.code(500).send({ error: 'Failed to update user deposit info' });
             }
         }
     );

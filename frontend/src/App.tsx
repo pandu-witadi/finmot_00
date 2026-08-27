@@ -3,9 +3,9 @@ import { Login } from '@/pages/Login';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Dashboard } from '@/pages/Dashboard';
 import { About } from '@/pages/About';
-import { UserAll } from '@/pages/UserAll';
-import { UserForm } from '@/pages/UserForm';
-import { UserEdit } from '@/pages/UserEdit';
+import { UserAll } from '@/pages/UserAll/index';
+import { UserAdd } from '@/pages/UserAll/UserAdd';
+import { UserDetail } from '@/pages/UserDetail/index';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 
 export const App = () => {
@@ -21,8 +21,8 @@ export const App = () => {
                     <Route index element={<Dashboard />} />
                     <Route path="dashboard" element={<Dashboard />} />
                     <Route path="users" element={<UserAll />} />
-                    <Route path="users/new" element={<UserForm />} />
-                    <Route path="users/:id/edit" element={<UserEdit />} />
+                    <Route path="users/new" element={<UserAdd />} />
+                    <Route path="users/:id" element={<UserDetail />} />
                     <Route path="about" element={<About />} />
                 </Route>
             </Routes>

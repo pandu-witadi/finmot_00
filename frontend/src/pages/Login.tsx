@@ -82,12 +82,12 @@ export function Login() {
         } catch (error: any) {
             if (error instanceof z.ZodError) {
                 const fieldErrors: Partial<LoginForm> = {};
-                error.errors.forEach(err => {
+                for (const err of (error as z.ZodError<LoginForm>).issues) {
                     if (err.path[0]) {
                         fieldErrors[err.path[0] as keyof LoginForm] =
                             err.message;
                     }
-                });
+                }
                 setErrors(fieldErrors);
                 toast.error("Please fix the errors below");
             } else if (error.response) {

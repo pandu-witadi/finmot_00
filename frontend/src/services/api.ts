@@ -48,5 +48,8 @@ export const userApi = {
     getById: (id: string) => api.get(`/user/${id}`),
     create: (data: any) => api.post(`/user`, data),
     update: (id: string, data: any) => api.put(`/user/${id}`, data),
+    updateMainInfo: (id: string, data: any) => api.put(`/user/${id}/info`, data),
+    updateBankInfo: (id: string, data: any) => api.put(`/user/${id}/bank`, data),
+    updateDeposit: (id: string, data: any) => api.put(`/user/${id}/deposit`, data),
     delete: (id: string) => api.delete(`/user/${id}`),
 };

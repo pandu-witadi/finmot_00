@@ -11,6 +11,15 @@ export interface UserDoc extends Document {
         accountNo: string;
         name: string;
     }>;
+    deposit?: {
+        total?: number;
+        detail?: Array<{
+            sign?: "+" | "-";
+            amount?: number;
+            note?: string;
+            date?: Date;
+        }>;
+    };
     createdAt: Date;
 }
 
@@ -39,6 +48,26 @@ const bankEntry = {
 }
 
 
+const depositEntry = {
+    sign: {
+        type: String,
+        enum: ["+", "-"],
+        default: "+"
+    },
+    amount: {
+        type: Number,
+        default: 0
+    },
+    note: {
+        type: String,
+        default: ""
+    },
+    date: {
+        type: Date,
+        default: Date.now
+    }
+}
+
 const userSchema = new Schema<UserDoc>({
     email: {
         type: String,
@@ -65,7 +94,11 @@ const userSchema = new Schema<UserDoc>({
         type: Date,
         default: Date.now,
     },
-    bankInfo: [ bankEntry ]
+    bankInfo: [ bankEntry ],
+    deposit: {
+        total : Number,
+        detail: [ depositEntry ]
+    }
 });
 
 export const User = mongoose.model<UserDoc>("User", userSchema);

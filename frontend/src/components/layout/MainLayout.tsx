@@ -15,24 +15,24 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { useState, useEffect } from "react"
-import { useLocation } from "react-router-dom"
+// import { useLocation } from "react-router-dom"
 
 interface MainLayoutProps {
     children: React.ReactNode;
 }
 
-const routeMapping: Record<string, string> = {
-    "/": "Dashboard",
-    "/dashboard": "Dashboard",
-    "/users": "Users",
-    "/dashboard/projects": "Projects",
-    "/dashboard/analytics": "Analytics",
-    "/dashboard/settings": "Settings",
-}
+// const routeMapping: Record<string, string> = {
+//     "/": "Dashboard",
+//     "/dashboard": "Dashboard",
+//     "/users": "Users",
+//     "/dashboard/projects": "Projects",
+//     "/dashboard/analytics": "Analytics",
+//     "/dashboard/settings": "Settings",
+// }
 
 export function MainLayout({ children }: MainLayoutProps) {
     const [isOpen, setIsOpen] = useState(true)
-    const location = useLocation()
+    // const location = useLocation()
 
     useEffect(() => {
         const savedState = localStorage.getItem("sidebar_state")
@@ -41,7 +41,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         }
     }, [])
 
-    const currentPage = routeMapping[location.pathname] || "Dashboard"
+    // const currentPage = routeMapping[location.pathname] || "Dashboard"
 
     return (
         <SidebarProvider defaultOpen={isOpen} open={isOpen} onOpenChange={setIsOpen}>

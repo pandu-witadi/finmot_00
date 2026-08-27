@@ -9,7 +9,7 @@ export const Dashboard = () => {
 
     const handleLogout = () => {
         toast.promise(
-            new Promise((resolve, reject) => {
+            new Promise<{ data?: string }>((resolve) => {
                 logout();
                 resolve({ data: 'Logged out successfully' });
             }),

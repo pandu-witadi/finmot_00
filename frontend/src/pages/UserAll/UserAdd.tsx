@@ -27,7 +27,7 @@ const userSchema = z.object({
 
 type UserForm = z.infer<typeof userSchema>;
 
-export function UserForm() {
+export function UserAdd() {
     const navigate = useNavigate();
     const [formData, setFormData] = useState<UserForm>({
         email: "",
@@ -70,11 +70,11 @@ export function UserForm() {
         } catch (error: any) {
             if (error instanceof z.ZodError) {
                 const fieldErrors: Record<string, string> = {};
-                error.errors.forEach((err: { path: (string | number)[]; message: string }) => {
+                for (const err of (error as z.ZodError<UserForm>).issues) {
                     if (err.path.length > 0) {
                         fieldErrors[err.path[0] as string] = err.message;
                     }
-                });
+                }
                 setErrors(fieldErrors as Partial<UserForm>);
                 toast.error("Please fix the errors below");
             } else if (error.response) {
