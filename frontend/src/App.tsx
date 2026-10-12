@@ -17,7 +17,13 @@ export const App = () => {
                 <Route path="/register" element={<Navigate to="/login" replace />} />
 
                 {/* Protected routes - wrapped in MainLayout -- must use Outlet */}
-                <Route path="/" element={<ProtectedRoute><MainLayout><Outlet /></MainLayout></ProtectedRoute>}>
+                <Route path="/" element={
+                    <ProtectedRoute>
+                        <MainLayout>
+                            <Outlet />
+                        </MainLayout>
+                    </ProtectedRoute>
+                }>
                     <Route index element={<Dashboard />} />
                     <Route path="dashboard" element={<Dashboard />} />
                     <Route path="users" element={<UserAll />} />

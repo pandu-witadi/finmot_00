@@ -58,6 +58,10 @@ export async function login(body: LoginRequest): Promise<AuthResponse> {
         throw new Error('Invalid credentials');
     }
 
+    if (!user.password) {
+        throw new Error('Invalid credentials');
+    }
+
     const isValid = await comparePassword(body.password, user.password);
     if (!isValid) {
         throw new Error('Invalid credentials');
