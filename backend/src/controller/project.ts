@@ -25,7 +25,7 @@ export interface CreateProjectRequest {
     tags?: string[];
     stDate?: Date;
     endDate?: Date;
-    updatedBy: string;
+    updatedBy?: string;
 }
 
 export interface UpdateProjectRequest {
@@ -82,7 +82,7 @@ export async function createProject(body: CreateProjectRequest): Promise<Project
         tags: body.tags ?? [],
         stDate: body.stDate ?? new Date(),
         endDate: body.endDate ?? null,
-        updatedBy: body.updatedBy,
+        updatedBy: body.updatedBy || "unknown",
     });
     await project.save();
     return projectToResponse(project);

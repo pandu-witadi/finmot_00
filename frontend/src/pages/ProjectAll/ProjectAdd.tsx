@@ -14,6 +14,7 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { projectApi } from "@/services/api";
+import { useAuth } from "@/context/AuthProvider";
 
 const projectSchema = z.object({
     code: z.string().min(1, { message: "Project code is required." }),
@@ -26,6 +27,7 @@ type ProjectForm = z.infer<typeof projectSchema>;
 
 export function ProjectAdd() {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [formData, setFormData] = useState<ProjectForm>({
         code: "",
         name: "",
@@ -57,6 +59,7 @@ export function ProjectAdd() {
                 name: formData.name.trim(),
                 note: formData.note?.trim() || "",
                 typ: formData.typ,
+                updatedBy: user?.id || "",
             };
 
             await projectApi.create(submitData);
