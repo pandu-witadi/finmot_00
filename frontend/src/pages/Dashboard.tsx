@@ -3,9 +3,11 @@ import { Button } from '@components/ui/button.tsx';
 import { Plus, TrendingUp, Wallet, PieChart, LogOut } from 'lucide-react';
 import { useAuth } from '@/context/AuthProvider';
 import { toast } from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 
 export const Dashboard = () => {
     const { logout } = useAuth();
+    const navigate = useNavigate();
 
     const handleLogout = () => {
         toast.promise(
@@ -31,7 +33,7 @@ export const Dashboard = () => {
                         <LogOut className="mr-2 h-4 w-4" />
                         Logout
                     </Button>
-                    <Button>
+                    <Button onClick={() => navigate('/projects/new')}>
                         <Plus className="mr-2 h-4 w-4" />
                         New Project
                     </Button>
@@ -79,7 +81,7 @@ export const Dashboard = () => {
                     </CardHeader>
                     <CardContent>
                         <div className="flex flex-wrap gap-2">
-                            <Button variant="outline" size="sm">
+                            <Button variant="outline" size="sm" onClick={() => navigate('/projects/new')}>
                                 Add Project
                             </Button>
                             <Button variant="outline" size="sm">

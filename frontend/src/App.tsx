@@ -6,7 +6,7 @@ import { About } from '@/pages/About';
 import { UserAll } from '@/pages/UserAll/index';
 import { UserAdd } from '@/pages/UserAll/UserAdd';
 import { UserDetail } from '@/pages/UserDetail/index';
-import { ProjectAll } from '@/pages/ProjectAll/index';
+import { ProjectAll, ProjectAdd } from '@/pages/ProjectAll/index';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 
 export const App = () => {
@@ -31,6 +31,7 @@ export const App = () => {
                     <Route path="users/new" element={<UserAdd />} />
                     <Route path="users/:id" element={<UserDetail />} />
                     <Route path="projects" element={<ProjectAll />} />
+                    <Route path="projects/new" element={<ProjectAdd />} />
                     <Route path="about" element={<About />} />
                 </Route>
             </Routes>
