@@ -46,15 +46,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 items: [
                     {
                         title: "All Projects",
-                        url: "/dashboard/projects",
+                        url: "/projects",
                     },
                     {
                         title: "Favorites",
-                        url: "/dashboard/projects/favorites",
+                        url: "/projects/favorites",
                     },
                     {
                         title: "Archived",
-                        url: "/dashboard/projects/archived",
+                        url: "/projects/archived",
                     },
                 ],
             },
