@@ -1,18 +1,23 @@
 import { ProjectTableHeader } from "./ProjectTableHeader"
 import { ProjectTableRow } from "./ProjectTableRow"
 import { useProjects } from "./useProjects"
+import { ProjectHeader } from "@/components/ProjectHeader"
 import {
     Table,
     TableBody,
 } from "@/components/ui/table"
-import { Plus, RefreshCw, Trash2 } from "lucide-react"
-import { Link } from "react-router-dom"
+import { RefreshCw, Search, Calendar, X } from "lucide-react"
+import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog"
+import { Label } from "@/components/ui/label"
+import { useState, useMemo } from "react"
 
 export function ProjectAll() {
     const {
         projects,
+        filteredProjects,
         selectedProjects,
         isLoading,
         setSelectedProjects,
@@ -20,14 +25,44 @@ export function ProjectAll() {
         executeDelete,
         toggleSelectAll,
         toggleSelectProject,
+        navigateToProject,
         handleDelete,
         isAllSelected,
         confirmDeleteIds,
         showConfirmDialog,
+        filters,
+        setFilter,
+        clearFilters,
     } = useProjects()
 
-    const handleBulkDelete = () => {
-        handleDelete(Array.from(selectedProjects))
+    const navigate = useNavigate()
+
+    const [columnVisibility, setColumnVisibility] = useState({
+        code: true,
+        name: true,
+        date: true,
+        tags: true,
+        type: true,
+        active: true,
+        done: true,
+    })
+
+    const toggleColumn = (column: keyof typeof columnVisibility) => {
+        setColumnVisibility(prev => ({ ...prev, [column]: !prev[column] }))
+    }
+
+    const columns = useMemo(() => [
+        { label: 'Code', visible: columnVisibility.code, toggle: () => toggleColumn('code') },
+        { label: 'Name', visible: columnVisibility.name, toggle: () => toggleColumn('name') },
+        { label: 'Date', visible: columnVisibility.date, toggle: () => toggleColumn('date') },
+        { label: 'Tags', visible: columnVisibility.tags, toggle: () => toggleColumn('tags') },
+        { label: 'Type', visible: columnVisibility.type, toggle: () => toggleColumn('type') },
+        { label: 'Active', visible: columnVisibility.active, toggle: () => toggleColumn('active') },
+        { label: 'Done', visible: columnVisibility.done, toggle: () => toggleColumn('done') },
+    ], [columnVisibility])
+
+    const handleAddProject = () => {
+        navigate("/projects/new")
     }
 
     if (isLoading) {
@@ -40,28 +75,113 @@ export function ProjectAll() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
-                    {selectedProjects.size > 0 && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                            {selectedProjects.size} project{selectedProjects.size !== 1 ? "s" : ""} selected
-                        </p>
-                    )}
-                </div>
-                <div className="flex items-center gap-2">
-                    {selectedProjects.size > 0 && (
-                        <Button variant="outline" onClick={handleBulkDelete}>
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete Selected
+            <ProjectHeader
+                onAddProject={handleAddProject}
+                onDeleteSelected={handleDelete}
+                selectedProjects={selectedProjects}
+                columns={columns}
+            />
+
+            {/* Filters Section */}
+            <div className="rounded-md border p-4 space-y-4 bg-muted/30">
+                <div className="flex items-center justify-between">
+                    {(filters.search || filters.year || filters.type || filters.tags.length > 0) && (
+                        <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 px-2 text-xs">
+                            <X className="h-3 w-3 mr-1" />
+                            Clear
                         </Button>
                     )}
-                    <Button asChild>
-                        <Link to="/projects/new">
-                            <Plus className="h-4 w-4" />
-                            Add Project
-                        </Link>
-                    </Button>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Search */}
+                    <div className="space-y-2">
+                        <Label htmlFor="search" className="text-xs font-medium">Search</Label>
+                        <div className="relative">
+                            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                id="search"
+                                placeholder="Code, name, note..."
+                                className="pl-9 h-9 text-sm"
+                                value={filters.search}
+                                onChange={(e) => setFilter('search', e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Year */}
+                    <div className="space-y-2">
+                        <Label htmlFor="year" className="text-xs font-medium">Year</Label>
+                        <div className="relative">
+                            <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <select
+                                id="year"
+                                className="h-9 px-3 pl-9 pr-8 rounded-md border border-input bg-background text-sm outline-none focus:ring-2 focus:ring-ring focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50"
+                                value={filters.year || ''}
+                                onChange={(e) => setFilter('year', e.target.value ? parseInt(e.target.value) : null)}
+                            >
+                                <option value="">All years</option>
+                                {projects.map(p => new Date(p.stDate).getFullYear())
+                                    .filter((value, index, self) => self.indexOf(value) === index)
+                                    .sort((a, b) => b - a)
+                                    .map(year => (
+                                        <option key={year} value={year}>{year}</option>
+                                    ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Type */}
+                    <div className="space-y-2">
+                        <Label htmlFor="type" className="text-xs font-medium">Type</Label>
+                        <select
+                            id="type"
+                            className="h-9 px-3 rounded-md border border-input bg-background text-sm outline-none focus:ring-2 focus:ring-ring focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50"
+                            value={filters.type || ''}
+                            onChange={(e) => setFilter('type', e.target.value === '' ? null : e.target.value)}
+                        >
+                            <option value="">All types</option>
+                            <option value="project">Project</option>
+                            <option value="routine">Routine</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+
+                    {/* Tags */}
+                    <div className="space-y-2">
+                        <Label htmlFor="tags" className="text-xs font-medium">Tags</Label>
+                        <Input
+                            id="tags"
+                            placeholder="Comma-separated tags..."
+                            className="h-9 text-sm"
+                            value={filters.tags.join(', ')}
+                            onChange={(e) => {
+                                const tags = e.target.value
+                                    .split(',')
+                                    .map(t => t.trim())
+                                    .filter(t => t.length > 0)
+                                setFilter('tags', tags)
+                            }}
+                        />
+                        {filters.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                                {filters.tags.map((tag, i) => (
+                                    <span key={i} className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-xs">
+                                        {tag}
+                                        <button
+                                            onClick={() => {
+                                                const newTags = filters.tags.filter((_, idx) => idx !== i)
+                                                setFilter('tags', newTags)
+                                            }}
+                                            className="ml-1 text-muted-foreground hover:text-foreground"
+                                        >
+                                            ×
+                                        </button>
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -72,21 +192,21 @@ export function ProjectAll() {
                         onToggleSelectAll={toggleSelectAll}
                     />
                     <TableBody>
-                        {projects.length === 0 ? (
+                        {filteredProjects.length === 0 ? (
                             <tr className="border-b">
-                                <td colSpan={6} className="h-12 px-4 align-middle text-center text-muted-foreground">
-                                    No projects yet. Create your first project to start tracking.
+                                <td colSpan={8} className="h-12 px-4 align-middle text-center text-muted-foreground">
+                                    {projects.length === 0 ? 'No projects yet. Create your first project to start tracking.' : 'No projects match your filters.'}
                                 </td>
                             </tr>
                         ) : (
-                            projects.map((project, index) => (
+                            filteredProjects.map((project, index) => (
                                 <ProjectTableRow
                                     key={project.id}
                                     project={project}
                                     index={index}
                                     isSelected={selectedProjects.has(project.id)}
                                     onSelect={toggleSelectProject}
-                                    onRowClick={(id) => console.log('Navigate to project:', id)}
+                                    onRowClick={navigateToProject}
                                 />
                             ))
                         )}

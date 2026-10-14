@@ -41,6 +41,27 @@ export interface UpdateProjectRequest {
     updatedBy?: string;
 }
 
+export interface ProjectFilter {
+    year?: number;
+    active?: boolean;
+    done?: boolean;
+    typ?: 'project' | 'routine' | 'other';
+    tags?: string[];
+    search?: string;
+}
+
+export interface ProjectSort {
+    field?: 'stDate' | 'endDate' | 'createdAt' | 'code' | 'name';
+    order?: 'asc' | 'desc';
+}
+
+export interface GetProjectsQuery {
+    filter?: ProjectFilter;
+    sort?: ProjectSort;
+    limit?: number;
+    offset?: number;
+}
+
 function projectToResponse(project: any): ProjectResponse {
     return {
         id: project._id.toString(),
@@ -66,8 +87,59 @@ export async function getProjectById(id: string): Promise<ProjectResponse | null
     return projectToResponse(project);
 }
 
-export async function getAllProjects(): Promise<ProjectResponse[]> {
-    const projects = await Project.find().sort({ createdAt: -1 });
+export async function getAllProjects(query?: GetProjectsQuery): Promise<ProjectResponse[]> {
+    const { filter, sort, limit, offset } = query || {};
+
+    const mongoQuery: any = {};
+    
+    if (filter) {
+        if (filter.year !== undefined) {
+            const startOfYear = new Date(filter.year, 0, 1);
+            const endOfYear = new Date(filter.year, 11, 31, 23, 59, 59, 999);
+            mongoQuery.stDate = { $gte: startOfYear, $lte: endOfYear };
+        }
+
+        if (filter.active !== undefined) {
+            mongoQuery.active = filter.active;
+        }
+
+        if (filter.done !== undefined) {
+            mongoQuery.done = filter.done;
+        }
+
+        if (filter.typ) {
+            mongoQuery.typ = filter.typ;
+        }
+
+        if (filter.tags && filter.tags.length > 0) {
+            mongoQuery.tags = { $in: filter.tags };
+        }
+
+        if (filter.search) {
+            const searchRegex = new RegExp(filter.search, 'i');
+            mongoQuery.$or = [
+                { code: searchRegex },
+                { name: searchRegex },
+                { note: searchRegex },
+            ];
+        }
+    }
+
+    const sortField = sort?.field || 'createdAt';
+    const sortOrder = sort?.order === 'asc' ? 1 : -1;
+
+    const projectsQuery = Project.find(mongoQuery)
+        .sort({ [sortField]: sortOrder });
+
+    if (offset !== undefined && offset > 0) {
+        projectsQuery.skip(offset);
+    }
+
+    if (limit !== undefined && limit > 0) {
+        projectsQuery.limit(limit);
+    }
+
+    const projects = await projectsQuery;
     return projects.map(projectToResponse);
 }
 

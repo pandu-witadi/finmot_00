@@ -7,11 +7,14 @@ import { UserAll } from '@/pages/UserAll/index';
 import { UserAdd } from '@/pages/UserAll/UserAdd';
 import { UserDetail } from '@/pages/UserDetail/index';
 import { ProjectAll, ProjectAdd } from '@/pages/ProjectAll/index';
+import { ProjectDetail } from '@/pages/ProjectDetail/index';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { Toaster } from 'react-hot-toast';
 
 export const App = () => {
     return (
         <BrowserRouter>
+            <Toaster position="top-left" />
             <Routes>
                 {/* Public routes - standalone (no layout) */}
                 <Route path="/login" element={<Login />} />
@@ -31,6 +34,7 @@ export const App = () => {
                     <Route path="users/new" element={<UserAdd />} />
                     <Route path="users/:id" element={<UserDetail />} />
                     <Route path="projects" element={<ProjectAll />} />
+                    <Route path="projects/:id" element={<ProjectDetail />} />
                     <Route path="projects/new" element={<ProjectAdd />} />
                     <Route path="about" element={<About />} />
                 </Route>

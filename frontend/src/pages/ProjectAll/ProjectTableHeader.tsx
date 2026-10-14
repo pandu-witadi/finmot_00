@@ -14,6 +14,8 @@ export function ProjectTableHeader({ isAllSelected, onToggleSelectAll }: Project
                 </th>
                 <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Code</th>
                 <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Name</th>
+                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Date</th>
+                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Tags</th>
                 <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Type</th>
                 <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Active</th>
                 <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Done</th>

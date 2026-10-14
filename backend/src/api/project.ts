@@ -10,7 +10,8 @@ import {
     updateProject,
     deleteProject,
     CreateProjectRequest,
-    UpdateProjectRequest
+    UpdateProjectRequest,
+    GetProjectsQuery
 } from '../controller/project.js';
 import { verifyToken } from '../utils/jwt.js';
 
@@ -34,9 +35,15 @@ const projectRoute = async (app: FastifyInstance): Promise<void> => {
 
     app.get(
         '/project',
-        async (_request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+        async (request: FastifyRequest<{ Querystring: GetProjectsQuery }>, reply: FastifyReply): Promise<void> => {
             try {
-                const projects = await getAllProjects();
+                const query: GetProjectsQuery = {
+                    filter: request.query.filter ? JSON.parse(String(request.query.filter)) : undefined,
+                    sort: request.query.sort ? JSON.parse(String(request.query.sort)) : undefined,
+                    limit: request.query.limit ? parseInt(String(request.query.limit), 10) : undefined,
+                    offset: request.query.offset ? parseInt(String(request.query.offset), 10) : undefined,
+                };
+                const projects = await getAllProjects(query);
                 reply.code(200).send(projects);
             } catch (error) {
                 reply.code(500).send({ error: 'Failed to retrieve projects' });
