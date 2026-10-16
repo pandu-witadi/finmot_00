@@ -10,6 +10,10 @@ export interface ProjectDoc extends Document {
     tags: string[];
     stDate: Date;
     endDate: Date;
+    arrHeader: Schema.Types.ObjectId[];
+    arrBudget: Schema.Types.ObjectId[];
+    arrActual: Schema.Types.ObjectId[];
+    arrTransaction: Schema.Types.ObjectId[];
     updatedBy: Schema.Types.ObjectId;
     createdAt: Date;
 }
@@ -53,6 +57,23 @@ const projectSchema = new Schema<ProjectDoc>({
     },
     endDate: {
         type: Date
+    },
+    arrHeader: {
+        type: [Schema.Types.ObjectId],
+        ref: 'Header',
+        default: []
+    },
+    arrBudget: {
+        type: [Schema.Types.ObjectId],
+        default: []
+    },
+    arrActual: {
+        type: [Schema.Types.ObjectId],
+        default: []
+    },
+    arrTransaction: {
+        type: [Schema.Types.ObjectId],
+        default: []
     },
     updatedBy: {
         type: Schema.Types.ObjectId,

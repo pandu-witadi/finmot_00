@@ -9,6 +9,10 @@ import healthRoute from './api/health.js';
 import authRoute from './api/auth.js';
 import userRoute from './api/user.js';
 import projectRoute from './api/project.js';
+import headerRoute from './api/header.js';
+import budgetRoute from './api/budget.js';
+import actualRoute from './api/actual.js';
+import transactionRoute from './api/transaction.js';
 
 export async function buildApp(config: Config) {
     const isProd = config.NODE_ENV === 'production';
@@ -25,6 +29,10 @@ export async function buildApp(config: Config) {
     await app.register(authRoute, { prefix: "/api" });
     await app.register(userRoute, { prefix: "/api" });
     await app.register(projectRoute, { prefix: "/api" });
+    await app.register(headerRoute, { prefix: "/api" });
+    await app.register(budgetRoute, { prefix: "/api" });
+    await app.register(actualRoute, { prefix: "/api" });
+    await app.register(transactionRoute, { prefix: "/api" });
 
 
     // CORS is needed when the frontend is served from a different origin (e.g., Vite dev server on :5173) or when the HTML has crossorigin attributes causing same-origin asset requests to include an Origin header.

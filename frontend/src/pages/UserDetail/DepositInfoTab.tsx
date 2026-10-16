@@ -4,6 +4,14 @@ import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { DepositInfoState, DepositInfoActions } from "./useDepositInfo";
 
+// Helper function to format numbers with dots as thousand separators and comma as decimal separator
+function formatNumber(value) {
+    const num = Number(value) || 0;
+    const [integer, decimal] = num.toFixed(2).split('.');
+    const formattedInteger = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return `${formattedInteger},${decimal}`;
+}
+
 interface DepositInfoTabProps {
     isLoading: boolean;
     state: DepositInfoState;
@@ -35,7 +43,7 @@ export function DepositInfoTab({ isLoading, state, actions, handleDepositInfoSav
                 <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Total Deposit</span>
                     <span className={`text-xl font-bold ${calculateTotalDeposit() >= 0 ? "text-green-600" : "text-red-600"}`}>
-                        {(calculateTotalDeposit()).toLocaleString("en-US", { style: "decimal" })}
+                        {formatNumber(calculateTotalDeposit())}
                     </span>
                 </div>
             </div>
@@ -60,7 +68,7 @@ export function DepositInfoTab({ isLoading, state, actions, handleDepositInfoSav
                                     {deposit.sign}
                                 </div>
                                 <div className="col-span-3 font-medium text-right">
-                                    {(deposit.amount || 0).toLocaleString("en-US", { style: "decimal" })}
+                                    {formatNumber(deposit.amount || 0)}
                                 </div>
                                 <div className="col-span-2 text-right text-muted-foreground">
                                     {formatDate(deposit.date)}

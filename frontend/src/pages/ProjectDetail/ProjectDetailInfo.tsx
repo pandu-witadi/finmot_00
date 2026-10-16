@@ -104,11 +104,11 @@ export function ProjectDetailInfo({ project, onSave }: ProjectDetailInfoProps) {
     if (isEditing) {
         return (
             <div className="space-y-4">
-                <div className="bg-white p-6 rounded-lg border shadow-sm">
-                    <h2 className="text-xl font-semibold mb-4">Edit Project</h2>
-                    <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white p-8 rounded-lg border shadow-sm">
+                    <h2 className="text-2xl font-semibold mb-6">Edit Project</h2>
+                    <div className="grid grid-cols-2 gap-6">
                         <div className="col-span-2">
-                            <label className="block text-sm font-medium text-muted-foreground mb-1">Code</label>
+                            <label className="block text-base text-base font-medium text-muted-foreground mb-1">Code</label>
                             <input
                                 type="text"
                                 value={formData.code}
@@ -117,7 +117,7 @@ export function ProjectDetailInfo({ project, onSave }: ProjectDetailInfoProps) {
                             />
                         </div>
                         <div className="col-span-2">
-                            <label className="block text-sm font-medium text-muted-foreground mb-1">Name</label>
+                            <label className="block text-base text-base font-medium text-muted-foreground mb-1">Name</label>
                             <input
                                 type="text"
                                 value={formData.name}
@@ -126,7 +126,7 @@ export function ProjectDetailInfo({ project, onSave }: ProjectDetailInfoProps) {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-muted-foreground mb-1">Type</label>
+                            <label className="block text-base text-base font-medium text-muted-foreground mb-1">Type</label>
                             <select
                                 value={formData.typ}
                                 onChange={(e) => handleChange('typ', e.target.value)}
@@ -138,7 +138,7 @@ export function ProjectDetailInfo({ project, onSave }: ProjectDetailInfoProps) {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-muted-foreground mb-1">Active</label>
+                            <label className="block text-base text-base font-medium text-muted-foreground mb-1">Active</label>
                             <select
                                 value={formData.active ? 'true' : 'false'}
                                 onChange={(e) => handleChange('active', e.target.value === 'true')}
@@ -149,7 +149,7 @@ export function ProjectDetailInfo({ project, onSave }: ProjectDetailInfoProps) {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-muted-foreground mb-1">Done</label>
+                            <label className="block text-base text-base font-medium text-muted-foreground mb-1">Done</label>
                             <select
                                 value={formData.done ? 'true' : 'false'}
                                 onChange={(e) => handleChange('done', e.target.value === 'true')}
@@ -160,7 +160,7 @@ export function ProjectDetailInfo({ project, onSave }: ProjectDetailInfoProps) {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-muted-foreground mb-1">Start Date</label>
+                            <label className="block text-base text-base font-medium text-muted-foreground mb-1">Start Date</label>
                             <input
                                 type="date"
                                 value={formData.stDate ? new Date(formData.stDate).toISOString().split('T')[0] : ''}
@@ -169,7 +169,7 @@ export function ProjectDetailInfo({ project, onSave }: ProjectDetailInfoProps) {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-muted-foreground mb-1">End Date</label>
+                            <label className="block text-base text-base font-medium text-muted-foreground mb-1">End Date</label>
                             <input
                                 type="date"
                                 value={formData.endDate ? new Date(formData.endDate).toISOString().split('T')[0] : ''}
@@ -178,7 +178,7 @@ export function ProjectDetailInfo({ project, onSave }: ProjectDetailInfoProps) {
                             />
                         </div>
                         <div className="col-span-2">
-                            <label className="block text-sm font-medium text-muted-foreground mb-1">Note</label>
+                            <label className="block text-base text-base font-medium text-muted-foreground mb-1">Note</label>
                             <textarea
                                 value={formData.note}
                                 onChange={(e) => handleChange('note', e.target.value)}
@@ -186,7 +186,7 @@ export function ProjectDetailInfo({ project, onSave }: ProjectDetailInfoProps) {
                             />
                         </div>
                         <div className="col-span-2">
-                            <label className="block text-sm font-medium text-muted-foreground mb-1">Tags (comma-separated)</label>
+                            <label className="block text-base text-base font-medium text-muted-foreground mb-1">Tags (comma-separated)</label>
                             <input
                                 type="text"
                                 value={formData.tags}
@@ -229,9 +229,9 @@ export function ProjectDetailInfo({ project, onSave }: ProjectDetailInfoProps) {
 
     return (
         <div className="space-y-4">
-            <div className="bg-white p-6 rounded-lg border shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-semibold">Project Information</h2>
+            <div className="bg-white p-8 rounded-lg border shadow-sm">
+                <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-2xl font-semibold">Project Information</h2>
                     <button
                         onClick={() => setIsEditing(true)}
                         className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
@@ -239,21 +239,21 @@ export function ProjectDetailInfo({ project, onSave }: ProjectDetailInfoProps) {
                         Edit
                     </button>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-6">
                     <div>
-                        <p className="text-sm font-medium text-muted-foreground">Code</p>
-                        <p className="font-medium">{project.code}</p>
+                        <p className="text-base text-base font-medium text-muted-foreground">Code</p>
+                        <p className="text-base font-medium">{project.code}</p>
                     </div>
                     <div>
-                        <p className="text-sm font-medium text-muted-foreground">Name</p>
-                        <p className="font-medium">{project.name}</p>
+                        <p className="text-base text-base font-medium text-muted-foreground">Name</p>
+                        <p className="text-base font-medium">{project.name}</p>
                     </div>
                     <div>
-                        <p className="text-sm font-medium text-muted-foreground">Type</p>
-                        <p className="font-medium capitalize">{project.typ}</p>
+                        <p className="text-base text-base font-medium text-muted-foreground">Type</p>
+                        <p className="text-base font-medium capitalize">{project.typ}</p>
                     </div>
                     <div>
-                        <p className="text-sm font-medium text-muted-foreground">Status</p>
+                        <p className="text-base text-base font-medium text-muted-foreground">Status</p>
                         <div className="flex gap-2">
                             {project.active && (
                                 <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-800">
@@ -268,19 +268,19 @@ export function ProjectDetailInfo({ project, onSave }: ProjectDetailInfoProps) {
                         </div>
                     </div>
                     <div>
-                        <p className="text-sm font-medium text-muted-foreground">Start Date</p>
-                        <p className="font-medium">{new Date(project.stDate).toLocaleDateString()}</p>
+                        <p className="text-base text-base font-medium text-muted-foreground">Start Date</p>
+                        <p className="text-base font-medium">{new Date(project.stDate).toLocaleDateString()}</p>
                     </div>
                     <div>
-                        <p className="text-sm font-medium text-muted-foreground">End Date</p>
-                        <p className="font-medium">{project.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A'}</p>
+                        <p className="text-base text-base font-medium text-muted-foreground">End Date</p>
+                        <p className="text-base font-medium">{project.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A'}</p>
                     </div>
                     <div className="col-span-2">
-                        <p className="text-sm font-medium text-muted-foreground">Note</p>
-                        <p className="font-medium">{project.note || 'No note'}</p>
+                        <p className="text-base text-base font-medium text-muted-foreground">Note</p>
+                        <p className="text-base font-medium">{project.note || 'No note'}</p>
                     </div>
                     <div className="col-span-2">
-                        <p className="text-sm font-medium text-muted-foreground">Tags</p>
+                        <p className="text-base text-base font-medium text-muted-foreground">Tags</p>
                         <div className="flex flex-wrap gap-1 mt-1">
                             {project.tags.length > 0 ? (
                                 project.tags.map((tag: string, i: number) => (
@@ -294,8 +294,8 @@ export function ProjectDetailInfo({ project, onSave }: ProjectDetailInfoProps) {
                         </div>
                     </div>
                     <div className="col-span-2">
-                        <p className="text-sm font-medium text-muted-foreground">Updated By</p>
-                        <p className="font-medium">{project.updatedBy ? getUserName(project.updatedBy) : 'N/A'}</p>
+                        <p className="text-base text-base font-medium text-muted-foreground">Updated By</p>
+                        <p className="text-base font-medium">{project.updatedBy ? getUserName(project.updatedBy) : 'N/A'}</p>
                     </div>
                 </div>
             </div>

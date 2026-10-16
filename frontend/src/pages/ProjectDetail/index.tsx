@@ -51,27 +51,28 @@ export function ProjectDetail() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 px-4 py-8">
-            <div className="mx-auto w-full max-w-6xl">
-                <div className="mb-6">
-                    <h1 className="text-3xl font-bold tracking-tight">{project.name}</h1>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        Project {project.code}
+        <div className="min-h-screen bg-gray-50 px-8 py-8">
+            <div className="mx-auto w-full max-w-none">
+                <div className="mb-4 flex items-center gap-2">
+                    <h1 className="text-2xl font-bold tracking-tight">{project.name}</h1>
+                    <span className="text-muted-foreground">|</span>
+                    <p className="text-sm text-muted-foreground">
+                        {project.code}
                     </p>
                 </div>
 
                 <Tabs defaultValue="detail" value={activeTab} onValueChange={setActiveTab} className="w-full">
                     <TabsList className="w-full">
-                        <TabsTrigger value="detail" className="flex-1">
-                            Project Details
+                        <TabsTrigger value="detail" className="flex-1 text-base">
+                            Details
                         </TabsTrigger>
-                        <TabsTrigger value="budgets" className="flex-1">
+                        <TabsTrigger value="budgets" className="flex-1 text-base">
                             Budgets
                         </TabsTrigger>
-                        <TabsTrigger value="actuals" className="flex-1">
+                        <TabsTrigger value="actuals" className="flex-1 text-base">
                             Actuals
                         </TabsTrigger>
-                        <TabsTrigger value="transactions" className="flex-1">
+                        <TabsTrigger value="transactions" className="flex-1 text-base">
                             Transactions
                         </TabsTrigger>
                     </TabsList>
@@ -81,7 +82,7 @@ export function ProjectDetail() {
                     </TabsContent>
 
                     <TabsContent value="budgets" className="mt-6">
-                        <ProjectBudgets />
+                        <ProjectBudgets projectId={id!} />
                     </TabsContent>
 
                     <TabsContent value="actuals" className="mt-6">

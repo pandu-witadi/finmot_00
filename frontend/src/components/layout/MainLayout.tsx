@@ -1,13 +1,5 @@
 import { AppSidebar } from "@/components/app-sidebar"
 import { Footer } from "@/components/Footer"
-// import {
-//   Breadcrumb,
-//   BreadcrumbItem,
-//   BreadcrumbLink,
-//   BreadcrumbList,
-//   BreadcrumbPage,
-//   BreadcrumbSeparator,
-// } from "@/components/ui/breadcrumb"
 import { Separator } from "@/components/ui/separator"
 import {
   SidebarInset,
@@ -15,20 +7,12 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { useState, useEffect } from "react"
-// import { useLocation } from "react-router-dom"
+
 
 interface MainLayoutProps {
     children: React.ReactNode;
 }
 
-// const routeMapping: Record<string, string> = {
-//     "/": "Dashboard",
-//     "/dashboard": "Dashboard",
-//     "/users": "Users",
-//     "/dashboard/projects": "Projects",
-//     "/dashboard/analytics": "Analytics",
-//     "/dashboard/settings": "Settings",
-// }
 
 export function MainLayout({ children }: MainLayoutProps) {
     const [isOpen, setIsOpen] = useState(true)

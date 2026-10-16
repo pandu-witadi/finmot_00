@@ -5,9 +5,11 @@ export interface BudgetDoc extends Document {
     tags: string[];
     active: boolean;
     type: 'income' | 'expense';
-    done: boolean;
     amount: number;
     project: Schema.Types.ObjectId;
+    header: Schema.Types.ObjectId;
+    arrActual: Schema.Types.ObjectId[];
+    arrTransaction: Schema.Types.ObjectId[];
     updatedBy: Schema.Types.ObjectId;
     createdAt: Date;
 }
@@ -31,10 +33,6 @@ const budgetSchema = new Schema<BudgetDoc>({
         enum: ['income', 'expense'],
         required: true
     },
-    done: {
-        type: Boolean,
-        default: false
-    },
     amount: {
         type: Number,
         required: true,
@@ -44,6 +42,19 @@ const budgetSchema = new Schema<BudgetDoc>({
         type: Schema.Types.ObjectId,
         ref: 'Project',
         required: true
+    },
+    header: {
+        type: Schema.Types.ObjectId,
+        ref: 'Header',
+        required: true
+    },
+    arrActual: {
+        type: [Schema.Types.ObjectId],
+        default: []
+    },
+    arrTransaction: {
+        type: [Schema.Types.ObjectId],
+        default: []
     },
     updatedBy: {
         type: Schema.Types.ObjectId,

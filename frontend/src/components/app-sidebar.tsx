@@ -32,17 +32,27 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         navMain: [
             {
                 title: "Dashboard",
-                url: "/dashboard",
-                items: [],
+                url: "#",
+                items: [
+                      {
+                        title: "Dashboard",
+                        url: "/dashboard",
+                    },
+                ],
             },
             {
                 title: "Users",
-                url: "/users",
-                items: [],
+                url: "#",
+                items: [
+                    {
+                        title: "All Users",
+                        url: "/users",
+                    },
+                ],
             },
             {
-                title: "Projects",
-                url: "/projects",
+                title: "Finance",
+                url: "#",
                 items: [
                     {
                         title: "All Projects",
@@ -60,7 +70,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             },
             {
                 title: "Analytics",
-                url: "/dashboard/analytics",
+                url: "#",
                 items: [
                     {
                         title: "Overview",
@@ -74,7 +84,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             },
             {
                 title: "Settings",
-                url: "/dashboard/settings",
+                url: "#",
                 items: [
                     {
                         title: "General",
@@ -105,7 +115,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarContent>
                 {data.navMain.map((item) => (
                     <SidebarGroup key={item.title}>
-                        <SidebarGroupLabel className="text-sidebar-foreground/70">{item.title}</SidebarGroupLabel>
+                        <SidebarGroupLabel className="text-sidebar-foreground/70">_</SidebarGroupLabel>
+                        {/*<SidebarGroupLabel className="text-sidebar-foreground/70">{item.title}</SidebarGroupLabel>*/}
                         <SidebarGroupContent>
                             <SidebarMenu className="gap-2">
                                 <SidebarMenuItem key={item.title}>

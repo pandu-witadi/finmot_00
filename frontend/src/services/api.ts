@@ -61,3 +61,19 @@ export const projectApi = {
     update: (id: string, data: any) => api.put(`/project/${id}`, data),
     delete: (id: string) => api.delete(`/project/${id}`),
 };
+
+export const headerApi = {
+    getAllByProject: (projectId: string) => api.get(`/budgetHeader?filter=${JSON.stringify({ project: projectId })}`),
+    getById: (id: string) => api.get(`/budgetHeader/${id}`),
+    create: (data: any) => api.post(`/budgetHeader`, data),
+    update: (id: string, data: any) => api.put(`/budgetHeader/${id}`, data),
+    delete: (id: string) => api.delete(`/budgetHeader/${id}`),
+};
+
+export const budgetApi = {
+    getAllByProject: (projectId: string) => api.get(`/budget?filter=${JSON.stringify({ project: projectId })}`),
+    getById: (id: string) => api.get(`/budget/${id}`),
+    create: (data: any) => api.post(`/budget`, data),
+    update: (id: string, data: any) => api.put(`/budget/${id}`, data),
+    delete: (id: string) => api.delete(`/budget/${id}`),
+};

@@ -1,4 +1,5 @@
 import { Project } from '../model/project.js';
+import mongoose from 'mongoose';
 
 export interface ProjectResponse {
     id: string;
@@ -11,6 +12,10 @@ export interface ProjectResponse {
     tags: string[];
     stDate: Date;
     endDate: Date | null;
+    arrHeader: string[];
+    arrBudget: string[];
+    arrActual: string[];
+    arrTransaction: string[];
     updatedBy: string;
     createdAt: Date;
 }
@@ -25,6 +30,10 @@ export interface CreateProjectRequest {
     tags?: string[];
     stDate?: Date;
     endDate?: Date;
+    arrHeader?: string[];
+    arrBudget?: string[];
+    arrActual?: string[];
+    arrTransaction?: string[];
     updatedBy?: string;
 }
 
@@ -38,6 +47,10 @@ export interface UpdateProjectRequest {
     tags?: string[];
     stDate?: Date;
     endDate?: Date;
+    arrHeader?: string[];
+    arrBudget?: string[];
+    arrActual?: string[];
+    arrTransaction?: string[];
     updatedBy?: string;
 }
 
@@ -74,6 +87,10 @@ function projectToResponse(project: any): ProjectResponse {
         tags: project.tags,
         stDate: project.stDate,
         endDate: project.endDate,
+        arrHeader: (project.arrHeader || []).map((id: any) => id.toString()),
+        arrBudget: (project.arrBudget || []).map((id: any) => id.toString()),
+        arrActual: (project.arrActual || []).map((id: any) => id.toString()),
+        arrTransaction: (project.arrTransaction || []).map((id: any) => id.toString()),
         updatedBy: project.updatedBy.toString(),
         createdAt: project.createdAt,
     };
@@ -154,6 +171,10 @@ export async function createProject(body: CreateProjectRequest): Promise<Project
         tags: body.tags ?? [],
         stDate: body.stDate ?? new Date(),
         endDate: body.endDate ?? null,
+        arrHeader: body.arrHeader ?? [],
+        arrBudget: body.arrBudget ?? [],
+        arrActual: body.arrActual ?? [],
+        arrTransaction: body.arrTransaction ?? [],
         updatedBy: body.updatedBy || "unknown",
     });
     await project.save();
@@ -197,6 +218,22 @@ export async function updateProject(id: string, body: UpdateProjectRequest): Pro
     
     if (body.endDate !== undefined) {
         updateFields.endDate = body.endDate;
+    }
+    
+    if (body.arrHeader !== undefined) {
+        updateFields.arrHeader = body.arrHeader;
+    }
+    
+    if (body.arrBudget !== undefined) {
+        updateFields.arrBudget = body.arrBudget;
+    }
+    
+    if (body.arrActual !== undefined) {
+        updateFields.arrActual = body.arrActual;
+    }
+    
+    if (body.arrTransaction !== undefined) {
+        updateFields.arrTransaction = body.arrTransaction;
     }
     
     if (body.updatedBy !== undefined) {

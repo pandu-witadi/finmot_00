@@ -1,0 +1,16 @@
+
+
+budgetHeader 1         |
+	+--- budget 1      |     +-- actual 1 of budget 1
+	|                  |     |
+	|                  |     +-- actual 2 of budget 1
+	|                  |
+	+--- budget 2      |
+                        
+
+budgetHeader 2         | 
+	+--- budget 3      |     +-- actual 1 of budget 3
+	|                  |     |
+	|                  |     +-- actual 2 of budget 3
+	|                  |
+	+--- budget 4      |@pote
