@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { headerApi, budgetApi, projectApi } from "@/services/api";
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,8 @@ import { HeaderAddDialog } from "./HeaderAddDialog";
 import { BudgetAddDialog } from "./BudgetAddDialog";
 import { HeaderEditDialog } from "./HeaderEditDialog";
 import { BudgetEditDialog } from "./BudgetEditDialog";
-import { Header, Budget } from "./useBudgets";
+import { Header } from "./useBudgetHeaders";
+import { Budget } from "./useBudgets";
 
 function formatNumber(value: number): string {
     const num = Number(value) || 0;
@@ -37,8 +38,8 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     const [draggedHeaderId, setDraggedHeaderId] = useState<string | null>(null);
     const [dragOverHeaderId, setDragOverHeaderId] = useState<string | null>(null);
     const [draggedBudgetId, setDraggedBudgetId] = useState<string | null>(null);
-    const [dragOverBudgetId, setDragOverBudgetId] = useState<string | null>(null);
     const [draggedBudgetHeaderId, setDraggedBudgetHeaderId] = useState<string | null>(null);
+    const tableBodyRef = useRef<HTMLTableSectionElement>(null);
 
     const [headerForm, setHeaderForm] = useState({
         name: '',
@@ -67,6 +68,8 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         amount: 0,
         tags: ''
     });
+
+    const [expandedHeaders, setExpandedHeaders] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         loadData();
@@ -306,6 +309,48 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         setDragOverHeaderId(null);
     };
 
+    // Save header positions
+    const handleSaveHeaderPositions = async () => {
+        try {
+            const projectHeaderOrder = headers.map(h => h.id);
+            await projectApi.update(projectId, { arrHeader: projectHeaderOrder });
+            toast.success("Header positions saved successfully");
+            await loadData();
+        } catch (error: any) {
+            console.error("Failed to save header positions:", error);
+            toast.error("Failed to save header positions");
+        }
+    };
+
+    // Save budget positions for a specific header
+    const handleSaveBudgetPositions = async (headerId: string) => {
+        const header = headers.find(h => h.id === headerId);
+        if (!header) {
+            toast.error("Header not found");
+            return;
+        }
+
+        const associatedBudgets = budgets.filter(b => b.header === headerId);
+        if (associatedBudgets.length === 0) {
+            toast.success("No budgets to save");
+            return;
+        }
+
+        if (!window.confirm(`Save positions for ${header.name}? This will update the order of ${associatedBudgets.length} budgets.`)) {
+            return;
+        }
+
+        try {
+            const budgetIds = associatedBudgets.map(b => b.id);
+            await headerApi.update(headerId, { arrBudget: budgetIds });
+            toast.success("Budget positions saved successfully");
+            await loadData();
+        } catch (error: any) {
+            console.error("Failed to save budget positions:", error);
+            toast.error("Failed to save budget positions");
+        }
+    };
+
     // Budget drag/drop handlers
     const handleBudgetDragStart = (e: React.DragEvent, budgetId: string, headerId: string) => {
         setDraggedBudgetId(budgetId);
@@ -313,20 +358,8 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         e.dataTransfer.effectAllowed = "move";
     };
 
-    const handleBudgetDragOver = (e: React.DragEvent, budgetId: string) => {
-        e.preventDefault();
-        if (budgetId !== draggedBudgetId) {
-            setDragOverBudgetId(budgetId);
-        }
-    };
-
-    const handleBudgetDragLeave = () => {
-        setDragOverBudgetId(null);
-    };
-
     const handleBudgetDrop = (e: React.DragEvent, targetBudgetId: string) => {
         e.preventDefault();
-        setDragOverBudgetId(null);
 
         if (!draggedBudgetId || draggedBudgetId === targetBudgetId) {
             setDraggedBudgetId(null);
@@ -334,73 +367,77 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             return;
         }
 
-        const headerIndex = headers.findIndex(h => h.id === draggedBudgetHeaderId);
-        if (headerIndex === -1) {
+        const draggedHeader = headers.find(h => h.id === draggedBudgetHeaderId);
+        if (!draggedHeader) {
             setDraggedBudgetId(null);
             setDraggedBudgetHeaderId(null);
             return;
         }
-
-        const header = headers[headerIndex];
-        const budgetsInHeader = budgets.filter(b => b.header === header.id);
         
-        const draggedIndex = budgetsInHeader.findIndex(b => b.id === draggedBudgetId);
-        const targetIndex = budgetsInHeader.findIndex(b => b.id === targetBudgetId);
+        setBudgets((prevBudgets) => {
+            // Get all budgets for the dragged header
+            const budgetsInDraggedHeader = prevBudgets.filter(b => b.header === draggedHeader.id);
+            
+            const draggedIndex = budgetsInDraggedHeader.findIndex(b => b.id === draggedBudgetId);
+            const targetIndex = budgetsInDraggedHeader.findIndex(b => b.id === targetBudgetId);
 
-        if (draggedIndex > -1 && targetIndex > -1) {
-            const [draggedBudget] = budgetsInHeader.splice(draggedIndex, 1);
-            const adjustedTargetIndex = draggedIndex < targetIndex ? targetIndex - 1 : targetIndex;
-            budgetsInHeader.splice(adjustedTargetIndex, 0, draggedBudget);
+            if (draggedIndex > -1 && targetIndex > -1) {
+                // Reorder budgets within this header
+                const reorderedBudgets = [...budgetsInDraggedHeader];
+                const [draggedBudget] = reorderedBudgets.splice(draggedIndex, 1);
+                const adjustedTargetIndex = targetIndex;
+                reorderedBudgets.splice(adjustedTargetIndex, 0, draggedBudget);
 
-            setBudgets((prevBudgets) => {
-                const newBudgets = [...prevBudgets];
-                const headerBudgetIds = budgetsInHeader.map(b => b.id);
-                return newBudgets.map(b => {
-                    if (headerBudgetIds.includes(b.id)) {
-                        return budgetsInHeader.find(nb => nb.id === b.id) || b;
+                const reorderedBudgetIds = new Set(reorderedBudgets.map(b => b.id));
+                
+                // Rebuild full budgets array: iterate over prevBudgets and replace dragged header budgets in new order
+                const result: Budget[] = [];
+                const draggedIndexMap = new Map(reorderedBudgets.map((b, i) => [b.id, i]));
+                
+                for (const budget of prevBudgets) {
+                    if (reorderedBudgetIds.has(budget.id)) {
+                        result.push(reorderedBudgets[draggedIndexMap.get(budget.id)!]);
+                    } else {
+                        result.push(budget);
                     }
-                    return b;
-                });
-            });
-        }
+                }
+                return result;
+            }
+
+            return prevBudgets;
+        });
 
         setDraggedBudgetId(null);
         setDraggedBudgetHeaderId(null);
     };
 
+    const handleTableBodyDrop = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Find the target budget from the drop target
+        const targetElement = e.target as HTMLElement;
+        const targetRow = targetElement.closest('[data-budget-id]');
+        
+        if (targetRow) {
+            const targetBudgetId = targetRow.getAttribute('data-budget-id');
+            if (targetBudgetId && draggedBudgetId) {
+                handleBudgetDrop(e, targetBudgetId);
+            }
+        }
+        
+        setDraggedBudgetId(null);
+        setDraggedBudgetHeaderId(null);
+    }, [draggedBudgetId, draggedBudgetHeaderId, handleBudgetDrop]);
+
     const handleBudgetDragEnd = () => {
         setDraggedBudgetId(null);
-        setDragOverBudgetId(null);
         setDraggedBudgetHeaderId(null);
     };
 
     const getHeaderTotal = (header: Header) => {
-        return budgets
-            .filter(b => b.header === header.id)
-            .reduce((sum, b) => sum + (b.type === 'income' ? b.amount : -b.amount), 0);
-    };
-
-    // Save positions function
-    const handleSavePositions = async () => {
-        try {
-            // Save header order to project.arrHeader
-            const projectHeaderOrder = headers.map(h => h.id);
-            await projectApi.update(projectId, { arrHeader: projectHeaderOrder });
-            
-            // Save budget order to each header.arrBudget
-            const updateHeaderPromises = headers.map((header) => {
-                const headerBudgets = budgets.filter(b => b.header === header.id);
-                const budgetIds = headerBudgets.map(b => b.id);
-                return headerApi.update(header.id, { arrBudget: budgetIds });
-            });
-            
-            await Promise.all(updateHeaderPromises);
-            toast.success("Positions saved successfully");
-            await loadData();
-        } catch (error: any) {
-            console.error("Failed to save positions:", error);
-            toast.error("Failed to save positions");
-        }
+        const headerBudgets = budgets.filter(b => b.header === header.id);
+        return headerBudgets.reduce((sum, b) => sum + (b.type === 'income' ? b.amount : -b.amount), 0);
     };
 
     if (isLoading) {
@@ -418,8 +455,8 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                     <Button onClick={() => setIsAddHeaderDialogOpen(true)}>
                         Add Header
                     </Button>
-                    <Button variant="outline" onClick={handleSavePositions}>
-                        Save Positions
+                    <Button variant="outline" onClick={handleSaveHeaderPositions}>
+                        Save Header Positions
                     </Button>
                 </div>
             </div>
@@ -432,20 +469,33 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                     return (
                         <Card
                             key={header.id}
-                            className={`cursor-move transition-all ${
+                            className={`transition-all ${
                                 draggedHeaderId === header.id ? 'opacity-50 scale-95' : ''
                             } ${
                                 dragOverHeaderId === header.id ? 'ring-2 ring-primary' : ''
                             }`}
-                            draggable
-                            onDragStart={(e) => handleHeaderDragStart(e, header.id)}
                             onDragOver={(e) => handleHeaderDragOver(e, header.id)}
                             onDragLeave={handleHeaderDragLeave}
                             onDrop={(e) => handleHeaderDrop(e, header.id)}
-                            onDragEnd={handleHeaderDragEnd}
                         >
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <div className="space-y-1">
+                                <div
+                                    draggable={!expandedHeaders.has(header.id)}
+                                    onDragStart={(e) => handleHeaderDragStart(e, header.id)}
+                                    onDragEnd={handleHeaderDragEnd}
+                                    className={`cursor-move space-y-1 ${!expandedHeaders.has(header.id) ? 'cursor-grab' : 'cursor-not-allowed'}`}
+                                    style={{ touchAction: 'none' }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        const newExpanded = new Set(expandedHeaders);
+                                        if (newExpanded.has(header.id)) {
+                                            newExpanded.delete(header.id);
+                                        } else {
+                                            newExpanded.add(header.id);
+                                        }
+                                        setExpandedHeaders(newExpanded);
+                                    }}
+                                >
                                     <CardTitle className="text-lg">{header.name}</CardTitle>
                                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                         <span className={`text-xs px-2 py-0.5 rounded ${
@@ -454,16 +504,37 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                             {getTypeLabel(header.type)}
                                         </span>
                                         <span>{formatNumber(headerTotal)}</span>
+                                        <button
+                                            type="button"
+                                            className="ml-2 text-muted-foreground hover:text-foreground"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                const newExpanded = new Set(expandedHeaders);
+                                                if (newExpanded.has(header.id)) {
+                                                    newExpanded.delete(header.id);
+                                                } else {
+                                                    newExpanded.add(header.id);
+                                                }
+                                                setExpandedHeaders(newExpanded);
+                                            }}
+                                        >
+                                            {expandedHeaders.has(header.id) ? (
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-up">
+                                                    <path d="m18 15-6-6-6 6" />
+                                                </svg>
+                                            ) : (
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-down">
+                                                    <path d="m6 9 6 6 6-6" />
+                                                </svg>
+                                            )}
+                                        </button>
                                     </div>
                                 </div>
                                 <div className="flex gap-2">
                                     <Button
                                         variant="ghost"
                                         size="icon"
-                                        onClick={() => {
-                                            setSelectedHeaderId(header.id);
-                                            setIsAddBudgetDialogOpen(true);
-                                        }}
+                                        onClick={(e) => { e.stopPropagation(); setSelectedHeaderId(header.id); setIsAddBudgetDialogOpen(true); }}
                                         title="Add budget"
                                     >
                                         +
@@ -471,7 +542,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                     <Button
                                         variant="ghost"
                                         size="icon"
-                                        onClick={() => openEditHeader(header)}
+                                        onClick={(e) => { e.stopPropagation(); openEditHeader(header); }}
                                         title="Edit header"
                                     >
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil">
@@ -482,7 +553,19 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                     <Button
                                         variant="ghost"
                                         size="icon"
-                                        onClick={() => handleDeleteHeader(header.id)}
+                                        onClick={(e) => { e.stopPropagation(); handleSaveBudgetPositions(header.id); }}
+                                        title="Save header budget positions"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-save">
+                                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                                            <path d="M17 21v-8H7v8" />
+                                            <path d="M7 10V3a1 1 0 0 1 1-1h5v7" />
+                                        </svg>
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteHeader(header.id); }}
                                         title="Delete header"
                                     >
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2">
@@ -494,77 +577,76 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                     </Button>
                                 </div>
                             </CardHeader>
-                            <CardContent>
-                                {associatedBudgets.length === 0 ? (
-                                    <p className="text-center text-sm text-muted-foreground py-4">
-                                        No budgets under this header
-                                    </p>
-                                ) : (
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Name</TableHead>
-                                                <TableHead>Type</TableHead>
-                                                <TableHead className="text-right">Amount</TableHead>
-                                                <TableHead className="text-right">Action</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {associatedBudgets.map(budget => (
-                                                <TableRow
-                                                    key={budget.id}
-                                                    className={`hover:bg-muted/50 cursor-move ${
-                                                        draggedBudgetId === budget.id ? 'opacity-50' : ''
-                                                    } ${
-                                                        dragOverBudgetId === budget.id ? 'ring-2 ring-primary' : ''
-                                                    }`}
-                                                    draggable
-                                                    onDragStart={(e) => handleBudgetDragStart(e, budget.id, header.id)}
-                                                    onDragOver={(e) => handleBudgetDragOver(e, budget.id)}
-                                                    onDragLeave={handleBudgetDragLeave}
-                                                    onDrop={(e) => handleBudgetDrop(e, budget.id)}
-                                                    onDragEnd={handleBudgetDragEnd}
-                                                >
-                                                    <TableCell className="font-medium">{budget.name}</TableCell>
-                                                    <TableCell>
-                                                        <span className={`text-xs px-2 py-0.5 rounded ${
-                                                            budget.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                                                        }`}>
-                                                            {getTypeLabel(budget.type)}
-                                                        </span>
-                                                    </TableCell>
-                                                    <TableCell className="text-right">{formatNumber(budget.amount)}</TableCell>
-                                                    <TableCell className="text-right">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={() => openEditBudget(budget)}
-                                                            title="Edit budget"
-                                                        >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil">
-                                                                <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                                                                <path d="m15 5 4 4" />
-                                                            </svg>
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={() => handleDeleteBudget(budget.id)}
-                                                            title="Delete budget"
-                                                        >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2">
-                                                                <path d="M3 6h18" />
-                                                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                                                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                                                                <path d="M19 4v16c0 1-1 2-2 2H7c-1 0-2-1-2-2V4" />
-                                                            </svg>
-                                                        </Button>
-                                                    </TableCell>
+                            <CardContent className={!expandedHeaders.has(header.id) ? 'p-0' : ''}>
+                                            {!expandedHeaders.has(header.id) ? (
+                                                <div className="py-4 text-center text-sm text-muted-foreground">
+                                                    Click chevron to show budgets
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Name</TableHead>
+                                                    <TableHead>Type</TableHead>
+                                                    <TableHead className="text-right">Amount</TableHead>
+                                                    <TableHead className="text-right">Action</TableHead>
                                                 </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                )}
+                                            </TableHeader>
+                                            <TableBody ref={tableBodyRef} onDrop={handleTableBodyDrop}>
+                                                {associatedBudgets.map((budget) => (
+                                                    <TableRow
+                                                        key={budget.id}
+                                                        data-budget-id={budget.id}
+                                                        draggable
+                                                        onDragStart={(e) => handleBudgetDragStart(e, budget.id, header.id)}
+                                                        onDragOver={(e) => e.preventDefault()}
+                                                        onDragEnd={handleBudgetDragEnd}
+                                                        className={`cursor-move hover:bg-muted/50 transition-colors ${
+                                                            draggedBudgetId === budget.id ? 'opacity-50' : ''
+                                                        }`}
+                                                    >
+                                                        <TableCell className="font-medium">{budget.name}</TableCell>
+                                                        <TableCell>
+                                                            <span className={`text-xs px-2 py-0.5 rounded ${
+                                                                budget.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                                            }`}>
+                                                                {getTypeLabel(budget.type)}
+                                                            </span>
+                                                        </TableCell>
+                                                        <TableCell className="text-right">{formatNumber(budget.amount)}</TableCell>
+                                                        <TableCell className="text-right">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={(e) => { e.stopPropagation(); openEditBudget(budget); }}
+                                                                title="Edit budget"
+                                                            >
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil">
+                                                                    <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                                                                    <path d="m15 5 4 4" />
+                                                                </svg>
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={(e) => { e.stopPropagation(); handleDeleteBudget(budget.id); }}
+                                                                title="Delete budget"
+                                                            >
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2">
+                                                                    <path d="M3 6h18" />
+                                                                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                                                                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                                                                    <path d="M19 4v16c0 1-1 2-2 2H7c-1 0-2-1-2-2V4" />
+                                                                </svg>
+                                                            </Button>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </>
+                                ) }
                             </CardContent>
                         </Card>
                     );
