@@ -1,0 +1,813 @@
+import { useState, useEffect } from "react";
+import { headerApi, budgetApi, projectApi } from "@/services/api";
+import { toast } from "react-hot-toast";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableRow, TableHead, TableHeader } from "@/components/ui/table";
+import { HeaderAddDialog } from "./HeaderAddDialog";
+import { BudgetAddDialog } from "./BudgetAddDialog";
+import { HeaderEditDialog } from "./HeaderEditDialog";
+import { BudgetEditDialog } from "./BudgetEditDialog";
+import { Header } from "./useBudgetHeaders";
+import { Budget } from "./useBudgets";
+import { DndContext, DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
+function formatNumber(value: number): string {
+    const num = Number(value) || 0;
+    const [integer, decimal] = num.toFixed(2).split('.');
+    const formattedInteger = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return `${formattedInteger},${decimal}`;
+}
+
+function getTypeLabel(type: 'income' | 'expense'): string {
+    return type === 'income' ? 'in' : 'ex';
+}
+
+interface ProjectBudgetsProps {
+    projectId: string;
+}
+
+export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
+    const [headers, setHeaders] = useState<Header[]>([]);
+    const [budgets, setBudgets] = useState<Budget[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isAddHeaderDialogOpen, setIsAddHeaderDialogOpen] = useState(false);
+    const [isEditHeaderDialogOpen, setIsEditHeaderDialogOpen] = useState(false);
+    const [isAddBudgetDialogOpen, setIsAddBudgetDialogOpen] = useState(false);
+    const [isEditBudgetDialogOpen, setIsEditBudgetDialogOpen] = useState(false);
+    const [selectedHeaderId, setSelectedHeaderId] = useState<string | null>(null);
+    const [draggedHeaderId, setDraggedHeaderId] = useState<string | null>(null);
+    const [dragOverHeaderId, setDragOverHeaderId] = useState<string | null>(null);
+    const [draggedBudgetId, setDraggedBudgetId] = useState<string | null>(null);
+    const [draggedBudgetHeaderId, setDraggedBudgetHeaderId] = useState<string | null>(null);
+    const tableBodyRef = useRef<HTMLTableSectionElement>(null);
+    const [dragOverBudgetIndex, setDragOverBudgetIndex] = useState<number | null>(null);
+
+    const headersRef = useRef<Header[]>([]);
+    const budgetsRef = useRef<Budget[]>([]);
+    const dragOffsetRef = useRef({ x: 0, y: 0 });
+    const draggedElementRef = useRef<HTMLTableRowElement | null>(null);
+
+    useEffect(() => {
+        headersRef.current = headers;
+    }, [headers]);
+
+    useEffect(() => {
+        budgetsRef.current = budgets;
+    }, [budgets]);
+
+    const [headerForm, setHeaderForm] = useState({
+        name: '',
+        type: 'expense' as 'income' | 'expense',
+        tags: ''
+    });
+
+    const [editHeaderForm, setEditHeaderForm] = useState({
+        id: '',
+        name: '',
+        type: 'expense' as 'income' | 'expense',
+        tags: ''
+    });
+
+    const [editBudgetForm, setEditBudgetForm] = useState({
+        id: '',
+        name: '',
+        type: 'expense' as 'income' | 'expense',
+        amount: 0,
+        tags: ''
+    });
+
+    const [budgetForm, setBudgetForm] = useState({
+        name: '',
+        type: 'expense' as 'income' | 'expense',
+        amount: 0,
+        tags: ''
+    });
+
+    const [expandedHeaders, setExpandedHeaders] = useState<Set<string>>(new Set<string>());
+
+    useEffect(() => {
+        loadData();
+    }, [projectId]);
+
+    useEffect(() => {
+        if (draggedBudgetId || draggedHeaderId) {
+            window.addEventListener('pointermove', handleGlobalPointerMove);
+            window.addEventListener('pointerup', handleGlobalPointerUp);
+        }
+        return () => {
+            window.removeEventListener('pointermove', handleGlobalPointerMove);
+            window.removeEventListener('pointerup', handleGlobalPointerUp);
+        };
+    }, [draggedBudgetId, draggedHeaderId]);
+
+    const handleGlobalPointerMove = (e: PointerEvent) => {
+        if (draggedBudgetId) {
+            handleBudgetPointerMove(e as React.PointerEvent);
+        }
+        if (draggedHeaderId) {
+            handleHeaderPointerMove(e as React.PointerEvent);
+        }
+    };
+
+    const handleGlobalPointerUp = (e: PointerEvent) => {
+        if (draggedBudgetId) {
+            handleBudgetPointerUp(e as React.PointerEvent);
+        }
+        if (draggedHeaderId) {
+            handleHeaderPointerUp(e as React.PointerEvent);
+        }
+    };
+
+    const loadData = async () => {
+        try {
+            const [headersRes, budgetsRes] = await Promise.all([
+                headerApi.getAllByProject(projectId),
+                budgetApi.getAllByProject(projectId)
+            ]);
+            const headers = Array.isArray(headersRes.data) ? headersRes.data : (headersRes.data as any[]).data || [];
+            setHeaders(headers);
+            const budgets = Array.isArray(budgetsRes.data) ? budgetsRes.data : (budgetsRes.data as any[]).data || [];
+            setBudgets(budgets);
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.error || "Failed to load budgets";
+            toast.error(errorMessage);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleAddHeader = async () => {
+        if (!headerForm.name.trim()) {
+            toast.error("Header name is required");
+            return;
+        }
+
+        try {
+            await headerApi.create({
+                name: headerForm.name.trim(),
+                type: headerForm.type,
+                tags: headerForm.tags
+                    .split(',')
+                    .map(t => t.trim())
+                    .filter(t => t.length > 0),
+                project: projectId,
+                active: true
+            });
+            toast.success("Header added successfully");
+            setIsAddHeaderDialogOpen(false);
+            setHeaderForm({ name: '', type: 'expense', tags: '' });
+            await loadData();
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.error || "Failed to add header";
+            toast.error(errorMessage);
+        }
+    };
+
+    const handleAddBudget = async () => {
+        if (!budgetForm.name.trim()) {
+            toast.error("Budget name is required");
+            return;
+        }
+
+        if (!selectedHeaderId) {
+            toast.error("Please select a header first");
+            return;
+        }
+
+        try {
+            await budgetApi.create({
+                name: budgetForm.name.trim(),
+                type: budgetForm.type,
+                amount: budgetForm.amount,
+                tags: budgetForm.tags
+                    .split(',')
+                    .map(t => t.trim())
+                    .filter(t => t.length > 0),
+                project: projectId,
+                header: selectedHeaderId,
+                active: true
+            });
+            toast.success("Budget added successfully");
+            setIsAddBudgetDialogOpen(false);
+            setBudgetForm({ name: '', type: 'expense', amount: 0, tags: '' });
+            setSelectedHeaderId(null);
+            await loadData();
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.error || "Failed to add budget";
+            toast.error(errorMessage);
+        }
+    };
+
+    const handleDeleteHeader = async (id: string) => {
+        const header = headers.find(h => h.id === id);
+        if (!header) {
+            toast.error("Header not found");
+            return;
+        }
+
+        const arrBudget = Array.isArray(header.arrBudget) ? header.arrBudget : [];
+        
+        if (arrBudget.length > 0) {
+            toast.error(`Cannot delete header. There are ${arrBudget.length} budgets still associated with this header. Please remove budgets first.`);
+            return;
+        }
+        
+        const budgetsUnderHeader = budgets.filter(b => b.header === id);
+        
+        if (budgetsUnderHeader.length > 0) {
+            toast.error(`Cannot delete header. ${budgetsUnderHeader.length} budgets still reference this header. Please remove them first.`);
+            return;
+        }
+        
+        if (!window.confirm("Delete this header?")) {
+            return;
+        }
+
+        try {
+            await headerApi.delete(id);
+            toast.success("Header deleted successfully");
+            await loadData();
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.error || error?.message || "Failed to delete header";
+            toast.error(errorMessage);
+        }
+    };
+
+    const openEditHeader = (header: Header) => {
+        setEditHeaderForm({
+            id: header.id,
+            name: header.name,
+            type: header.type,
+            tags: header.tags.join(', ')
+        });
+        setIsEditHeaderDialogOpen(true);
+    };
+
+    const handleEditHeader = async () => {
+        try {
+            const tagArray = editHeaderForm.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+            await headerApi.update(editHeaderForm.id, {
+                name: editHeaderForm.name.trim(),
+                type: editHeaderForm.type,
+                tags: tagArray
+            });
+            toast.success("Header updated successfully");
+            setIsEditHeaderDialogOpen(false);
+            setEditHeaderForm({ id: '', name: '', type: 'expense', tags: '' });
+            await loadData();
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.error || "Failed to update header";
+            toast.error(errorMessage);
+        }
+    };
+
+    const handleDeleteBudget = async (id: string) => {
+        if (!window.confirm("Delete this budget item?")) {
+            return;
+        }
+
+        try {
+            await budgetApi.delete(id);
+            toast.success("Budget deleted successfully");
+            await loadData();
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.error || "Failed to delete budget";
+            toast.error(errorMessage);
+        }
+    };
+
+    const openEditBudget = (budget: Budget) => {
+        setEditBudgetForm({
+            id: budget.id,
+            name: budget.name,
+            type: budget.type,
+            amount: budget.amount,
+            tags: budget.tags.join(', ')
+        });
+        setIsEditBudgetDialogOpen(true);
+    };
+
+    const handleEditBudget = async () => {
+        try {
+            const tagArray = editBudgetForm.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+            await budgetApi.update(editBudgetForm.id, {
+                name: editBudgetForm.name.trim(),
+                type: editBudgetForm.type,
+                amount: editBudgetForm.amount,
+                tags: tagArray
+            });
+            toast.success("Budget updated successfully");
+            setIsEditBudgetDialogOpen(false);
+            setEditBudgetForm({ id: '', name: '', type: 'expense', amount: 0, tags: '' });
+            await loadData();
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.error || "Failed to update budget";
+            toast.error(errorMessage);
+        }
+    };
+
+    // Header drag/drop handlers
+    const handleHeaderPointerDown = (e: React.PointerEvent, headerId: string) => {
+        if (e.button !== 0) return;
+        setDraggedHeaderId(headerId);
+        dragOffsetRef.current = { x: e.clientX, y: e.clientY };
+        draggedElementRef.current = e.currentTarget as HTMLElement;
+        draggedElementRef.current.style.opacity = '0.5';
+        draggedElementRef.current.style.cursor = 'grabbing';
+    };
+
+    const handleHeaderPointerMove = (e: React.PointerEvent) => {
+        if (!draggedHeaderId) return;
+        e.preventDefault();
+        
+        const element = document.elementFromPoint(e.clientX, e.clientY);
+        const headerCard = element?.closest('[data-header-id]');
+        
+        if (headerCard && draggedHeaderId !== headerCard.getAttribute('data-header-id')) {
+            setDragOverHeaderId(headerCard.getAttribute('data-header-id') || null);
+        } else if (!element) {
+            setDragOverHeaderId(null);
+        }
+    };
+
+    const handleHeaderPointerUp = (e: React.PointerEvent) => {
+        if (!draggedHeaderId) return;
+        
+        if (dragOverHeaderId) {
+            handleHeaderDrop(e, dragOverHeaderId);
+        }
+        
+        if (draggedElementRef.current) {
+            draggedElementRef.current.style.opacity = '';
+            draggedElementRef.current.style.cursor = '';
+        }
+        setDraggedHeaderId(null);
+        setDragOverHeaderId(null);
+        draggedElementRef.current = null;
+    };
+
+    const handleHeaderDrop = (e: React.DragEvent | React.PointerEvent, targetHeaderId: string) => {
+        if (!draggedHeaderId || draggedHeaderId === targetHeaderId) {
+            setDraggedHeaderId(null);
+            return;
+        }
+
+        setHeaders((prevHeaders) => {
+            const newHeaders = [...prevHeaders];
+            const draggedIndex = newHeaders.findIndex(h => h.id === draggedHeaderId);
+            const targetIndex = newHeaders.findIndex(h => h.id === targetHeaderId);
+
+            if (draggedIndex > -1 && targetIndex > -1) {
+                const [draggedHeader] = newHeaders.splice(draggedIndex, 1);
+                const adjustedTargetIndex = draggedIndex < targetIndex ? targetIndex - 1 : targetIndex;
+                newHeaders.splice(adjustedTargetIndex, 0, draggedHeader);
+            }
+
+            return newHeaders;
+        });
+
+        setDraggedHeaderId(null);
+    };
+
+    const handleHeaderDragEnd = () => {
+        setDraggedHeaderId(null);
+        setDragOverHeaderId(null);
+    };
+
+    // Save header positions
+    const handleSaveHeaderPositions = async () => {
+        try {
+            const projectHeaderOrder = headers.map(h => h.id);
+            await projectApi.update(projectId, { arrHeader: projectHeaderOrder });
+            toast.success("Header positions saved successfully");
+            await loadData();
+        } catch (error: any) {
+            console.error("Failed to save header positions:", error);
+            toast.error("Failed to save header positions");
+        }
+    };
+
+    // Save budget positions for a specific header
+    const handleSaveBudgetPositions = async (headerId: string) => {
+        const header = headers.find(h => h.id === headerId);
+        if (!header) {
+            toast.error("Header not found");
+            return;
+        }
+
+        const associatedBudgets = budgets.filter(b => b.header === headerId);
+        if (associatedBudgets.length === 0) {
+            toast.success("No budgets to save");
+            return;
+        }
+
+        if (!window.confirm(`Save positions for ${header.name}? This will update the order of ${associatedBudgets.length} budgets.`)) {
+            return;
+        }
+
+        try {
+            const budgetIds = associatedBudgets.map(b => b.id);
+            await headerApi.update(headerId, { arrBudget: budgetIds });
+            toast.success("Budget positions saved successfully");
+            await loadData();
+        } catch (error: any) {
+            console.error("Failed to save budget positions:", error);
+            toast.error("Failed to save budget positions");
+        }
+    };
+
+    // Budget drag/drop handlers
+    const handleBudgetPointerDown = (e: React.PointerEvent, budgetId: string, headerId: string) => {
+        if (e.button !== 0) return; // Only left click
+        setDraggedBudgetId(budgetId);
+        setDraggedBudgetHeaderId(headerId);
+        dragOffsetRef.current = { x: e.clientX, y: e.clientY };
+        draggedElementRef.current = e.currentTarget as HTMLTableRowElement;
+        draggedElementRef.current.style.opacity = '0.5';
+        draggedElementRef.current.style.cursor = 'grabbing';
+    };
+
+    const handleBudgetPointerMove = (e: React.PointerEvent) => {
+        if (!draggedBudgetId) return;
+        e.preventDefault();
+        
+        // Calculate drag distance
+        const dx = e.clientX - dragOffsetRef.current.x;
+        const dy = e.clientY - dragOffsetRef.current.y;
+        
+        // Find which row we're hovering over
+        const element = document.elementFromPoint(e.clientX, e.clientY);
+        const row = element?.closest('tr[data-budget-id]');
+        
+        if (row) {
+            const budgetId = row.getAttribute('data-budget-id');
+            const associatedBudgets = budgetsRef.current.filter(b => b.header === draggedBudgetHeaderId);
+            const index = associatedBudgets.findIndex(b => b.id === budgetId);
+            if (index !== -1) {
+                setDragOverBudgetIndex(index);
+            }
+        } else {
+            setDragOverBudgetIndex(null);
+        }
+    };
+
+    const handleBudgetPointerUp = (e: React.PointerEvent) => {
+        if (!draggedBudgetId) return;
+        
+        // Drop logic
+        if (dragOverBudgetIndex !== null) {
+            const draggedHeader = headersRef.current.find(h => h.id === draggedBudgetHeaderId);
+            if (draggedHeader) {
+                const budgetsInHeader = budgetsRef.current.filter(b => b.header === draggedHeader.id);
+                if (dragOverBudgetIndex < budgetsInHeader.length) {
+                    const targetBudgetId = budgetsInHeader[dragOverBudgetIndex].id;
+                    if (targetBudgetId && targetBudgetId !== draggedBudgetId) {
+                        handleBudgetDrop(e, targetBudgetId);
+                    }
+                }
+            }
+        }
+        
+        // Reset
+        if (draggedElementRef.current) {
+            draggedElementRef.current.style.opacity = '';
+            draggedElementRef.current.style.cursor = '';
+        }
+        setDraggedBudgetId(null);
+        setDraggedBudgetHeaderId(null);
+        setDragOverBudgetIndex(null);
+        draggedElementRef.current = null;
+    };
+
+    const handleBudgetDrop = (e: React.DragEvent | React.PointerEvent, targetBudgetId: string) => {
+        if (!draggedBudgetId || draggedBudgetId === targetBudgetId) {
+            setDraggedBudgetId(null);
+            setDraggedBudgetHeaderId(null);
+            return;
+        }
+
+        const draggedHeader = headersRef.current.find(h => h.id === draggedBudgetHeaderId);
+        if (!draggedHeader) {
+            setDraggedBudgetId(null);
+            setDraggedBudgetHeaderId(null);
+            return;
+        }
+        
+        setBudgets((prevBudgets) => {
+            // Get all budgets for the dragged header
+            const budgetsInDraggedHeader = prevBudgets.filter(b => b.header === draggedHeader.id);
+            
+            const draggedIndex = budgetsInDraggedHeader.findIndex(b => b.id === draggedBudgetId);
+            const targetIndex = budgetsInDraggedHeader.findIndex(b => b.id === targetBudgetId);
+
+            if (draggedIndex > -1 && targetIndex > -1) {
+                // Reorder budgets within this header
+                const reorderedBudgets = [...budgetsInDraggedHeader];
+                const [draggedBudget] = reorderedBudgets.splice(draggedIndex, 1);
+                const adjustedTargetIndex = targetIndex;
+                reorderedBudgets.splice(adjustedTargetIndex, 0, draggedBudget);
+
+                const reorderedBudgetIds = new Set(reorderedBudgets.map(b => b.id));
+                
+                // Rebuild full budgets array: iterate over prevBudgets and replace dragged header budgets in new order
+                const result: Budget[] = [];
+                const draggedIndexMap = new Map(reorderedBudgets.map((b, i) => [b.id, i]));
+                
+                for (const budget of prevBudgets) {
+                    if (reorderedBudgetIds.has(budget.id)) {
+                        result.push(reorderedBudgets[draggedIndexMap.get(budget.id)!]);
+                    } else {
+                        result.push(budget);
+                    }
+                }
+                return result;
+            }
+
+            return prevBudgets;
+        });
+
+        setDraggedBudgetId(null);
+        setDraggedBudgetHeaderId(null);
+    };
+
+    const handleBudgetDragEnd = () => {
+        setDraggedBudgetId(null);
+        setDraggedBudgetHeaderId(null);
+    };
+
+    const getHeaderTotal = (header: Header) => {
+        const headerBudgets = budgets.filter(b => b.header === header.id);
+        return headerBudgets.reduce((sum, b) => sum + (b.type === 'income' ? b.amount : -b.amount), 0);
+    };
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-8">
+            <div className="flex items-center justify-between">
+                <div className="flex gap-2">
+                    <Button onClick={() => setIsAddHeaderDialogOpen(true)}>
+                        Add Header
+                    </Button>
+                    <Button variant="outline" onClick={handleSaveHeaderPositions}>
+                        Save Header Positions
+                    </Button>
+                </div>
+            </div>
+
+            <div className="grid gap-4">
+                {headers.map((header) => {
+                    const associatedBudgets = budgets.filter(b => b.header === header.id);
+                    const headerTotal = getHeaderTotal(header);
+
+                    return (
+                        <Card
+                            key={header.id}
+                            data-header-id={header.id}
+                            className={`transition-all ${
+                                draggedHeaderId === header.id ? 'opacity-50 scale-95' : ''
+                            } ${
+                                dragOverHeaderId === header.id ? 'border-b-2 border-b-primary bg-muted/50' : ''
+                            }`}
+                            onPointerMove={(e) => handleHeaderPointerMove(e)}
+                            onPointerUp={(e) => handleHeaderPointerUp(e)}
+                            onDragOver={(e) => e.preventDefault()}
+                        >
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <div
+                                    draggable={false}
+                                    onPointerDown={(e) => handleHeaderPointerDown(e, header.id)}
+                                    onDragStart={(e) => e.preventDefault()}
+                                    onDragEnd={(e) => {
+                                        setDraggedHeaderId(null);
+                                        setDragOverHeaderId(null);
+                                    }}
+                                    className={`cursor-move space-y-1 ${!expandedHeaders.has(header.id) ? 'cursor-grab' : 'cursor-not-allowed'}`}
+                                    style={{ touchAction: 'none' }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        const newExpanded = new Set(expandedHeaders);
+                                        if (newExpanded.has(header.id)) {
+                                            newExpanded.delete(header.id);
+                                        } else {
+                                            newExpanded.add(header.id);
+                                        }
+                                        setExpandedHeaders(newExpanded);
+                                    }}
+                                >
+                                    <CardTitle className="text-lg">{header.name}</CardTitle>
+                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                        <span className={`text-xs px-2 py-0.5 rounded ${
+                                            header.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                        }`}>
+                                            {getTypeLabel(header.type)}
+                                        </span>
+                                        <span>{formatNumber(headerTotal)}</span>
+                                        <button
+                                            type="button"
+                                            className="ml-2 text-muted-foreground hover:text-foreground"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                const newExpanded = new Set(expandedHeaders);
+                                                if (newExpanded.has(header.id)) {
+                                                    newExpanded.delete(header.id);
+                                                } else {
+                                                    newExpanded.add(header.id);
+                                                }
+                                                setExpandedHeaders(newExpanded);
+                                            }}
+                                        >
+                                            {expandedHeaders.has(header.id) ? (
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-up">
+                                                    <path d="m18 15-6-6-6 6" />
+                                                </svg>
+                                            ) : (
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-down">
+                                                    <path d="m6 9 6 6 6-6" />
+                                                </svg>
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={(e) => { e.stopPropagation(); setSelectedHeaderId(header.id); setIsAddBudgetDialogOpen(true); }}
+                                        title="Add budget"
+                                    >
+                                        +
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={(e) => { e.stopPropagation(); openEditHeader(header); }}
+                                        title="Edit header"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil">
+                                            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                                            <path d="m15 5 4 4" />
+                                        </svg>
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={(e) => { e.stopPropagation(); handleSaveBudgetPositions(header.id); }}
+                                        title="Save header budget positions"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-save">
+                                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                                            <path d="M17 21v-8H7v8" />
+                                            <path d="M7 10V3a1 1 0 0 1 1-1h5v7" />
+                                        </svg>
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteHeader(header.id); }}
+                                        title="Delete header"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2">
+                                            <path d="M3 6h18" />
+                                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                                            <path d="M19 4v16c0 1-1 2-2 2H7c-1 0-2-1-2-2V4" />
+                                        </svg>
+                                    </Button>
+                                </div>
+                            </CardHeader>
+                            <CardContent className={!expandedHeaders.has(header.id) ? 'p-0' : ''}>
+                                            {!expandedHeaders.has(header.id) ? (
+                                                <div className="py-4 text-center text-sm text-muted-foreground">
+                                                    Click chevron to show budgets
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Name</TableHead>
+                                                    <TableHead>Type</TableHead>
+                                                    <TableHead className="text-right">Amount</TableHead>
+                                                    <TableHead className="text-right">Action</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody ref={tableBodyRef}>
+                                                {associatedBudgets.map((budget, index) => (
+                                                    <TableRow
+                                                        key={budget.id}
+                                                        data-budget-id={budget.id}
+                                                        draggable={false}
+                                                        onPointerDown={(e) => handleBudgetPointerDown(e, budget.id, header.id)}
+                                                        onPointerMove={(e) => handleBudgetPointerMove(e)}
+                                                        onPointerUp={(e) => handleBudgetPointerUp(e)}
+                                                        onDragStart={(e) => e.preventDefault()}
+                                                        onDragOver={(e) => {
+                                                            e.preventDefault();
+                                                            setDragOverBudgetIndex(index);
+                                                        }}
+                                                        onDragEnd={(e) => {
+                                                            setDraggedBudgetId(null);
+                                                            setDraggedBudgetHeaderId(null);
+                                                            setDragOverBudgetIndex(null);
+                                                        }}
+                                                        className={`cursor-move transition-colors ${
+                                                            draggedBudgetId === budget.id ? 'opacity-50 bg-muted' : ''
+                                                        } ${dragOverBudgetIndex === index && draggedBudgetId !== budget.id ? 'border-b-2 border-b-primary bg-muted/50' : ''}`}
+                                                    >
+                                                        <TableCell className="font-medium">{budget.name}</TableCell>
+                                                        <TableCell>
+                                                            <span className={`text-xs px-2 py-0.5 rounded ${
+                                                                budget.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                                            }`}>
+                                                                {getTypeLabel(budget.type)}
+                                                            </span>
+                                                        </TableCell>
+                                                        <TableCell className="text-right">{formatNumber(budget.amount)}</TableCell>
+                                                        <TableCell className="text-right">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={(e) => { e.stopPropagation(); openEditBudget(budget); }}
+                                                                title="Edit budget"
+                                                            >
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil">
+                                                                    <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                                                                    <path d="m15 5 4 4" />
+                                                                </svg>
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={(e) => { e.stopPropagation(); handleDeleteBudget(budget.id); }}
+                                                                title="Delete budget"
+                                                            >
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2">
+                                                                    <path d="M3 6h18" />
+                                                                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                                                                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                                                                    <path d="M19 4v16c0 1-1 2-2 2H7c-1 0-2-1-2-2V4" />
+                                                                </svg>
+                                                            </Button>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </>
+                                ) }
+                            </CardContent>
+                        </Card>
+                    );
+                })}
+            </div>
+
+            <HeaderAddDialog
+                isOpen={isAddHeaderDialogOpen}
+                onOpenChange={setIsAddHeaderDialogOpen}
+                headerForm={headerForm}
+                setHeaderForm={setHeaderForm}
+                onAddHeader={handleAddHeader}
+            />
+
+            <BudgetAddDialog
+                isOpen={isAddBudgetDialogOpen}
+                onOpenChange={setIsAddBudgetDialogOpen}
+                headers={headers}
+                selectedHeaderId={selectedHeaderId}
+                budgetForm={budgetForm}
+                setBudgetForm={setBudgetForm}
+                onSelectHeader={setSelectedHeaderId}
+                onAddBudget={handleAddBudget}
+            />
+
+            <HeaderEditDialog
+                isOpen={isEditHeaderDialogOpen}
+                onOpenChange={setIsEditHeaderDialogOpen}
+                editHeaderForm={editHeaderForm}
+                setEditHeaderForm={setEditHeaderForm}
+                onEditHeader={handleEditHeader}
+            />
+
+            <BudgetEditDialog
+                isOpen={isEditBudgetDialogOpen}
+                onOpenChange={setIsEditBudgetDialogOpen}
+                editBudgetForm={editBudgetForm}
+                setEditBudgetForm={setEditBudgetForm}
+                onEditBudget={handleEditBudget}
+            />
+        </div>
+    );
+}
+
+export default ProjectBudgets;

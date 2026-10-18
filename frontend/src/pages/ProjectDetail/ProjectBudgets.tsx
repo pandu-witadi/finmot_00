@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { headerApi, budgetApi, projectApi } from "@/services/api";
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,10 @@ import { HeaderEditDialog } from "./HeaderEditDialog";
 import { BudgetEditDialog } from "./BudgetEditDialog";
 import { Header } from "./useBudgetHeaders";
 import { Budget } from "./useBudgets";
+import { DndContext, DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 function formatNumber(value: number): string {
     const num = Number(value) || 0;
@@ -26,6 +30,41 @@ interface ProjectBudgetsProps {
     projectId: string;
 }
 
+// Header Sortable Item
+function HeaderSortableItem({ id, children, isExpanded }: { id: string; children: React.ReactNode; isExpanded: boolean }) {
+    const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
+        id,
+        disabled: isExpanded,
+    });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
+    return (
+        <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={isExpanded ? '' : 'cursor-move'}>
+            {children}
+        </div>
+    );
+}
+
+// Budget Row Sortable Item
+function BudgetSortableRow({ id, children }: { id: string; children: React.ReactNode }) {
+    const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
+    return (
+        <tr ref={setNodeRef} style={style} {...attributes} {...listeners}>
+            {children}
+        </tr>
+    );
+}
+
 export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     const [headers, setHeaders] = useState<Header[]>([]);
     const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -35,25 +74,6 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     const [isAddBudgetDialogOpen, setIsAddBudgetDialogOpen] = useState(false);
     const [isEditBudgetDialogOpen, setIsEditBudgetDialogOpen] = useState(false);
     const [selectedHeaderId, setSelectedHeaderId] = useState<string | null>(null);
-    const [draggedHeaderId, setDraggedHeaderId] = useState<string | null>(null);
-    const [dragOverHeaderId, setDragOverHeaderId] = useState<string | null>(null);
-    const [draggedBudgetId, setDraggedBudgetId] = useState<string | null>(null);
-    const [draggedBudgetHeaderId, setDraggedBudgetHeaderId] = useState<string | null>(null);
-    const tableBodyRef = useRef<HTMLTableSectionElement>(null);
-    const [dragOverBudgetIndex, setDragOverBudgetIndex] = useState<number | null>(null);
-
-    const headersRef = useRef<Header[]>([]);
-    const budgetsRef = useRef<Budget[]>([]);
-    const dragOffsetRef = useRef({ x: 0, y: 0 });
-    const draggedElementRef = useRef<HTMLTableRowElement | null>(null);
-
-    useEffect(() => {
-        headersRef.current = headers;
-    }, [headers]);
-
-    useEffect(() => {
-        budgetsRef.current = budgets;
-    }, [budgets]);
 
     const [headerForm, setHeaderForm] = useState({
         name: '',
@@ -89,34 +109,12 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         loadData();
     }, [projectId]);
 
+    // Expand all headers by default
     useEffect(() => {
-        if (draggedBudgetId || draggedHeaderId) {
-            window.addEventListener('pointermove', handleGlobalPointerMove);
-            window.addEventListener('pointerup', handleGlobalPointerUp);
+        if (headers.length > 0) {
+            setExpandedHeaders(new Set(headers.map((h) => h.id)));
         }
-        return () => {
-            window.removeEventListener('pointermove', handleGlobalPointerMove);
-            window.removeEventListener('pointerup', handleGlobalPointerUp);
-        };
-    }, [draggedBudgetId, draggedHeaderId]);
-
-    const handleGlobalPointerMove = (e: PointerEvent) => {
-        if (draggedBudgetId) {
-            handleBudgetPointerMove(e as React.PointerEvent);
-        }
-        if (draggedHeaderId) {
-            handleHeaderPointerMove(e as React.PointerEvent);
-        }
-    };
-
-    const handleGlobalPointerUp = (e: PointerEvent) => {
-        if (draggedBudgetId) {
-            handleBudgetPointerUp(e as React.PointerEvent);
-        }
-        if (draggedHeaderId) {
-            handleHeaderPointerUp(e as React.PointerEvent);
-        }
-    };
+    }, [headers]);
 
     const loadData = async () => {
         try {
@@ -124,10 +122,22 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                 headerApi.getAllByProject(projectId),
                 budgetApi.getAllByProject(projectId)
             ]);
-            const headers = Array.isArray(headersRes.data) ? headersRes.data : (headersRes.data as any[]).data || [];
+            const headers = Array.isArray(headersRes.data) ? headersRes.data : [];
             setHeaders(headers);
-            const budgets = Array.isArray(budgetsRes.data) ? budgetsRes.data : (budgetsRes.data as any[]).data || [];
-            setBudgets(budgets);
+            
+            // Sort budgets according to each header's arrBudget order
+            const budgetsData = Array.isArray(budgetsRes.data) ? budgetsRes.data : [];
+            const sortedBudgets = budgetsData.sort((a, b) => {
+                const headerA = headers.find(h => h.id === a.header);
+                const headerB = headers.find(h => h.id === b.header);
+                if (!headerA || !headerB) return 0;
+                const arrA = headerA.arrBudget || [];
+                const arrB = headerB.arrBudget || [];
+                const indexA = arrA.indexOf(a.id);
+                const indexB = arrB.indexOf(b.id);
+                return indexA - indexB;
+            });
+            setBudgets(sortedBudgets);
         } catch (error: any) {
             const errorMessage = error?.response?.data?.error || "Failed to load budgets";
             toast.error(errorMessage);
@@ -306,75 +316,54 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         }
     };
 
-    // Header drag/drop handlers
-    const handleHeaderPointerDown = (e: React.PointerEvent, headerId: string) => {
-        if (e.button !== 0) return;
-        setDraggedHeaderId(headerId);
-        dragOffsetRef.current = { x: e.clientX, y: e.clientY };
-        draggedElementRef.current = e.currentTarget as HTMLElement;
-        draggedElementRef.current.style.opacity = '0.5';
-        draggedElementRef.current.style.cursor = 'grabbing';
-    };
+    // Header drag/drop handlers with dnd-kit
+    const handleHeaderDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
 
-    const handleHeaderPointerMove = (e: React.PointerEvent) => {
-        if (!draggedHeaderId) return;
-        e.preventDefault();
-        
-        const element = document.elementFromPoint(e.clientX, e.clientY);
-        const headerCard = element?.closest('[data-header-id]');
-        
-        if (headerCard && draggedHeaderId !== headerCard.getAttribute('data-header-id')) {
-            setDragOverHeaderId(headerCard.getAttribute('data-header-id') || null);
-        } else if (!element) {
-            setDragOverHeaderId(null);
-        }
-    };
-
-    const handleHeaderPointerUp = (e: React.PointerEvent) => {
-        if (!draggedHeaderId) return;
-        
-        if (dragOverHeaderId) {
-            handleHeaderDrop(e, dragOverHeaderId);
-        }
-        
-        if (draggedElementRef.current) {
-            draggedElementRef.current.style.opacity = '';
-            draggedElementRef.current.style.cursor = '';
-        }
-        setDraggedHeaderId(null);
-        setDragOverHeaderId(null);
-        draggedElementRef.current = null;
-    };
-
-    const handleHeaderDrop = (e: React.DragEvent | React.PointerEvent, targetHeaderId: string) => {
-        if (!draggedHeaderId || draggedHeaderId === targetHeaderId) {
-            setDraggedHeaderId(null);
+        if (!over || active.id === over.id) {
             return;
         }
 
-        setHeaders((prevHeaders) => {
-            const newHeaders = [...prevHeaders];
-            const draggedIndex = newHeaders.findIndex(h => h.id === draggedHeaderId);
-            const targetIndex = newHeaders.findIndex(h => h.id === targetHeaderId);
+        const activeHeaderIndex = headers.findIndex((h) => h.id === active.id);
+        const overHeaderIndex = headers.findIndex((h) => h.id === over.id);
 
-            if (draggedIndex > -1 && targetIndex > -1) {
-                const [draggedHeader] = newHeaders.splice(draggedIndex, 1);
-                const adjustedTargetIndex = draggedIndex < targetIndex ? targetIndex - 1 : targetIndex;
-                newHeaders.splice(adjustedTargetIndex, 0, draggedHeader);
-            }
+        if (activeHeaderIndex === -1 || overHeaderIndex === -1) {
+            return;
+        }
 
+        setHeaders((prev) => {
+            const newHeaders = arrayMove(prev, activeHeaderIndex, overHeaderIndex);
             return newHeaders;
         });
-
-        setDraggedHeaderId(null);
     };
 
-    const handleHeaderDragEnd = () => {
-        setDraggedHeaderId(null);
-        setDragOverHeaderId(null);
+    // Budget drag/drop handlers with dnd-kit
+    const handleBudgetDragEnd = (event: DragEndEvent, headerId: string) => {
+        const { active, over } = event;
+
+        if (!over || active.id === over.id) {
+            return;
+        }
+
+        const associatedBudgets = budgets.filter((b) => b.header === headerId);
+        const activeBudgetIndex = associatedBudgets.findIndex((b) => b.id === active.id);
+        const overBudgetIndex = associatedBudgets.findIndex((b) => b.id === over.id);
+
+        if (activeBudgetIndex === -1 || overBudgetIndex === -1) {
+            return;
+        }
+
+        setBudgets((prev) => {
+            const newBudgets = [...prev];
+            const headerBudgets = newBudgets.filter((b) => b.header === headerId);
+            const movedBudgets = arrayMove(headerBudgets, activeBudgetIndex, overBudgetIndex);
+
+            // Replace the header's budgets in the main array
+            const otherBudgets = newBudgets.filter((b) => b.header !== headerId);
+            return [...otherBudgets, ...movedBudgets];
+        });
     };
 
-    // Save header positions
     const handleSaveHeaderPositions = async () => {
         try {
             const projectHeaderOrder = headers.map(h => h.id);
@@ -387,7 +376,6 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         }
     };
 
-    // Save budget positions for a specific header
     const handleSaveBudgetPositions = async (headerId: string) => {
         const header = headers.find(h => h.id === headerId);
         if (!header) {
@@ -416,125 +404,6 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         }
     };
 
-    // Budget drag/drop handlers
-    const handleBudgetPointerDown = (e: React.PointerEvent, budgetId: string, headerId: string) => {
-        if (e.button !== 0) return; // Only left click
-        setDraggedBudgetId(budgetId);
-        setDraggedBudgetHeaderId(headerId);
-        dragOffsetRef.current = { x: e.clientX, y: e.clientY };
-        draggedElementRef.current = e.currentTarget as HTMLTableRowElement;
-        draggedElementRef.current.style.opacity = '0.5';
-        draggedElementRef.current.style.cursor = 'grabbing';
-    };
-
-    const handleBudgetPointerMove = (e: React.PointerEvent) => {
-        if (!draggedBudgetId) return;
-        e.preventDefault();
-        
-        // Calculate drag distance
-        const dx = e.clientX - dragOffsetRef.current.x;
-        const dy = e.clientY - dragOffsetRef.current.y;
-        
-        // Find which row we're hovering over
-        const element = document.elementFromPoint(e.clientX, e.clientY);
-        const row = element?.closest('tr[data-budget-id]');
-        
-        if (row) {
-            const budgetId = row.getAttribute('data-budget-id');
-            const associatedBudgets = budgetsRef.current.filter(b => b.header === draggedBudgetHeaderId);
-            const index = associatedBudgets.findIndex(b => b.id === budgetId);
-            if (index !== -1) {
-                setDragOverBudgetIndex(index);
-            }
-        } else {
-            setDragOverBudgetIndex(null);
-        }
-    };
-
-    const handleBudgetPointerUp = (e: React.PointerEvent) => {
-        if (!draggedBudgetId) return;
-        
-        // Drop logic
-        if (dragOverBudgetIndex !== null) {
-            const draggedHeader = headersRef.current.find(h => h.id === draggedBudgetHeaderId);
-            if (draggedHeader) {
-                const budgetsInHeader = budgetsRef.current.filter(b => b.header === draggedHeader.id);
-                if (dragOverBudgetIndex < budgetsInHeader.length) {
-                    const targetBudgetId = budgetsInHeader[dragOverBudgetIndex].id;
-                    if (targetBudgetId && targetBudgetId !== draggedBudgetId) {
-                        handleBudgetDrop(e, targetBudgetId);
-                    }
-                }
-            }
-        }
-        
-        // Reset
-        if (draggedElementRef.current) {
-            draggedElementRef.current.style.opacity = '';
-            draggedElementRef.current.style.cursor = '';
-        }
-        setDraggedBudgetId(null);
-        setDraggedBudgetHeaderId(null);
-        setDragOverBudgetIndex(null);
-        draggedElementRef.current = null;
-    };
-
-    const handleBudgetDrop = (e: React.DragEvent | React.PointerEvent, targetBudgetId: string) => {
-        if (!draggedBudgetId || draggedBudgetId === targetBudgetId) {
-            setDraggedBudgetId(null);
-            setDraggedBudgetHeaderId(null);
-            return;
-        }
-
-        const draggedHeader = headersRef.current.find(h => h.id === draggedBudgetHeaderId);
-        if (!draggedHeader) {
-            setDraggedBudgetId(null);
-            setDraggedBudgetHeaderId(null);
-            return;
-        }
-        
-        setBudgets((prevBudgets) => {
-            // Get all budgets for the dragged header
-            const budgetsInDraggedHeader = prevBudgets.filter(b => b.header === draggedHeader.id);
-            
-            const draggedIndex = budgetsInDraggedHeader.findIndex(b => b.id === draggedBudgetId);
-            const targetIndex = budgetsInDraggedHeader.findIndex(b => b.id === targetBudgetId);
-
-            if (draggedIndex > -1 && targetIndex > -1) {
-                // Reorder budgets within this header
-                const reorderedBudgets = [...budgetsInDraggedHeader];
-                const [draggedBudget] = reorderedBudgets.splice(draggedIndex, 1);
-                const adjustedTargetIndex = targetIndex;
-                reorderedBudgets.splice(adjustedTargetIndex, 0, draggedBudget);
-
-                const reorderedBudgetIds = new Set(reorderedBudgets.map(b => b.id));
-                
-                // Rebuild full budgets array: iterate over prevBudgets and replace dragged header budgets in new order
-                const result: Budget[] = [];
-                const draggedIndexMap = new Map(reorderedBudgets.map((b, i) => [b.id, i]));
-                
-                for (const budget of prevBudgets) {
-                    if (reorderedBudgetIds.has(budget.id)) {
-                        result.push(reorderedBudgets[draggedIndexMap.get(budget.id)!]);
-                    } else {
-                        result.push(budget);
-                    }
-                }
-                return result;
-            }
-
-            return prevBudgets;
-        });
-
-        setDraggedBudgetId(null);
-        setDraggedBudgetHeaderId(null);
-    };
-
-    const handleBudgetDragEnd = () => {
-        setDraggedBudgetId(null);
-        setDraggedBudgetHeaderId(null);
-    };
-
     const getHeaderTotal = (header: Header) => {
         const headerBudgets = budgets.filter(b => b.header === header.id);
         return headerBudgets.reduce((sum, b) => sum + (b.type === 'income' ? b.amount : -b.amount), 0);
@@ -561,212 +430,177 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                 </div>
             </div>
 
-            <div className="grid gap-4">
-                {headers.map((header) => {
-                    const associatedBudgets = budgets.filter(b => b.header === header.id);
-                    const headerTotal = getHeaderTotal(header);
+            {/* DndContext for headers - wrapping the grid */}
+            <DndContext onDragEnd={handleHeaderDragEnd}>
+                <div className="grid gap-4">
+                    <SortableContext items={headers.map((h) => h.id)} strategy={verticalListSortingStrategy}>
+                        {headers.map((header) => {
+                            const associatedBudgets = budgets.filter(b => b.header === header.id);
+                            const headerTotal = getHeaderTotal(header);
 
-                    return (
-                        <Card
-                            key={header.id}
-                            data-header-id={header.id}
-                            className={`transition-all ${
-                                draggedHeaderId === header.id ? 'opacity-50 scale-95' : ''
-                            } ${
-                                dragOverHeaderId === header.id ? 'border-b-2 border-b-primary bg-muted/50' : ''
-                            }`}
-                            onPointerMove={(e) => handleHeaderPointerMove(e)}
-                            onPointerUp={(e) => handleHeaderPointerUp(e)}
-                            onDragOver={(e) => e.preventDefault()}
-                        >
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <div
-                                    draggable={false}
-                                    onPointerDown={(e) => handleHeaderPointerDown(e, header.id)}
-                                    onDragStart={(e) => e.preventDefault()}
-                                    onDragEnd={(e) => {
-                                        setDraggedHeaderId(null);
-                                        setDragOverHeaderId(null);
-                                    }}
-                                    className={`cursor-move space-y-1 ${!expandedHeaders.has(header.id) ? 'cursor-grab' : 'cursor-not-allowed'}`}
-                                    style={{ touchAction: 'none' }}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        const newExpanded = new Set(expandedHeaders);
-                                        if (newExpanded.has(header.id)) {
-                                            newExpanded.delete(header.id);
-                                        } else {
-                                            newExpanded.add(header.id);
-                                        }
-                                        setExpandedHeaders(newExpanded);
-                                    }}
-                                >
-                                    <CardTitle className="text-lg">{header.name}</CardTitle>
-                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                        <span className={`text-xs px-2 py-0.5 rounded ${
-                                            header.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                                        }`}>
-                                            {getTypeLabel(header.type)}
-                                        </span>
-                                        <span>{formatNumber(headerTotal)}</span>
-                                        <button
-                                            type="button"
-                                            className="ml-2 text-muted-foreground hover:text-foreground"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                const newExpanded = new Set(expandedHeaders);
-                                                if (newExpanded.has(header.id)) {
-                                                    newExpanded.delete(header.id);
-                                                } else {
-                                                    newExpanded.add(header.id);
-                                                }
-                                                setExpandedHeaders(newExpanded);
-                                            }}
-                                        >
-                                            {expandedHeaders.has(header.id) ? (
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-up">
-                                                    <path d="m18 15-6-6-6 6" />
-                                                </svg>
-                                            ) : (
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-down">
-                                                    <path d="m6 9 6 6 6-6" />
-                                                </svg>
-                                            )}
-                                        </button>
-                                    </div>
-                                </div>
-                                <div className="flex gap-2">
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={(e) => { e.stopPropagation(); setSelectedHeaderId(header.id); setIsAddBudgetDialogOpen(true); }}
-                                        title="Add budget"
+                            return (
+                                <HeaderSortableItem key={header.id} id={header.id} isExpanded={expandedHeaders.has(header.id)}>
+                                    <Card
+                                        className={`transition-all`}
                                     >
-                                        +
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={(e) => { e.stopPropagation(); openEditHeader(header); }}
-                                        title="Edit header"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil">
-                                            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                                            <path d="m15 5 4 4" />
-                                        </svg>
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={(e) => { e.stopPropagation(); handleSaveBudgetPositions(header.id); }}
-                                        title="Save header budget positions"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-save">
-                                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                                            <path d="M17 21v-8H7v8" />
-                                            <path d="M7 10V3a1 1 0 0 1 1-1h5v7" />
-                                        </svg>
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={(e) => { e.stopPropagation(); handleDeleteHeader(header.id); }}
-                                        title="Delete header"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2">
-                                            <path d="M3 6h18" />
-                                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                                            <path d="M19 4v16c0 1-1 2-2 2H7c-1 0-2-1-2-2V4" />
-                                        </svg>
-                                    </Button>
-                                </div>
-                            </CardHeader>
-                            <CardContent className={!expandedHeaders.has(header.id) ? 'p-0' : ''}>
+                                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                            <div
+                                                className={`cursor-move space-y-1 ${!expandedHeaders.has(header.id) ? 'cursor-grab' : 'cursor-not-allowed'}`}
+                                            >
+                                                <CardTitle className="text-lg">{header.name}</CardTitle>
+                                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                    <span className={`text-xs px-2 py-0.5 rounded ${
+                                                        header.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                                    }`}>
+                                                        {getTypeLabel(header.type)}
+                                                    </span>
+                                                    <span>{formatNumber(headerTotal)}</span>
+                                                    <button
+                                                        type="button"
+                                                        className="ml-2 text-muted-foreground hover:text-foreground pointer-events-auto"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            const newExpanded = new Set(expandedHeaders);
+                                                            if (newExpanded.has(header.id)) {
+                                                                newExpanded.delete(header.id);
+                                                            } else {
+                                                                newExpanded.add(header.id);
+                                                            }
+                                                            setExpandedHeaders(newExpanded);
+                                                        }}
+                                                    >
+                                                        {expandedHeaders.has(header.id) ? (
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-up">
+                                                                <path d="m18 15-6-6-6 6" />
+                                                            </svg>
+                                                        ) : (
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-down">
+                                                                <path d="m6 9 6 6 6-6" />
+                                                            </svg>
+                                                        )}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={(e) => { e.stopPropagation(); setSelectedHeaderId(header.id); setIsAddBudgetDialogOpen(true); }}
+                                                    title="Add budget"
+                                                >
+                                                    +
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={(e) => { e.stopPropagation(); openEditHeader(header); }}
+                                                    title="Edit header"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil">
+                                                        <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                                                        <path d="m15 5 4 4" />
+                                                    </svg>
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={(e) => { e.stopPropagation(); handleSaveBudgetPositions(header.id); }}
+                                                    title="Save header budget positions"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-save">
+                                                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                                                        <path d="M17 21v-8H7v8" />
+                                                        <path d="M7 10V3a1 1 0 0 1 1-1h5v7" />
+                                                    </svg>
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={(e) => { e.stopPropagation(); handleDeleteHeader(header.id); }}
+                                                    title="Delete header"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2">
+                                                        <path d="M3 6h18" />
+                                                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                                                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                                                        <path d="M19 4v16c0 1-1 2-2 2H7c-1 0-2-1-2-2V4" />
+                                                    </svg>
+                                                </Button>
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent className={!expandedHeaders.has(header.id) ? 'p-0' : ''}>
                                             {!expandedHeaders.has(header.id) ? (
                                                 <div className="py-4 text-center text-sm text-muted-foreground">
                                                     Click chevron to show budgets
                                                 </div>
                                             ) : (
                                                 <>
-                                                    <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead>Name</TableHead>
-                                                    <TableHead>Type</TableHead>
-                                                    <TableHead className="text-right">Amount</TableHead>
-                                                    <TableHead className="text-right">Action</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody ref={tableBodyRef}>
-                                                {associatedBudgets.map((budget, index) => (
-                                                    <TableRow
-                                                        key={budget.id}
-                                                        data-budget-id={budget.id}
-                                                        draggable={false}
-                                                        onPointerDown={(e) => handleBudgetPointerDown(e, budget.id, header.id)}
-                                                        onPointerMove={(e) => handleBudgetPointerMove(e)}
-                                                        onPointerUp={(e) => handleBudgetPointerUp(e)}
-                                                        onDragStart={(e) => e.preventDefault()}
-                                                        onDragOver={(e) => {
-                                                            e.preventDefault();
-                                                            setDragOverBudgetIndex(index);
-                                                        }}
-                                                        onDragEnd={(e) => {
-                                                            setDraggedBudgetId(null);
-                                                            setDraggedBudgetHeaderId(null);
-                                                            setDragOverBudgetIndex(null);
-                                                        }}
-                                                        className={`cursor-move transition-colors ${
-                                                            draggedBudgetId === budget.id ? 'opacity-50 bg-muted' : ''
-                                                        } ${dragOverBudgetIndex === index && draggedBudgetId !== budget.id ? 'border-b-2 border-b-primary bg-muted/50' : ''}`}
-                                                    >
-                                                        <TableCell className="font-medium">{budget.name}</TableCell>
-                                                        <TableCell>
-                                                            <span className={`text-xs px-2 py-0.5 rounded ${
-                                                                budget.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                                                            }`}>
-                                                                {getTypeLabel(budget.type)}
-                                                            </span>
-                                                        </TableCell>
-                                                        <TableCell className="text-right">{formatNumber(budget.amount)}</TableCell>
-                                                        <TableCell className="text-right">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                onClick={(e) => { e.stopPropagation(); openEditBudget(budget); }}
-                                                                title="Edit budget"
-                                                            >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil">
-                                                                    <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                                                                    <path d="m15 5 4 4" />
-                                                                </svg>
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                onClick={(e) => { e.stopPropagation(); handleDeleteBudget(budget.id); }}
-                                                                title="Delete budget"
-                                                            >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2">
-                                                                    <path d="M3 6h18" />
-                                                                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                                                                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                                                                    <path d="M19 4v16c0 1-1 2-2 2H7c-1 0-2-1-2-2V4" />
-                                                                </svg>
-                                                            </Button>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
-                                    </>
-                                ) }
-                            </CardContent>
-                        </Card>
-                    );
-                })}
-            </div>
+                                                    {/* DndContext for budgets within each header */}
+                                                    <DndContext onDragEnd={(event) => handleBudgetDragEnd(event, header.id)}>
+                                                        <Table>
+                                                            <TableHeader>
+                                                                <TableRow>
+                                                                    <TableHead>Name</TableHead>
+                                                                    <TableHead>Type</TableHead>
+                                                                    <TableHead className="text-right">Amount</TableHead>
+                                                                    <TableHead className="text-right">Action</TableHead>
+                                                                </TableRow>
+                                                            </TableHeader>
+                                                            <SortableContext items={associatedBudgets.map((b) => b.id)} strategy={verticalListSortingStrategy}>
+                                                                <TableBody>
+                                                                    {associatedBudgets.map((budget) => (
+                                                                        <BudgetSortableRow key={budget.id} id={budget.id}>
+                                                                            <TableCell className="font-medium">{budget.name}</TableCell>
+                                                                            <TableCell>
+                                                                                <span className={`text-xs px-2 py-0.5 rounded ${
+                                                                                    budget.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                                                                }`}>
+                                                                                    {getTypeLabel(budget.type)}
+                                                                                </span>
+                                                                            </TableCell>
+                                                                            <TableCell className="text-right">{formatNumber(budget.amount)}</TableCell>
+                                                                            <TableCell className="text-right">
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="icon"
+                                                                                    onClick={(e) => { e.stopPropagation(); openEditBudget(budget); }}
+                                                                                    title="Edit budget"
+                                                                                >
+                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil">
+                                                                                        <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                                                                                        <path d="m15 5 4 4" />
+                                                                                    </svg>
+                                                                                </Button>
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="icon"
+                                                                                    onClick={(e) => { e.stopPropagation(); handleDeleteBudget(budget.id); }}
+                                                                                    title="Delete budget"
+                                                                                >
+                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2">
+                                                                                        <path d="M3 6h18" />
+                                                                                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                                                                                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                                                                                        <path d="M19 4v16c0 1-1 2-2 2H7c-1 0-2-1-2-2V4" />
+                                                                                    </svg>
+                                                                                </Button>
+                                                                            </TableCell>
+                                                                        </BudgetSortableRow>
+                                                                    ))}
+                                                                </TableBody>
+                                                            </SortableContext>
+                                                        </Table>
+                                                    </DndContext>
+                                                </>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                </HeaderSortableItem>
+                            );
+                        })}
+                    </SortableContext>
+                </div>
+            </DndContext>
 
             <HeaderAddDialog
                 isOpen={isAddHeaderDialogOpen}
