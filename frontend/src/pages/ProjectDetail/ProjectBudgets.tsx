@@ -40,6 +40,20 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     const [draggedBudgetId, setDraggedBudgetId] = useState<string | null>(null);
     const [draggedBudgetHeaderId, setDraggedBudgetHeaderId] = useState<string | null>(null);
     const tableBodyRef = useRef<HTMLTableSectionElement>(null);
+    const [dragOverBudgetIndex, setDragOverBudgetIndex] = useState<number | null>(null);
+
+    const headersRef = useRef<Header[]>([]);
+    const budgetsRef = useRef<Budget[]>([]);
+    const dragOffsetRef = useRef({ x: 0, y: 0 });
+    const draggedElementRef = useRef<HTMLTableRowElement | null>(null);
+
+    useEffect(() => {
+        headersRef.current = headers;
+    }, [headers]);
+
+    useEffect(() => {
+        budgetsRef.current = budgets;
+    }, [budgets]);
 
     const [headerForm, setHeaderForm] = useState({
         name: '',
@@ -69,11 +83,40 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         tags: ''
     });
 
-    const [expandedHeaders, setExpandedHeaders] = useState<Set<string>>(new Set());
+    const [expandedHeaders, setExpandedHeaders] = useState<Set<string>>(new Set<string>());
 
     useEffect(() => {
         loadData();
     }, [projectId]);
+
+    useEffect(() => {
+        if (draggedBudgetId || draggedHeaderId) {
+            window.addEventListener('pointermove', handleGlobalPointerMove);
+            window.addEventListener('pointerup', handleGlobalPointerUp);
+        }
+        return () => {
+            window.removeEventListener('pointermove', handleGlobalPointerMove);
+            window.removeEventListener('pointerup', handleGlobalPointerUp);
+        };
+    }, [draggedBudgetId, draggedHeaderId]);
+
+    const handleGlobalPointerMove = (e: PointerEvent) => {
+        if (draggedBudgetId) {
+            handleBudgetPointerMove(e as React.PointerEvent);
+        }
+        if (draggedHeaderId) {
+            handleHeaderPointerMove(e as React.PointerEvent);
+        }
+    };
+
+    const handleGlobalPointerUp = (e: PointerEvent) => {
+        if (draggedBudgetId) {
+            handleBudgetPointerUp(e as React.PointerEvent);
+        }
+        if (draggedHeaderId) {
+            handleHeaderPointerUp(e as React.PointerEvent);
+        }
+    };
 
     const loadData = async () => {
         try {
@@ -81,8 +124,10 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                 headerApi.getAllByProject(projectId),
                 budgetApi.getAllByProject(projectId)
             ]);
-            setHeaders(headersRes.data);
-            setBudgets(budgetsRes.data);
+            const headers = Array.isArray(headersRes.data) ? headersRes.data : (headersRes.data as any[]).data || [];
+            setHeaders(headers);
+            const budgets = Array.isArray(budgetsRes.data) ? budgetsRes.data : (budgetsRes.data as any[]).data || [];
+            setBudgets(budgets);
         } catch (error: any) {
             const errorMessage = error?.response?.data?.error || "Failed to load budgets";
             toast.error(errorMessage);
@@ -262,26 +307,46 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     };
 
     // Header drag/drop handlers
-    const handleHeaderDragStart = (e: React.DragEvent, headerId: string) => {
+    const handleHeaderPointerDown = (e: React.PointerEvent, headerId: string) => {
+        if (e.button !== 0) return;
         setDraggedHeaderId(headerId);
-        e.dataTransfer.effectAllowed = "move";
+        dragOffsetRef.current = { x: e.clientX, y: e.clientY };
+        draggedElementRef.current = e.currentTarget as HTMLElement;
+        draggedElementRef.current.style.opacity = '0.5';
+        draggedElementRef.current.style.cursor = 'grabbing';
     };
 
-    const handleHeaderDragOver = (e: React.DragEvent, headerId: string) => {
+    const handleHeaderPointerMove = (e: React.PointerEvent) => {
+        if (!draggedHeaderId) return;
         e.preventDefault();
-        if (headerId !== draggedHeaderId) {
-            setDragOverHeaderId(headerId);
+        
+        const element = document.elementFromPoint(e.clientX, e.clientY);
+        const headerCard = element?.closest('[data-header-id]');
+        
+        if (headerCard && draggedHeaderId !== headerCard.getAttribute('data-header-id')) {
+            setDragOverHeaderId(headerCard.getAttribute('data-header-id') || null);
+        } else if (!element) {
+            setDragOverHeaderId(null);
         }
     };
 
-    const handleHeaderDragLeave = () => {
+    const handleHeaderPointerUp = (e: React.PointerEvent) => {
+        if (!draggedHeaderId) return;
+        
+        if (dragOverHeaderId) {
+            handleHeaderDrop(e, dragOverHeaderId);
+        }
+        
+        if (draggedElementRef.current) {
+            draggedElementRef.current.style.opacity = '';
+            draggedElementRef.current.style.cursor = '';
+        }
+        setDraggedHeaderId(null);
         setDragOverHeaderId(null);
+        draggedElementRef.current = null;
     };
 
-    const handleHeaderDrop = (e: React.DragEvent, targetHeaderId: string) => {
-        e.preventDefault();
-        setDragOverHeaderId(null);
-
+    const handleHeaderDrop = (e: React.DragEvent | React.PointerEvent, targetHeaderId: string) => {
         if (!draggedHeaderId || draggedHeaderId === targetHeaderId) {
             setDraggedHeaderId(null);
             return;
@@ -352,22 +417,76 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     };
 
     // Budget drag/drop handlers
-    const handleBudgetDragStart = (e: React.DragEvent, budgetId: string, headerId: string) => {
+    const handleBudgetPointerDown = (e: React.PointerEvent, budgetId: string, headerId: string) => {
+        if (e.button !== 0) return; // Only left click
         setDraggedBudgetId(budgetId);
         setDraggedBudgetHeaderId(headerId);
-        e.dataTransfer.effectAllowed = "move";
+        dragOffsetRef.current = { x: e.clientX, y: e.clientY };
+        draggedElementRef.current = e.currentTarget as HTMLTableRowElement;
+        draggedElementRef.current.style.opacity = '0.5';
+        draggedElementRef.current.style.cursor = 'grabbing';
     };
 
-    const handleBudgetDrop = (e: React.DragEvent, targetBudgetId: string) => {
+    const handleBudgetPointerMove = (e: React.PointerEvent) => {
+        if (!draggedBudgetId) return;
         e.preventDefault();
+        
+        // Calculate drag distance
+        const dx = e.clientX - dragOffsetRef.current.x;
+        const dy = e.clientY - dragOffsetRef.current.y;
+        
+        // Find which row we're hovering over
+        const element = document.elementFromPoint(e.clientX, e.clientY);
+        const row = element?.closest('tr[data-budget-id]');
+        
+        if (row) {
+            const budgetId = row.getAttribute('data-budget-id');
+            const associatedBudgets = budgetsRef.current.filter(b => b.header === draggedBudgetHeaderId);
+            const index = associatedBudgets.findIndex(b => b.id === budgetId);
+            if (index !== -1) {
+                setDragOverBudgetIndex(index);
+            }
+        } else {
+            setDragOverBudgetIndex(null);
+        }
+    };
 
+    const handleBudgetPointerUp = (e: React.PointerEvent) => {
+        if (!draggedBudgetId) return;
+        
+        // Drop logic
+        if (dragOverBudgetIndex !== null) {
+            const draggedHeader = headersRef.current.find(h => h.id === draggedBudgetHeaderId);
+            if (draggedHeader) {
+                const budgetsInHeader = budgetsRef.current.filter(b => b.header === draggedHeader.id);
+                if (dragOverBudgetIndex < budgetsInHeader.length) {
+                    const targetBudgetId = budgetsInHeader[dragOverBudgetIndex].id;
+                    if (targetBudgetId && targetBudgetId !== draggedBudgetId) {
+                        handleBudgetDrop(e, targetBudgetId);
+                    }
+                }
+            }
+        }
+        
+        // Reset
+        if (draggedElementRef.current) {
+            draggedElementRef.current.style.opacity = '';
+            draggedElementRef.current.style.cursor = '';
+        }
+        setDraggedBudgetId(null);
+        setDraggedBudgetHeaderId(null);
+        setDragOverBudgetIndex(null);
+        draggedElementRef.current = null;
+    };
+
+    const handleBudgetDrop = (e: React.DragEvent | React.PointerEvent, targetBudgetId: string) => {
         if (!draggedBudgetId || draggedBudgetId === targetBudgetId) {
             setDraggedBudgetId(null);
             setDraggedBudgetHeaderId(null);
             return;
         }
 
-        const draggedHeader = headers.find(h => h.id === draggedBudgetHeaderId);
+        const draggedHeader = headersRef.current.find(h => h.id === draggedBudgetHeaderId);
         if (!draggedHeader) {
             setDraggedBudgetId(null);
             setDraggedBudgetHeaderId(null);
@@ -411,25 +530,6 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         setDraggedBudgetHeaderId(null);
     };
 
-    const handleTableBodyDrop = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        // Find the target budget from the drop target
-        const targetElement = e.target as HTMLElement;
-        const targetRow = targetElement.closest('[data-budget-id]');
-        
-        if (targetRow) {
-            const targetBudgetId = targetRow.getAttribute('data-budget-id');
-            if (targetBudgetId && draggedBudgetId) {
-                handleBudgetDrop(e, targetBudgetId);
-            }
-        }
-        
-        setDraggedBudgetId(null);
-        setDraggedBudgetHeaderId(null);
-    }, [draggedBudgetId, draggedBudgetHeaderId, handleBudgetDrop]);
-
     const handleBudgetDragEnd = () => {
         setDraggedBudgetId(null);
         setDraggedBudgetHeaderId(null);
@@ -469,20 +569,25 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                     return (
                         <Card
                             key={header.id}
+                            data-header-id={header.id}
                             className={`transition-all ${
                                 draggedHeaderId === header.id ? 'opacity-50 scale-95' : ''
                             } ${
-                                dragOverHeaderId === header.id ? 'ring-2 ring-primary' : ''
+                                dragOverHeaderId === header.id ? 'border-b-2 border-b-primary bg-muted/50' : ''
                             }`}
-                            onDragOver={(e) => handleHeaderDragOver(e, header.id)}
-                            onDragLeave={handleHeaderDragLeave}
-                            onDrop={(e) => handleHeaderDrop(e, header.id)}
+                            onPointerMove={(e) => handleHeaderPointerMove(e)}
+                            onPointerUp={(e) => handleHeaderPointerUp(e)}
+                            onDragOver={(e) => e.preventDefault()}
                         >
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <div
-                                    draggable={!expandedHeaders.has(header.id)}
-                                    onDragStart={(e) => handleHeaderDragStart(e, header.id)}
-                                    onDragEnd={handleHeaderDragEnd}
+                                    draggable={false}
+                                    onPointerDown={(e) => handleHeaderPointerDown(e, header.id)}
+                                    onDragStart={(e) => e.preventDefault()}
+                                    onDragEnd={(e) => {
+                                        setDraggedHeaderId(null);
+                                        setDragOverHeaderId(null);
+                                    }}
                                     className={`cursor-move space-y-1 ${!expandedHeaders.has(header.id) ? 'cursor-grab' : 'cursor-not-allowed'}`}
                                     style={{ touchAction: 'none' }}
                                     onClick={(e) => {
@@ -593,18 +698,28 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                     <TableHead className="text-right">Action</TableHead>
                                                 </TableRow>
                                             </TableHeader>
-                                            <TableBody ref={tableBodyRef} onDrop={handleTableBodyDrop}>
-                                                {associatedBudgets.map((budget) => (
+                                            <TableBody ref={tableBodyRef}>
+                                                {associatedBudgets.map((budget, index) => (
                                                     <TableRow
                                                         key={budget.id}
                                                         data-budget-id={budget.id}
-                                                        draggable
-                                                        onDragStart={(e) => handleBudgetDragStart(e, budget.id, header.id)}
-                                                        onDragOver={(e) => e.preventDefault()}
-                                                        onDragEnd={handleBudgetDragEnd}
-                                                        className={`cursor-move hover:bg-muted/50 transition-colors ${
-                                                            draggedBudgetId === budget.id ? 'opacity-50' : ''
-                                                        }`}
+                                                        draggable={false}
+                                                        onPointerDown={(e) => handleBudgetPointerDown(e, budget.id, header.id)}
+                                                        onPointerMove={(e) => handleBudgetPointerMove(e)}
+                                                        onPointerUp={(e) => handleBudgetPointerUp(e)}
+                                                        onDragStart={(e) => e.preventDefault()}
+                                                        onDragOver={(e) => {
+                                                            e.preventDefault();
+                                                            setDragOverBudgetIndex(index);
+                                                        }}
+                                                        onDragEnd={(e) => {
+                                                            setDraggedBudgetId(null);
+                                                            setDraggedBudgetHeaderId(null);
+                                                            setDragOverBudgetIndex(null);
+                                                        }}
+                                                        className={`cursor-move transition-colors ${
+                                                            draggedBudgetId === budget.id ? 'opacity-50 bg-muted' : ''
+                                                        } ${dragOverBudgetIndex === index && draggedBudgetId !== budget.id ? 'border-b-2 border-b-primary bg-muted/50' : ''}`}
                                                     >
                                                         <TableCell className="font-medium">{budget.name}</TableCell>
                                                         <TableCell>
