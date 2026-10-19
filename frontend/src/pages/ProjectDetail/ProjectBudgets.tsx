@@ -104,6 +104,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     });
 
     const [expandedHeaders, setExpandedHeaders] = useState<Set<string>>(new Set<string>());
+    const [selectedBudgetIds, setSelectedBudgetIds] = useState<Set<string>>(new Set<string>());
 
     useEffect(() => {
         loadData();
@@ -144,6 +145,22 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         } finally {
             setIsLoading(false);
         }
+    };
+
+    const toggleSelectBudget = (budgetId: string, checked: boolean) => {
+        console.log('[Budget Selection] Toggle budget:', budgetId, 'checked:', checked);
+        setSelectedBudgetIds(prev => {
+            const newSet = new Set(prev);
+            if (checked) {
+                newSet.add(budgetId);
+            } else {
+                newSet.delete(budgetId);
+            }
+            const selectedArray = Array.from(newSet);
+            console.log('[Budget Selection] Updated selected IDs:', selectedArray);
+            console.log('[Budget Selection] Total selected:', selectedArray.length);
+            return newSet;
+        });
     };
 
     const handleAddHeader = async () => {
@@ -455,6 +472,11 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                         {getTypeLabel(header.type)}
                                                     </span>
                                                     <span>{formatNumber(headerTotal)}</span>
+                                                    {associatedBudgets.length > 0 && (
+                                                        <span className="ml-2 text-xs text-muted-foreground">
+                                                            {Array.from(selectedBudgetIds).filter(id => associatedBudgets.some(b => b.id === id)).length} selected
+                                                        </span>
+                                                    )}
                                                     <button
                                                         type="button"
                                                         className="ml-2 text-muted-foreground hover:text-foreground pointer-events-auto"
@@ -540,6 +562,32 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                         <Table>
                                                             <TableHeader>
                                                                 <TableRow>
+                                                                    <TableHead className="w-10 px-2">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            className="h-4 w-4 accent-primary"
+                                                                            checked={associatedBudgets.length > 0 && associatedBudgets.every(b => selectedBudgetIds.has(b.id))}
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                const target = e.target as HTMLInputElement;
+                                                                                const allChecked = target.checked;
+                                                                                const newSet = new Set(selectedBudgetIds);
+                                                                                associatedBudgets.forEach(b => {
+                                                                                    if (allChecked) {
+                                                                                        newSet.add(b.id);
+                                                                                    } else {
+                                                                                        newSet.delete(b.id);
+                                                                                    }
+                                                                                });
+                                                                                const selectedArray = Array.from(newSet);
+                                                                                console.log('[Select All] All checked:', allChecked, 'Budgets:', associatedBudgets.map(b => b.id));
+                                                                                console.log('[Select All] Updated selected IDs:', selectedArray);
+                                                                                console.log('[Select All] Total selected:', selectedArray.length);
+                                                                                setSelectedBudgetIds(newSet);
+                                                                            }}
+                                                                            onChange={() => {}}
+                                                                        />
+                                                                    </TableHead>
                                                                     <TableHead>Name</TableHead>
                                                                     <TableHead>Type</TableHead>
                                                                     <TableHead className="text-right">Amount</TableHead>
@@ -550,6 +598,23 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                                 <TableBody>
                                                                     {associatedBudgets.map((budget) => (
                                                                         <BudgetSortableRow key={budget.id} id={budget.id}>
+                                                                            <TableCell className="px-2">
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    className="h-4 w-4 accent-primary"
+                                                                                    checked={selectedBudgetIds.has(budget.id)}
+                                                                                    onPointerDown={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        const target = e.target as HTMLInputElement;
+                                                                                        const newChecked = !target.checked;
+                                                                                        toggleSelectBudget(budget.id, newChecked);
+                                                                                    }}
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                    }}
+                                                                                    onChange={() => {}}
+                                                                                />
+                                                                            </TableCell>
                                                                             <TableCell className="font-medium">{budget.name}</TableCell>
                                                                             <TableCell>
                                                                                 <span className={`text-xs px-2 py-0.5 rounded ${
