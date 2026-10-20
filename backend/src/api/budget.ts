@@ -9,9 +9,11 @@ import {
     createBudget,
     updateBudget,
     deleteBudget,
+    cloneBudget,
     CreateBudgetRequest,
     UpdateBudgetRequest,
-    GetBudgetsQuery
+    GetBudgetsQuery,
+    CloneBudgetRequest
 } from '../controller/budget.js';
 import { verifyToken } from '../utils/jwt.js';
 
@@ -109,6 +111,22 @@ const budgetRoute = async (app: FastifyInstance): Promise<void> => {
                 reply.code(204).send();
             } catch (error) {
                 reply.code(500).send({ error: 'Failed to delete budget' });
+            }
+        }
+    );
+
+    app.post(
+        '/budget/clone',
+        async (request: FastifyRequest<{ Body: CloneBudgetRequest }>, reply: FastifyReply): Promise<void> => {
+            try {
+                await verifyAuth(request, reply);
+                const user = (request as any).user;
+                const body = { ...request.body, updatedBy: user.id };
+                const actual = await cloneBudget(body);
+                reply.code(201).send(actual);
+            } catch (error: any) {
+                const errorMessage = error?.message || 'Failed to clone budget';
+                reply.code(500).send({ error: errorMessage });
             }
         }
     );

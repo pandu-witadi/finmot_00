@@ -1,4 +1,6 @@
 import { Actual } from '../model/actual.js';
+import { Budget } from '../model/budget.js';
+import { Project } from '../model/project.js';
 import mongoose from 'mongoose';
 
 export interface ActualResponse {
@@ -205,6 +207,25 @@ export async function updateActual(id: string, body: UpdateActualRequest): Promi
 }
 
 export async function deleteActual(id: string): Promise<boolean> {
+    const actual = await Actual.findById(id);
+    if (!actual) {
+        return false;
+    }
+
+    // Remove actual ID from budget's arrActual
+    if (actual.budget) {
+        await Budget.findByIdAndUpdate(actual.budget, {
+            $pull: { arrActual: id }
+        });
+    }
+
+    // Remove actual ID from project's arrActual
+    if (actual.project) {
+        await Project.findByIdAndUpdate(actual.project, {
+            $pull: { arrActual: id }
+        });
+    }
+
     const result = await Actual.findByIdAndDelete(id);
     return result !== null;
 }

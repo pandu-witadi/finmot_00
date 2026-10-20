@@ -76,4 +76,13 @@ export const budgetApi = {
     create: (data: any) => api.post(`/budget`, data),
     update: (id: string, data: any) => api.put(`/budget/${id}`, data),
     delete: (id: string) => api.delete(`/budget/${id}`),
+    clone: (data: any) => api.post(`/budget/clone`, data),
+};
+
+export const actualApi = {
+    getAllByProject: (projectId: string) => api.get(`/actual?filter=${JSON.stringify({ project: projectId })}`),
+    getById: (id: string) => api.get(`/actual/${id}`),
+    create: (data: any) => api.post(`/actual`, data),
+    update: (id: string, data: any) => api.put(`/actual/${id}`, data),
+    delete: (id: string) => api.delete(`/actual/${id}`),
 };

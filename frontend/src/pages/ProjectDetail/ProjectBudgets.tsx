@@ -15,12 +15,14 @@ import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-ki
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { actualApi } from "@/services/api";
 
 function formatNumber(value: number): string {
     const num = Number(value) || 0;
-    const [integer, decimal] = num.toFixed(2).split('.');
+    const integer = Math.floor(num).toString();
     const formattedInteger = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    return `${formattedInteger},${decimal}`;
+    return formattedInteger;
 }
 
 function getTypeLabel(type: 'income' | 'expense'): string {
@@ -106,6 +108,9 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
 
     const [expandedHeaders, setExpandedHeaders] = useState<Set<string>>(new Set<string>());
     const [selectedBudgetIds, setSelectedBudgetIds] = useState<Set<string>>(new Set<string>());
+    const [isCloneConfirmOpen, setIsCloneConfirmOpen] = useState(false);
+    const [clonedBudgets, setClonedBudgets] = useState<{budget: Budget, name: string}[]>([]);
+    const [actuals, setActuals] = useState<{[budgetId: string]: {id: string, name: string, amount: number}[]}>({});
 
     const toggleSelectBudget = (budgetId: string) => {
         const newSet = new Set(selectedBudgetIds);
@@ -127,6 +132,44 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         setSelectedBudgetIds(newSet);
     };
 
+    const openCloneConfirm = () => {
+        const budgetsToClone = budgets.filter(b => selectedBudgetIds.has(b.id));
+        const budgetsWithNames = budgetsToClone.map(b => ({
+            budget: b,
+            name: b.name
+        }));
+        setClonedBudgets(budgetsWithNames);
+        setIsCloneConfirmOpen(true);
+    };
+
+    const handleCloneConfirm = async () => {
+        try {
+            const clonePromises = clonedBudgets.map(async (item) => {
+                const budget = budgets.find(b => b.id === item.budget.id);
+                if (!budget) return null;
+                
+                await budgetApi.clone({
+                    budgetId: budget.id,
+                    actualName: item.name,
+                });
+                
+                return budget;
+            });
+            
+            const cloned = await Promise.all(clonePromises);
+            const count = cloned.filter(b => b !== null).length;
+            toast.success(`Successfully cloned ${count} budget${count !== 1 ? 's' : ''}`);
+            
+            setIsCloneConfirmOpen(false);
+            setClonedBudgets([]);
+            setSelectedBudgetIds(new Set<string>());
+            await loadData();
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.error || "Failed to clone budgets";
+            toast.error(errorMessage);
+        }
+    };
+
     useEffect(() => {
         loadData();
     }, [projectId]);
@@ -140,9 +183,10 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
 
     const loadData = async () => {
         try {
-            const [headersRes, budgetsRes] = await Promise.all([
+            const [headersRes, budgetsRes, actualsRes] = await Promise.all([
                 headerApi.getAllByProject(projectId),
-                budgetApi.getAllByProject(projectId)
+                budgetApi.getAllByProject(projectId),
+                actualApi.getAllByProject(projectId)
             ]);
             const headers = Array.isArray(headersRes.data) ? headersRes.data : [];
             setHeaders(headers);
@@ -160,6 +204,23 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                 return indexA - indexB;
             });
             setBudgets(sortedBudgets);
+            
+            // Group actuals by budget ID
+            const actualsData = Array.isArray(actualsRes.data) ? actualsRes.data : [];
+            const actualsMap: {[budgetId: string]: {id: string, name: string, amount: number}[]} = {};
+            actualsData.forEach((actual: any) => {
+                if (actual.budget) {
+                    if (!actualsMap[actual.budget]) {
+                        actualsMap[actual.budget] = [];
+                    }
+                    actualsMap[actual.budget].push({
+                        id: actual.id,
+                        name: actual.name,
+                        amount: actual.amount
+                    });
+                }
+            });
+            setActuals(actualsMap);
         } catch (error: any) {
             const errorMessage = error?.response?.data?.error || "Failed to load budgets";
             toast.error(errorMessage);
@@ -523,21 +584,20 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                 </div>
                                             </div>
                                             <div className="flex gap-2">
-                                                {selectedBudgetIds.size > 0 && (
+                                                {associatedBudgets.length > 0 && Array.from(selectedBudgetIds).some(id => associatedBudgets.some(b => b.id === id)) && (
                                                     <DropdownMenu>
                                                         <DropdownMenuTrigger asChild>
                                                             <Button size="sm">
-                                                                {selectedBudgetIds.size} selected
+                                                                {Array.from(selectedBudgetIds).filter(id => associatedBudgets.some(b => b.id === id)).length} selected
                                                             </Button>
                                                         </DropdownMenuTrigger>
                                                         <DropdownMenuContent align="end">
-                                                            <DropdownMenuItem onClick={() => {
-                                                                toast.success("Clone action would clone " + selectedBudgetIds.size + " budgets");
-                                                            }}>
+                                                            <DropdownMenuItem onClick={openCloneConfirm}>
                                                                 Clone
                                                             </DropdownMenuItem>
                                                             <DropdownMenuItem onClick={() => {
-                                                                toast.success("Register action would register " + selectedBudgetIds.size + " budgets");
+                                                                const selectedInHeader = Array.from(selectedBudgetIds).filter(id => associatedBudgets.some(b => b.id === id));
+                                                                toast.success("Register action would register " + selectedInHeader.length + " budgets in this header");
                                                             }}>
                                                                 Register
                                                             </DropdownMenuItem>
@@ -606,79 +666,113 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                                     <TableHead className="w-[50%] px-2 text-left">Name</TableHead>
                                                                     <TableHead className="w-[12.5%] px-2 text-left">Type</TableHead>
                                                                     <TableHead className="text-right w-[12.5%]">Amount</TableHead>
-                                                                    <TableHead className="text-right w-[25%] border-l">Actual</TableHead>
+                                                                    <TableHead className="text-left w-[30%] border-l">actName</TableHead>
+                                                                    <TableHead className="text-right w-[15%]">actAmount</TableHead>
                                                                 </TableRow>
                                                             </TableHeader>
                                                             <SortableContext items={associatedBudgets.map((b) => b.id)} strategy={verticalListSortingStrategy}>
                                                                 <TableBody>
-                                                                    {associatedBudgets.map((budget) => (
-                                                                        <BudgetSortableRow key={budget.id} id={budget.id}>
-                                                                            <TableCell className="px-2 text-left">
-                                                                                <input
-                                                                                    type="checkbox"
-                                                                                    className="h-4 w-4 accent-primary"
-                                                                                    checked={selectedBudgetIds.has(budget.id)}
-                                                                                    onPointerDown={(e) => {
-                                                                                        e.stopPropagation();
-                                                                                        toggleSelectBudget(budget.id);
-                                                                                    }}
-                                                                                    onChange={() => {}}
-                                                                                />
-                                                                            </TableCell>
-                                                                            <TableCell className="w-[50%] px-2 text-left">
-                                                                                <div className="flex items-center gap-2">
-                                                                                    <span
-                                                                                        className="cursor-pointer hover:underline font-medium"
-                                                                                        onClick={() => openEditBudget(budget)}
-                                                                                    >
-                                                                                        {budget.name}
-                                                                                    </span>
-                                                                                    <div className="flex items-center gap-1 opacity-0 hover:opacity-100 transition-opacity">
-                                                                                        <Button
-                                                                                            variant="ghost"
-                                                                                            size="icon"
-                                                                                            className="h-6 w-6"
-                                                                                            onClick={(e) => { e.stopPropagation(); openEditBudget(budget); }}
-                                                                                            title="Edit budget"
-                                                                                        >
-                                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil">
-                                                                                                <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                                                                                                <path d="m15 5 4 4" />
-                                                                                            </svg>
-                                                                                        </Button>
-                                                                                        <Button
-                                                                                            variant="ghost"
-                                                                                            size="icon"
-                                                                                            className="h-6 w-6"
-                                                                                            onClick={(e) => { e.stopPropagation(); handleDeleteBudget(budget.id); }}
-                                                                                            title="Delete budget"
-                                                                                        >
-                                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2">
-                                                                                                <path d="M3 6h18" />
-                                                                                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                                                                                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                                                                                                <path d="M19 4v16c0 1-1 2-2 2H7c-1 0-2-1-2-2V4" />
-                                                                                            </svg>
-                                                                                        </Button>
-                                                                                    </div>
-                                                                                </div>
-                                                                            </TableCell>
-                                                                            <TableCell className="w-[12.5%] px-2 text-left">
-                                                                                <span className={`text-xs px-2 py-0.5 rounded ${
-                                                                                    budget.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                                                                                }`}>
-                                                                                    {getTypeLabel(budget.type)}
-                                                                                </span>
-                                                                            </TableCell>
-                                                                            <TableCell className="w-[12.5%] text-right">
-                                                                                <span className="text-sm">
-                                                                                    {formatNumber(budget.amount)}
-                                                                                </span>
-                                                                            </TableCell>
-                                                                            <TableCell className="w-[12.5%] text-right border-l">
-                                                                            </TableCell>
-                                                                        </BudgetSortableRow>
-                                                                    ))}
+                                                                    {associatedBudgets.flatMap((budget) => {
+                                                                        const budgetActuals = actuals[budget.id] || [];
+                                                                        if (budgetActuals.length === 0) {
+                                                                            return (
+                                                                                <tr key={budget.id}>
+                                                                                        <TableCell className="px-2 text-left">
+                                                                                            <input
+                                                                                                type="checkbox"
+                                                                                                className="h-4 w-4 accent-primary"
+                                                                                                checked={selectedBudgetIds.has(budget.id)}
+                                                                                                onPointerDown={(e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                    toggleSelectBudget(budget.id);
+                                                                                                }}
+                                                                                                onChange={() => {}}
+                                                                                            />
+                                                                                        </TableCell>
+                                                                                        <TableCell className="w-[50%] px-2 text-left">
+                                                                                            <div className="flex items-center gap-2">
+                                                                                                <span
+                                                                                                    className="cursor-pointer hover:underline font-medium"
+                                                                                                    onClick={() => openEditBudget(budget)}
+                                                                                                >
+                                                                                                    {budget.name}
+                                                                                                </span>
+                                                                                            </div>
+                                                                                        </TableCell>
+                                                                                        <TableCell className="w-[12.5%] px-2 text-left">
+                                                                                            <span className={`text-xs px-2 py-0.5 rounded ${
+                                                                                                budget.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                                                                            }`}>
+                                                                                                {getTypeLabel(budget.type)}
+                                                                                            </span>
+                                                                                        </TableCell>
+                                                                                        <TableCell className="w-[12.5%] text-right">
+                                                                                            <span className="text-sm">
+                                                                                                {formatNumber(budget.amount)}
+                                                                                            </span>
+                                                                                        </TableCell>
+                                                                                        <TableCell className="w-[30%] text-left border-l">
+                                                                                            <span className="text-sm text-muted-foreground">—</span>
+                                                                                        </TableCell>
+                                                                                        <TableCell className="w-[15%] text-right">
+                                                                                            <span className="text-sm text-muted-foreground">—</span>
+                                                                                        </TableCell>
+                                                                                    </tr>
+                                                                            );
+                                                                        }
+                                                                        return budgetActuals.map((actual, index) => (
+                                                                                <tr key={actual.id}>
+                                                                                    {index === 0 && (
+                                                                                        <>
+                                                                                            <TableCell rowSpan={budgetActuals.length} className="px-2 text-left">
+                                                                                                <input
+                                                                                                    type="checkbox"
+                                                                                                    className="h-4 w-4 accent-primary"
+                                                                                                    checked={selectedBudgetIds.has(budget.id)}
+                                                                                                    onPointerDown={(e) => {
+                                                                                                        e.stopPropagation();
+                                                                                                        toggleSelectBudget(budget.id);
+                                                                                                    }}
+                                                                                                    onChange={() => {}}
+                                                                                                />
+                                                                                            </TableCell>
+                                                                                            <TableCell rowSpan={budgetActuals.length} className="w-[50%] px-2 text-left">
+                                                                                                <div className="flex items-center gap-2">
+                                                                                                    <span
+                                                                                                        className="cursor-pointer hover:underline font-medium"
+                                                                                                        onClick={() => openEditBudget(budget)}
+                                                                                                    >
+                                                                                                        {budget.name}
+                                                                                                    </span>
+                                                                                                </div>
+                                                                                            </TableCell>
+                                                                                            <TableCell rowSpan={budgetActuals.length} className="w-[12.5%] px-2 text-left">
+                                                                                                <span className={`text-xs px-2 py-0.5 rounded ${
+                                                                                                    budget.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                                                                                }`}>
+                                                                                                    {getTypeLabel(budget.type)}
+                                                                                                </span>
+                                                                                            </TableCell>
+                                                                                            <TableCell rowSpan={budgetActuals.length} className="w-[12.5%] text-right">
+                                                                                                <span className="text-sm">
+                                                                                                    {formatNumber(budget.amount)}
+                                                                                                </span>
+                                                                                            </TableCell>
+                                                                                        </>
+                                                                                    )}
+                                                                                    <TableCell className="w-[30%] text-left border-l">
+                                                                                        <span className="text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground hover:underline cursor-pointer" title={actual.name}>
+                                                                                            {actual.name}
+                                                                                        </span>
+                                                                                    </TableCell>
+                                                                                    <TableCell className="w-[15%] text-right">
+                                                                                        <span className="text-sm text-muted-foreground">
+                                                                                            {formatNumber(actual.amount)}
+                                                                                        </span>
+                                                                                    </TableCell>
+                                                                                </tr>
+                                                                            ));
+                                                                        })}
                                                                 </TableBody>
                                                             </SortableContext>
                                                         </Table>
@@ -728,8 +822,45 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                 setEditBudgetForm={setEditBudgetForm}
                 onEditBudget={handleEditBudget}
             />
+
+            <Dialog open={isCloneConfirmOpen} onOpenChange={setIsCloneConfirmOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Clone Budget to Actual</DialogTitle>
+                        <DialogDescription>
+                            This will create Actual records for {clonedBudgets.length} selected budget(s). Each Actual will copy the name, type, amount, and tags from the Budget.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <div className="space-y-2">
+                            {clonedBudgets.map((item, index) => (
+                                <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                                    <div>
+                                        <div className="font-medium">{item.name}</div>
+                                        <div className="text-sm text-muted-foreground">
+                                            {item.budget.type === 'income' ? 'Income' : 'Expense'} - {formatNumber(item.budget.amount)}
+                                        </div>
+                                    </div>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
+                                        <path d="m12 3 1.912 5.513a2 2 0 0 0 2.549 1.532l5.508-.918a2 2 0 0 1 2.49 2.49l-.918 5.508a2 2 0 0 0 1.532 2.549l5.513 1.912a2 2 0 0 1 0 3.824l-5.513 1.912a2 2 0 0 0-1.532 2.549l.918 5.508a2 2 0 0 1-2.49 2.49l-5.508-.918a2 2 0 0 0-2.549 1.532l-1.912 5.513a2 2 0 0 1-3.824 0l-1.912-5.513a2 2 0 0 0-2.549-1.532l-5.508.918a2 2 0 0 1-2.49-2.49l.918-5.508a2 2 0 0 0-1.532-2.549l-5.513-1.912a2 2 0 0 1 0-3.824l5.513-1.912a2 2 0 0 0 1.532-2.549l-.918-5.508a2 2 0 0 1 2.49-2.49l5.508.918a2 2 0 0 0 2.549-1.532L12 3Z"/>
+                                    </svg>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsCloneConfirmOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleCloneConfirm}>
+                            Clone {clonedBudgets.length} budget{clonedBudgets.length !== 1 ? 's' : ''}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
 
 export default ProjectBudgets;
+

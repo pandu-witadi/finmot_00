@@ -1,7 +1,38 @@
 import { Budget } from '../model/budget.js';
 import { Header } from '../model/header.js';
 import { Project } from '../model/project.js';
+import { Actual, ActualDoc } from '../model/actual.js';
 import mongoose from 'mongoose';
+
+interface ActualResponseInternal {
+    id: string;
+    name: string;
+    tags: string[];
+    active: boolean;
+    type: 'income' | 'expense';
+    amount: number;
+    project: string;
+    budget: string;
+    trx: string;
+    updatedBy: string;
+    createdAt: Date;
+}
+
+function actualToResponse(actual: ActualDoc | ActualResponseInternal): ActualResponseInternal {
+    return {
+        id: actual._id.toString(),
+        name: actual.name,
+        tags: actual.tags,
+        active: actual.active,
+        type: actual.type,
+        amount: actual.amount,
+        project: actual.project.toString(),
+        budget: actual.budget.toString(),
+        trx: actual.trx.toString(),
+        updatedBy: actual.updatedBy.toString(),
+        createdAt: actual.createdAt,
+    };
+}
 
 export interface BudgetResponse {
     id: string;
@@ -16,6 +47,12 @@ export interface BudgetResponse {
     arrTransaction: string[];
     updatedBy: string;
     createdAt: Date;
+}
+
+export interface CloneBudgetRequest {
+    budgetId: string;
+    actualName: string;
+    updatedBy: string;
 }
 
 export interface CreateBudgetRequest {
@@ -247,4 +284,36 @@ export async function deleteBudget(id: string): Promise<boolean> {
     // Delete the budget
     const result = await Budget.findByIdAndDelete(id);
     return result !== null;
+}
+
+export async function cloneBudget(body: CloneBudgetRequest): Promise<ActualResponse> {
+    const budget = await Budget.findById(body.budgetId);
+    if (!budget) {
+        throw new Error('Budget not found');
+    }
+
+    const actual = new Actual({
+        name: body.actualName.trim() || budget.name,
+        tags: [...budget.tags],
+        active: budget.active,
+        type: budget.type,
+        amount: budget.amount,
+        project: budget.project,
+        budget: budget._id,
+        trx: new mongoose.Types.ObjectId("000000000000000000000000"),
+        updatedBy: new mongoose.Types.ObjectId(body.updatedBy),
+    });
+    await actual.save();
+
+    // Add actual ID to budget's arrActual
+    await Budget.findByIdAndUpdate(body.budgetId, {
+        $push: { arrActual: actual._id }
+    });
+
+    // Add actual ID to project's arrActual
+    await Project.findByIdAndUpdate(budget.project, {
+        $push: { arrActual: actual._id }
+    });
+
+    return actualToResponse(actual);
 }
