@@ -53,8 +53,8 @@ function HeaderSortableItem({ id, children, isExpanded }: { id: string; children
 }
 
 // Budget Row Sortable Item
-function BudgetSortableRow({ id, children }: { id: string; children: React.ReactNode }) {
-    const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
+function BudgetSortableRow({ id, children, disabled }: { id: string; children: React.ReactNode; disabled?: boolean }) {
+    const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id, disabled });
 
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -62,7 +62,7 @@ function BudgetSortableRow({ id, children }: { id: string; children: React.React
     };
 
     return (
-        <tr ref={setNodeRef} style={style} {...attributes} {...listeners}>
+        <tr ref={setNodeRef} style={style} {...attributes} {...listeners} className={disabled ? '' : 'cursor-move'}>
             {children}
         </tr>
     );
@@ -720,8 +720,11 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                                                     </tr>
                                                                             );
                                                                         }
-                                                                        return budgetActuals.map((actual, index) => (
-                                                                                <tr key={actual.id}>
+                                                                        return budgetActuals.map((actual, index) => {
+                                                                            const isDraggable = index === 0;
+                                                                            const rowKey = index === 0 ? budget.id : actual.id;
+                                                                            return (
+                                                                                <BudgetSortableRow key={rowKey} id={rowKey} disabled={!isDraggable}>
                                                                                     {index === 0 && (
                                                                                         <>
                                                                                             <TableCell rowSpan={budgetActuals.length} className="px-2 text-left">
@@ -770,8 +773,9 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                                                             {formatNumber(actual.amount)}
                                                                                         </span>
                                                                                     </TableCell>
-                                                                                </tr>
-                                                                            ));
+                                                                                </BudgetSortableRow>
+                                                                            );
+                                                                        });
                                                                         })}
                                                                 </TableBody>
                                                             </SortableContext>
