@@ -676,48 +676,48 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                                         const budgetActuals = actuals[budget.id] || [];
                                                                         if (budgetActuals.length === 0) {
                                                                             return (
-                                                                                <tr key={budget.id}>
-                                                                                        <TableCell className="px-2 text-left">
-                                                                                            <input
-                                                                                                type="checkbox"
-                                                                                                className="h-4 w-4 accent-primary"
-                                                                                                checked={selectedBudgetIds.has(budget.id)}
-                                                                                                onPointerDown={(e) => {
-                                                                                                    e.stopPropagation();
-                                                                                                    toggleSelectBudget(budget.id);
-                                                                                                }}
-                                                                                                onChange={() => {}}
-                                                                                            />
-                                                                                        </TableCell>
-                                                                                        <TableCell className="w-[50%] px-2 text-left">
-                                                                                            <div className="flex items-center gap-2">
-                                                                                                <span
-                                                                                                    className="cursor-pointer hover:underline font-medium"
-                                                                                                    onClick={() => openEditBudget(budget)}
-                                                                                                >
-                                                                                                    {budget.name}
-                                                                                                </span>
-                                                                                            </div>
-                                                                                        </TableCell>
-                                                                                        <TableCell className="w-[12.5%] px-2 text-left">
-                                                                                            <span className={`text-xs px-2 py-0.5 rounded ${
-                                                                                                budget.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                                                                                            }`}>
-                                                                                                {getTypeLabel(budget.type)}
+                                                                                <BudgetSortableRow key={budget.id} id={budget.id} disabled={false}>
+                                                                                    <TableCell className="px-2 text-left">
+                                                                                        <input
+                                                                                            type="checkbox"
+                                                                                            className="h-4 w-4 accent-primary"
+                                                                                            checked={selectedBudgetIds.has(budget.id)}
+                                                                                            onPointerDown={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                toggleSelectBudget(budget.id);
+                                                                                            }}
+                                                                                            onChange={() => {}}
+                                                                                        />
+                                                                                    </TableCell>
+                                                                                    <TableCell className="w-[50%] px-2 text-left">
+                                                                                        <div className="flex items-center gap-2">
+                                                                                            <span
+                                                                                                className="cursor-pointer hover:underline font-medium"
+                                                                                                onClick={() => openEditBudget(budget)}
+                                                                                            >
+                                                                                                {budget.name}
                                                                                             </span>
-                                                                                        </TableCell>
-                                                                                        <TableCell className="w-[12.5%] text-right">
-                                                                                            <span className="text-sm">
-                                                                                                {formatNumber(budget.amount)}
-                                                                                            </span>
-                                                                                        </TableCell>
-                                                                                        <TableCell className="w-[30%] text-left border-l">
-                                                                                            <span className="text-sm text-muted-foreground">—</span>
-                                                                                        </TableCell>
-                                                                                        <TableCell className="w-[15%] text-right">
-                                                                                            <span className="text-sm text-muted-foreground">—</span>
-                                                                                        </TableCell>
-                                                                                    </tr>
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                    <TableCell className="w-[12.5%] px-2 text-left">
+                                                                                        <span className={`text-xs px-2 py-0.5 rounded ${
+                                                                                            budget.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                                                                        }`}>
+                                                                                            {getTypeLabel(budget.type)}
+                                                                                        </span>
+                                                                                    </TableCell>
+                                                                                    <TableCell className="w-[12.5%] text-right">
+                                                                                        <span className="text-sm">
+                                                                                            {formatNumber(budget.amount)}
+                                                                                        </span>
+                                                                                    </TableCell>
+                                                                                    <TableCell className="w-[30%] text-left border-l">
+                                                                                        <span className="text-sm text-muted-foreground">—</span>
+                                                                                    </TableCell>
+                                                                                    <TableCell className="w-[15%] text-right">
+                                                                                        <span className="text-sm text-muted-foreground">—</span>
+                                                                                    </TableCell>
+                                                                                </BudgetSortableRow>
                                                                             );
                                                                         }
                                                                         return budgetActuals.map((actual, index) => {
