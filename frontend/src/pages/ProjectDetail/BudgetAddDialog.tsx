@@ -9,6 +9,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { formatNumber } from "@/utils/formatters";
 import { Header } from "./useBudgetHeaders";
 
 interface BudgetAddDialogProps {
@@ -78,10 +79,13 @@ export function BudgetAddDialog({
                             <Label htmlFor="budgetAmount">Amount</Label>
                             <Input
                                 id="budgetAmount"
-                                type="number"
-                                value={budgetForm.amount}
-                                onChange={e => setBudgetForm(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
-                                placeholder="0.00"
+                                type="text"
+                                value={formatNumber(budgetForm.amount)}
+                                onChange={e => {
+                                    const rawValue = e.target.value.replace(/\./g, '');
+                                    setBudgetForm(prev => ({ ...prev, amount: parseFloat(rawValue) || 0 }));
+                                }}
+                                placeholder="0"
                             />
                         </div>
                     </div>

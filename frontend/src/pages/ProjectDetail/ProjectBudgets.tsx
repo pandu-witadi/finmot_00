@@ -2,32 +2,23 @@ import { useState, useEffect } from "react";
 import { headerApi, budgetApi, projectApi } from "@/services/api";
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableRow, TableHead, TableHeader } from "@/components/ui/table";
 import { HeaderAddDialog } from "./HeaderAddDialog";
 import { BudgetAddDialog } from "./BudgetAddDialog";
 import { HeaderEditDialog } from "./HeaderEditDialog";
 import { BudgetEditDialog } from "./BudgetEditDialog";
+import { ActualEditDialog } from "./ActualEditDialog";
 import { Header } from "./useBudgetHeaders";
 import { Budget } from "./useBudgets";
 import { DndContext, DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { actualApi } from "@/services/api";
-
-function formatNumber(value: number): string {
-    const num = Number(value) || 0;
-    const integer = Math.floor(num).toString();
-    const formattedInteger = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    return formattedInteger;
-}
-
-function getTypeLabel(type: 'income' | 'expense'): string {
-    return type === 'income' ? 'in' : 'ex';
-}
+import { formatNumber, getTypeLabel, parseTags } from "@/utils/formatters";
 
 interface ProjectBudgetsProps {
     projectId: string;
@@ -111,12 +102,16 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     const [isCloneConfirmOpen, setIsCloneConfirmOpen] = useState(false);
     const [clonedBudgets, setClonedBudgets] = useState<{budget: Budget, name: string}[]>([]);
     const [actuals, setActuals] = useState<{[budgetId: string]: {id: string, name: string, amount: number}[]}>({});
+    const [isEditActualDialogOpen, setIsEditActualDialogOpen] = useState(false);
+    const [editActualForm, setEditActualForm] = useState({
+        id: '',
+        name: '',
+        amount: 0
+    });
 
     const toggleSelectBudget = (budgetId: string) => {
         const newSet = new Set(selectedBudgetIds);
         newSet.has(budgetId) ? newSet.delete(budgetId) : newSet.add(budgetId);
-        console.log('[Budget Selection] Updated selected IDs:', Array.from(newSet));
-        console.log('[Budget Selection] Total selected:', newSet.size);
         setSelectedBudgetIds(newSet);
     };
 
@@ -126,9 +121,6 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         budgets.forEach(b => {
             allSelected ? newSet.delete(b.id) : newSet.add(b.id);
         });
-        console.log('[Select All] All selected:', allSelected, 'Budgets:', budgets.map(b => b.id));
-        console.log('[Select All] Updated selected IDs:', Array.from(newSet));
-        console.log('[Select All] Total selected:', newSet.size);
         setSelectedBudgetIds(newSet);
     };
 
@@ -239,10 +231,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             await headerApi.create({
                 name: headerForm.name.trim(),
                 type: headerForm.type,
-                tags: headerForm.tags
-                    .split(',')
-                    .map(t => t.trim())
-                    .filter(t => t.length > 0),
+                tags: parseTags(headerForm.tags),
                 project: projectId,
                 active: true
             });
@@ -272,10 +261,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                 name: budgetForm.name.trim(),
                 type: budgetForm.type,
                 amount: budgetForm.amount,
-                tags: budgetForm.tags
-                    .split(',')
-                    .map(t => t.trim())
-                    .filter(t => t.length > 0),
+                tags: parseTags(budgetForm.tags),
                 project: projectId,
                 header: selectedHeaderId,
                 active: true
@@ -338,7 +324,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
 
     const handleEditHeader = async () => {
         try {
-            const tagArray = editHeaderForm.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+            const tagArray = parseTags(editHeaderForm.tags);
             await headerApi.update(editHeaderForm.id, {
                 name: editHeaderForm.name.trim(),
                 type: editHeaderForm.type,
@@ -354,21 +340,6 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         }
     };
 
-    const handleDeleteBudget = async (id: string) => {
-        if (!window.confirm("Delete this budget item?")) {
-            return;
-        }
-
-        try {
-            await budgetApi.delete(id);
-            toast.success("Budget deleted successfully");
-            await loadData();
-        } catch (error: any) {
-            const errorMessage = error?.response?.data?.error || "Failed to delete budget";
-            toast.error(errorMessage);
-        }
-    };
-
     const openEditBudget = (budget: Budget) => {
         setEditBudgetForm({
             id: budget.id,
@@ -380,9 +351,24 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         setIsEditBudgetDialogOpen(true);
     };
 
+    const handleDeleteBudget = async (budgetId: string) => {
+        if (!window.confirm("Delete this budget item?")) {
+            return;
+        }
+
+        try {
+            await budgetApi.delete(budgetId);
+            toast.success("Budget deleted successfully");
+            await loadData();
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.error || "Failed to delete budget";
+            toast.error(errorMessage);
+        }
+    };
+
     const handleEditBudget = async () => {
         try {
-            const tagArray = editBudgetForm.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+            const tagArray = parseTags(editBudgetForm.tags);
             await budgetApi.update(editBudgetForm.id, {
                 name: editBudgetForm.name.trim(),
                 type: editBudgetForm.type,
@@ -395,6 +381,46 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             await loadData();
         } catch (error: any) {
             const errorMessage = error?.response?.data?.error || "Failed to update budget";
+            toast.error(errorMessage);
+        }
+    };
+
+    const openEditActual = (actual: {id: string, name: string, amount: number}) => {
+        setEditActualForm({
+            id: actual.id,
+            name: actual.name,
+            amount: actual.amount
+        });
+        setIsEditActualDialogOpen(true);
+    };
+
+    const handleDeleteActual = async (actualId: string) => {
+        if (!window.confirm("Delete this actual item?")) {
+            return;
+        }
+
+        try {
+            await actualApi.delete(actualId);
+            toast.success("Actual deleted successfully");
+            await loadData();
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.error || "Failed to delete actual";
+            toast.error(errorMessage);
+        }
+    };
+
+    const handleEditActual = async () => {
+        try {
+            await actualApi.update(editActualForm.id, {
+                name: editActualForm.name.trim(),
+                amount: editActualForm.amount
+            });
+            toast.success("Actual updated successfully");
+            setIsEditActualDialogOpen(false);
+            setEditActualForm({ id: '', name: '', amount: 0 });
+            await loadData();
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.error || "Failed to update actual";
             toast.error(errorMessage);
         }
     };
@@ -507,8 +533,17 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                     <Button onClick={() => setIsAddHeaderDialogOpen(true)}>
                         Add Header
                     </Button>
-                    <Button variant="outline" onClick={handleSaveHeaderPositions}>
-                        Save Header Positions
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={handleSaveHeaderPositions}
+                        title="Save Header Positions"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-save">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                            <path d="M17 21v-8H7v8" />
+                            <path d="M7 10V3a1 1 0 0 1 1-1h5v7" />
+                        </svg>
                     </Button>
                 </div>
             </div>
@@ -586,11 +621,11 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                             <div className="flex gap-2">
                                                 {associatedBudgets.length > 0 && Array.from(selectedBudgetIds).some(id => associatedBudgets.some(b => b.id === id)) && (
                                                     <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <Button size="sm">
-                                                                {Array.from(selectedBudgetIds).filter(id => associatedBudgets.some(b => b.id === id)).length} selected
-                                                            </Button>
-                                                        </DropdownMenuTrigger>
+                                                        <Button size="sm" type="button" className="h-8 px-3" onClick={(e) => {
+                                                            e.stopPropagation()
+                                                        }}>
+                                                            {Array.from(selectedBudgetIds).filter(id => associatedBudgets.some(b => b.id === id)).length} selected
+                                                        </Button>
                                                         <DropdownMenuContent align="end">
                                                             <DropdownMenuItem onClick={openCloneConfirm}>
                                                                 Clone
@@ -616,7 +651,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                     variant="ghost"
                                                     size="icon"
                                                     onClick={(e) => { e.stopPropagation(); handleSaveBudgetPositions(header.id); }}
-                                                    title="Save header budget positions"
+                                                    title="Save budget positions"
                                                 >
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-save">
                                                         <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
@@ -693,7 +728,13 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                                                         <div className="flex items-center gap-2">
                                                                                             <span
                                                                                                 className="cursor-pointer hover:underline font-medium"
-                                                                                                onClick={() => openEditBudget(budget)}
+                                                                                                onClick={(e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                    openEditBudget(budget);
+                                                                                                }}
+                                                                                                onPointerDown={(e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                }}
                                                                                             >
                                                                                                 {budget.name}
                                                                                             </span>
@@ -743,7 +784,13 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                                                                 <div className="flex items-center gap-2">
                                                                                                     <span
                                                                                                         className="cursor-pointer hover:underline font-medium"
-                                                                                                        onClick={() => openEditBudget(budget)}
+                                                                                                        onClick={(e) => {
+                                                                                                            e.stopPropagation();
+                                                                                                            openEditBudget(budget);
+                                                                                                        }}
+                                                                                                        onPointerDown={(e) => {
+                                                                                                            e.stopPropagation();
+                                                                                                        }}
                                                                                                     >
                                                                                                         {budget.name}
                                                                                                     </span>
@@ -764,7 +811,17 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                                                         </>
                                                                                     )}
                                                                                     <TableCell className="w-[30%] text-left border-l">
-                                                                                        <span className="text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground hover:underline cursor-pointer" title={actual.name}>
+                                                                                        <span 
+                                                                                            className="text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground hover:underline cursor-pointer" 
+                                                                                            title={actual.name}
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                openEditActual(actual);
+                                                                                            }}
+                                                                                            onPointerDown={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                            }}
+                                                                                        >
                                                                                             {actual.name}
                                                                                         </span>
                                                                                     </TableCell>
@@ -825,6 +882,17 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                 editBudgetForm={editBudgetForm}
                 setEditBudgetForm={setEditBudgetForm}
                 onEditBudget={handleEditBudget}
+                onDeleteBudget={() => handleDeleteBudget(editBudgetForm.id)}
+                hasActuals={!!actuals[editBudgetForm.id] && actuals[editBudgetForm.id].length > 0}
+            />
+
+            <ActualEditDialog
+                isOpen={isEditActualDialogOpen}
+                onOpenChange={setIsEditActualDialogOpen}
+                editActualForm={editActualForm}
+                setEditActualForm={setEditActualForm}
+                onEditActual={handleEditActual}
+                onDeleteActual={() => handleDeleteActual(editActualForm.id)}
             />
 
             <Dialog open={isCloneConfirmOpen} onOpenChange={setIsCloneConfirmOpen}>

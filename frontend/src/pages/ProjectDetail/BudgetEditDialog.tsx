@@ -9,6 +9,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { formatNumber } from "@/utils/formatters";
 
 interface EditBudgetForm {
     id: string;
@@ -24,6 +25,8 @@ interface BudgetEditDialogProps {
     editBudgetForm: EditBudgetForm;
     setEditBudgetForm: React.Dispatch<React.SetStateAction<EditBudgetForm>>;
     onEditBudget: () => void;
+    onDeleteBudget?: () => void;
+    hasActuals: boolean;
 }
 
 export function BudgetEditDialog({
@@ -32,6 +35,8 @@ export function BudgetEditDialog({
     editBudgetForm,
     setEditBudgetForm,
     onEditBudget,
+    onDeleteBudget,
+    hasActuals,
 }: BudgetEditDialogProps) {
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -39,7 +44,9 @@ export function BudgetEditDialog({
                 <DialogHeader>
                     <DialogTitle>Edit Budget</DialogTitle>
                     <DialogDescription>
-                        Edit the budget name, type, amount, and tags
+                        {hasActuals 
+                            ? 'Edit the budget name, type, amount, and tags. This budget has actual records and cannot be deleted.'
+                            : 'Edit the budget name, type, amount, and tags. You can delete this budget since it has no actual records.'}
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -69,10 +76,13 @@ export function BudgetEditDialog({
                             <Label htmlFor="editBudgetAmount">Amount</Label>
                             <Input
                                 id="editBudgetAmount"
-                                type="number"
-                                value={editBudgetForm.amount}
-                                onChange={e => setEditBudgetForm(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
-                                placeholder="0.00"
+                                type="text"
+                                value={formatNumber(editBudgetForm.amount)}
+                                onChange={e => {
+                                    const rawValue = e.target.value.replace(/\./g, '');
+                                    setEditBudgetForm(prev => ({ ...prev, amount: parseFloat(rawValue) || 0 }));
+                                }}
+                                placeholder="0"
                             />
                         </div>
                     </div>
@@ -90,6 +100,11 @@ export function BudgetEditDialog({
                     <Button variant="outline" onClick={() => onOpenChange(false)}>
                         Cancel
                     </Button>
+                    {!hasActuals && onDeleteBudget && (
+                        <Button variant="destructive" onClick={onDeleteBudget}>
+                            Delete
+                        </Button>
+                    )}
                     <Button onClick={onEditBudget}>
                         Save Changes
                     </Button>
