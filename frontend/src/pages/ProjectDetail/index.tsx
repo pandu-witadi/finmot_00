@@ -86,7 +86,7 @@ export function ProjectDetail() {
                     </TabsContent>
 
                     <TabsContent value="actuals" className="mt-6">
-                        <ProjectActuals />
+                        <ProjectActuals projectId={id!} />
                     </TabsContent>
 
                     <TabsContent value="transactions" className="mt-6">
