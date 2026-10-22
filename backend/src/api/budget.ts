@@ -10,10 +10,12 @@ import {
     updateBudget,
     deleteBudget,
     cloneBudget,
+    cloneToTransaction,
     CreateBudgetRequest,
     UpdateBudgetRequest,
     GetBudgetsQuery,
-    CloneBudgetRequest
+    CloneBudgetRequest,
+    CloneToTransactionRequest
 } from '../controller/budget.js';
 import { verifyToken } from '../utils/jwt.js';
 
@@ -126,6 +128,22 @@ const budgetRoute = async (app: FastifyInstance): Promise<void> => {
                 reply.code(201).send(actual);
             } catch (error: any) {
                 const errorMessage = error?.message || 'Failed to clone budget';
+                reply.code(500).send({ error: errorMessage });
+            }
+        }
+    );
+
+    app.post(
+        '/budget/clonetotransaction',
+        async (request: FastifyRequest<{ Body: CloneToTransactionRequest }>, reply: FastifyReply): Promise<void> => {
+            try {
+                await verifyAuth(request, reply);
+                const user = (request as any).user;
+                const body = { ...request.body, updatedBy: user.id };
+                const result = await cloneToTransaction(body);
+                reply.code(201).send(result);
+            } catch (error: any) {
+                const errorMessage = error?.message || 'Failed to clone to transaction';
                 reply.code(500).send({ error: errorMessage });
             }
         }

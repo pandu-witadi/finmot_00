@@ -45,8 +45,9 @@ const actualRoute = async (app: FastifyInstance): Promise<void> => {
                 };
                 const actuals = await getAllActuals(query);
                 reply.code(200).send(actuals);
-            } catch (error) {
-                reply.code(500).send({ error: 'Failed to retrieve actuals' });
+            } catch (error: any) {
+                console.error("Failed to retrieve actuals:", error);
+                reply.code(500).send({ error: 'Failed to retrieve actuals', details: error.message });
             }
         }
     );

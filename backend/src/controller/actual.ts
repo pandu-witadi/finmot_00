@@ -13,6 +13,7 @@ export interface ActualResponse {
     project: string;
     budget: string;
     trx: string;
+    assignedTo: string;
     updatedBy: string;
     createdAt: Date;
 }
@@ -38,6 +39,7 @@ export interface UpdateActualRequest {
     project?: string;
     budget?: string;
     trx?: string;
+    assignedTo?: string;
     updatedBy?: string;
 }
 
@@ -73,6 +75,7 @@ function actualToResponse(actual: any): ActualResponse {
         project: actual.project.toString(),
         budget: actual.budget.toString(),
         trx: actual.trx.toString(),
+        assignedTo: actual.assignedTo ? actual.assignedTo.toString() : "000000000000000000000000",
         updatedBy: actual.updatedBy.toString(),
         createdAt: actual.createdAt,
     };
@@ -187,6 +190,10 @@ export async function updateActual(id: string, body: UpdateActualRequest): Promi
 
     if (body.trx !== undefined) {
         updateFields.trx = new mongoose.Types.ObjectId(body.trx);
+    }
+
+    if (body.assignedTo !== undefined) {
+        updateFields.assignedTo = new mongoose.Types.ObjectId(body.assignedTo);
     }
 
     if (body.updatedBy !== undefined) {

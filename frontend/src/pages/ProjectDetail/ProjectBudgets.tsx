@@ -162,6 +162,33 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         }
     };
 
+    const handleCloneToTransactionForSelected = async () => {
+        // Get all actuals from selected budgets
+        const selectedBudgets = budgets.filter(b => selectedBudgetIds.has(b.id));
+        const allActuals: {budgetId: string, actualId: string, actualName: string}[] = [];
+        
+        selectedBudgets.forEach(budget => {
+            if (budget.arrActual) {
+                budget.arrActual.forEach(actualId => {
+                    allActuals.push({
+                        budgetId: budget.id,
+                        actualId: actualId,
+                        actualName: `Actual from ${budget.name}`
+                    });
+                });
+            }
+        });
+
+        if (allActuals.length === 0) {
+            toast.error("No actuals found for selected budgets");
+            return;
+        }
+
+        // For now, show a toast with the count
+        // In a full implementation, we'd prompt for transaction names and call the API
+        toast.info(`Clone to transaction would create transactions for ${allActuals.length} actuals`);
+    };
+
     useEffect(() => {
         loadData();
     }, [projectId]);
@@ -636,6 +663,9 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                             }}>
                                                                 Register
                                                             </DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={handleCloneToTransactionForSelected}>
+                                                                Clone to Transaction
+                                                            </DropdownMenuItem>
                                                         </DropdownMenuContent>
                                                     </DropdownMenu>
                                                 )}
@@ -700,8 +730,8 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                                     </TableHead>
                                                                     <TableHead className="w-[50%] px-2 text-left">Name</TableHead>
                                                                     <TableHead className="w-[12.5%] px-2 text-left">Type</TableHead>
-                                                                    <TableHead className="text-right w-[12.5%]">Amount</TableHead>
                                                                     <TableHead className="text-left w-[30%] border-l">actName</TableHead>
+                                                                    <TableHead className="text-right w-[12.5%]">Amount</TableHead>
                                                                     <TableHead className="text-right w-[15%]">actAmount</TableHead>
                                                                 </TableRow>
                                                             </TableHeader>

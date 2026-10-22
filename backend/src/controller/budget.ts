@@ -2,6 +2,7 @@ import { Budget } from '../model/budget.js';
 import { Header } from '../model/header.js';
 import { Project } from '../model/project.js';
 import { Actual, ActualDoc } from '../model/actual.js';
+import { Transaction, TransactionDoc } from '../model/transaction.js';
 import mongoose from 'mongoose';
 
 interface ActualResponseInternal {
@@ -52,6 +53,12 @@ export interface BudgetResponse {
 export interface CloneBudgetRequest {
     budgetId: string;
     actualName: string;
+    updatedBy: string;
+}
+
+export interface CloneToTransactionRequest {
+    actualId: string;
+    trxName: string;
     updatedBy: string;
 }
 
@@ -316,4 +323,54 @@ export async function cloneBudget(body: CloneBudgetRequest): Promise<ActualRespo
     });
 
     return actualToResponse(actual);
+}
+
+export async function cloneToTransaction(body: CloneToTransactionRequest): Promise<{actual: ActualResponse, transaction: any}> {
+    const actual = await Actual.findById(body.actualId);
+    if (!actual) {
+        throw new Error('Actual not found');
+    }
+
+    // Create a new transaction
+    const transaction = new Transaction({
+        name: body.trxName.trim() || actual.name,
+        tags: [...actual.tags],
+        active: actual.active,
+        type: actual.type,
+        amount: actual.amount,
+        project: actual.project,
+        arrActual: [actual._id],
+        updatedBy: new mongoose.Types.ObjectId(body.updatedBy),
+    });
+    await transaction.save();
+
+    // Add transaction ID to project's arrTransaction
+    await Project.findByIdAndUpdate(actual.project, {
+        $push: { arrTransaction: transaction._id }
+    });
+
+    // Update actual's trx field to point to the new transaction
+    actual.trx = transaction._id;
+    await actual.save();
+
+    // Add actual ID to transaction's arrActual
+    await Transaction.findByIdAndUpdate(transaction._id, {
+        $push: { arrActual: actual._id }
+    });
+
+    return {
+        actual: actualToResponse(actual),
+        transaction: {
+            id: transaction._id.toString(),
+            name: transaction.name,
+            tags: transaction.tags,
+            active: transaction.active,
+            type: transaction.type,
+            amount: transaction.amount,
+            project: transaction.project.toString(),
+            arrActual: [actual._id.toString()],
+            updatedBy: transaction.updatedBy.toString(),
+            createdAt: transaction.createdAt,
+        },
+    };
 }

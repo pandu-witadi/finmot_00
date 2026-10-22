@@ -77,6 +77,7 @@ export const budgetApi = {
     update: (id: string, data: any) => api.put(`/budget/${id}`, data),
     delete: (id: string) => api.delete(`/budget/${id}`),
     clone: (data: any) => api.post(`/budget/clone`, data),
+    cloneToTransaction: (data: any) => api.post(`/budget/clonetotransaction`, data),
 };
 
 export const actualApi = {

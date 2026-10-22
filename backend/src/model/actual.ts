@@ -52,6 +52,11 @@ const actualSchema = new Schema<ActualDoc>({
         ref: 'Transaction',
         required: true
     },
+    assignedTo: {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+    },
     updatedBy: {
         type: Schema.Types.ObjectId,
         ref: 'User',
