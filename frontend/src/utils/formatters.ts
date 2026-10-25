@@ -6,7 +6,7 @@ export function formatNumber(value: number): string {
 }
 
 export function getTypeLabel(type: 'income' | 'expense'): string {
-    return type === 'income' ? 'in' : 'ex';
+    return type === 'income' ? 'i' : 'e';
 }
 
 export function formatTypeBadge(type: 'income' | 'expense'): string {

@@ -372,7 +372,7 @@ export function ProjectActuals({ projectId }: ProjectActualsProps) {
                                             />
                                         </TableHead>
                                         <TableHead className="w-[25%]">Name</TableHead>
-                                        <TableHead className="w-[7%]">Type</TableHead>
+                                        <TableHead className="w-[7%] text-center">t</TableHead>
                                         <TableHead className="w-[15%]">Header</TableHead>
                                         <TableHead className="w-[15%] text-right">Amount</TableHead>
                                         <TableHead className="w-[8%]">asgTo</TableHead>
@@ -410,7 +410,7 @@ export function ProjectActuals({ projectId }: ProjectActualsProps) {
                                                     </span>
                                                 </div>
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell className="text-center">
                                                 <span className={`text-xs px-2 py-0.5 rounded ${
                                                     actual.budgetType === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                                                 }`}>
