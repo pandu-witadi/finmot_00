@@ -545,6 +545,140 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         return headerBudgets.reduce((sum, b) => sum + (b.type === 'income' ? b.amount : -b.amount), 0);
     };
 
+    // Helper: Render hidden connector cell (2% width, only visible with purple border for >1 actuals)
+    const renderConnectorCell = (budgetActualsLength: number) => (
+        <TableCell className={`w-[2%] p-0 ${budgetActualsLength > 1 ? 'border-r border-purple-300' : ''}`}></TableCell>
+    );
+
+    // Helper: Render a single actual row
+    const renderBudgetActualRow = (actual: {id: string, name: string, amount: number}, index: number, budget: Budget, budgetActuals: any[]) => {
+        const isDraggable = index === 0;
+        const rowKey = index === 0 ? budget.id : actual.id;
+
+        return (
+            <BudgetSortableRow key={rowKey} id={rowKey} disabled={!isDraggable}>
+                {index === 0 && (
+                    <>
+                        <TableCell rowSpan={budgetActuals.length} className="px-2 text-left">
+                            <input
+                                type="checkbox"
+                                className="h-4 w-4 accent-primary"
+                                checked={selectedBudgetIds.has(budget.id)}
+                                onPointerDown={(e) => {
+                                    e.stopPropagation();
+                                    toggleSelectBudget(budget.id);
+                                }}
+                                onChange={() => {}}
+                            />
+                        </TableCell>
+                        <TableCell rowSpan={budgetActuals.length} className="w-[50%] px-2 text-left">
+                            <div className="flex items-center gap-2">
+                                <span
+                                    className="cursor-pointer hover:underline font-medium"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        openEditBudget(budget);
+                                    }}
+                                    onPointerDown={(e) => {
+                                        e.stopPropagation();
+                                    }}
+                                >
+                                    {budget.name}
+                                </span>
+                            </div>
+                        </TableCell>
+                        <TableCell rowSpan={budgetActuals.length} className="w-[12.5%] px-2 text-center">
+                            <span className={`text-xs px-2 py-0.5 rounded ${
+                                budget.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                            }`}>
+                                {getTypeLabel(budget.type)}
+                            </span>
+                        </TableCell>
+                        <TableCell rowSpan={budgetActuals.length} className="w-[12.5%] text-right border-r border-green-300">
+                            <span className="text-sm">
+                                {formatNumber(budget.amount)}
+                            </span>
+                        </TableCell>
+                    </>
+                )}
+                {renderConnectorCell(budgetActuals.length)}
+                <TableCell className="w-[40%] text-left">
+                    <span 
+                        className="text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground hover:underline cursor-pointer" 
+                        title={actual.name}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            openEditActual(actual);
+                        }}
+                        onPointerDown={(e) => {
+                            e.stopPropagation();
+                        }}
+                    >
+                        {actual.name}
+                    </span>
+                </TableCell>
+                <TableCell className="w-[20%] text-right">
+                    <span className="text-sm text-muted-foreground">
+                        {formatNumber(actual.amount)}
+                    </span>
+                </TableCell>
+            </BudgetSortableRow>
+        );
+    };
+
+    // Helper: Render zero-actual row
+    const renderZeroActualRow = (budget: Budget) => (
+        <BudgetSortableRow key={budget.id} id={budget.id} disabled={false}>
+            <TableCell className="px-2 text-left">
+                <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-primary"
+                    checked={selectedBudgetIds.has(budget.id)}
+                    onPointerDown={(e) => {
+                        e.stopPropagation();
+                        toggleSelectBudget(budget.id);
+                    }}
+                    onChange={() => {}}
+                />
+            </TableCell>
+            <TableCell className="w-[50%] px-2 text-left">
+                <div className="flex items-center gap-2">
+                    <span
+                        className="cursor-pointer hover:underline font-medium"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            openEditBudget(budget);
+                        }}
+                        onPointerDown={(e) => {
+                            e.stopPropagation();
+                        }}
+                    >
+                        {budget.name}
+                    </span>
+                </div>
+            </TableCell>
+            <TableCell className="w-[12.5%] px-2 text-center">
+                <span className={`text-xs px-2 py-0.5 rounded ${
+                    budget.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                }`}>
+                    {getTypeLabel(budget.type)}
+                </span>
+            </TableCell>
+            <TableCell className="w-[12.5%] text-right border-r border-green-300">
+                <span className="text-sm">
+                    {formatNumber(budget.amount)}
+                </span>
+            </TableCell>
+            {renderConnectorCell(0)}
+            <TableCell className="w-[40%] text-left">
+                <span className="text-sm text-muted-foreground">—</span>
+            </TableCell>
+            <TableCell className="w-[20%] text-right">
+                <span className="text-sm text-muted-foreground">—</span>
+            </TableCell>
+        </BudgetSortableRow>
+    );
+
     if (isLoading) {
         return (
             <div className="flex items-center justify-center py-12">
@@ -783,7 +917,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                                                             {formatNumber(budget.amount)}
                                                                                         </span>
                                                                                     </TableCell>
-                                                                                    <TableCell className={`w-[2%] p-0 ${budgetActuals.length > 1 ? 'border-r border-purple-300' : ''}`}></TableCell>
+                                                                                    {renderConnectorCell(budgetActuals.length)}
                                                                                     <TableCell className="w-[40%] text-left">
                                                                                         <span className="text-sm text-muted-foreground">—</span>
                                                                                     </TableCell>
@@ -842,7 +976,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                                                             </TableCell>
                                                                                         </>
                                                                                     )}
-                                                                                    <TableCell className={`w-[2%] p-0 ${budgetActuals.length > 1 ? 'border-r border-purple-300' : ''}`}></TableCell>
+                                                                                    {renderConnectorCell(budgetActuals.length)}
                                                                                     <TableCell className="w-[40%] text-left">
                                                                                         <span 
                                                                                             className="text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground hover:underline cursor-pointer" 
