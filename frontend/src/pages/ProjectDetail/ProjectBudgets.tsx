@@ -167,6 +167,27 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         loadData();
     }, [projectId]);
 
+    // Helper: Show confirmation dialog
+    const showConfirm = (message: string) => window.confirm(message);
+
+    // Helper: Handle delete operation with toast feedback
+    const handleDeleteOperation = async (
+        deleteFn: () => Promise<void>,
+        successMessage: string,
+        errorMessage: string
+    ) => {
+        if (!showConfirm("Are you sure?")) return;
+        
+        try {
+            await deleteFn();
+            toast.success(successMessage);
+            await loadData();
+        } catch (error: any) {
+            const errMessage = error?.response?.data?.error || errorMessage;
+            toast.error(errMessage);
+        }
+    };
+
     // Expand all headers by default
     useEffect(() => {
         if (headers.length > 0) {
@@ -353,18 +374,11 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     };
 
     const handleDeleteBudget = async (budgetId: string) => {
-        if (!window.confirm("Delete this budget item?")) {
-            return;
-        }
-
-        try {
-            await budgetApi.delete(budgetId);
-            toast.success("Budget deleted successfully");
-            await loadData();
-        } catch (error: any) {
-            const errorMessage = error?.response?.data?.error || "Failed to delete budget";
-            toast.error(errorMessage);
-        }
+        await handleDeleteOperation(
+            async () => await budgetApi.delete(budgetId),
+            "Budget deleted successfully",
+            "Failed to delete budget"
+        );
     };
 
     const handleEditBudget = async () => {
@@ -396,18 +410,11 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     };
 
     const handleDeleteActual = async (actualId: string) => {
-        if (!window.confirm("Delete this actual item?")) {
-            return;
-        }
-
-        try {
-            await actualApi.delete(actualId);
-            toast.success("Actual deleted successfully");
-            await loadData();
-        } catch (error: any) {
-            const errorMessage = error?.response?.data?.error || "Failed to delete actual";
-            toast.error(errorMessage);
-        }
+        await handleDeleteOperation(
+            async () => await actualApi.delete(actualId),
+            "Actual deleted successfully",
+            "Failed to delete actual"
+        );
     };
 
     const handleEditActual = async () => {
