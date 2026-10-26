@@ -400,6 +400,8 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             "Header updated successfully",
             "Failed to update header"
         );
+        setIsEditHeaderDialogOpen(false);
+        setEditHeaderForm({ id: '', name: '', type: 'expense', tags: '' });
     };
 
     const openEditBudget = (budget: Budget) => {
@@ -435,6 +437,8 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             "Budget updated successfully",
             "Failed to update budget"
         );
+        setIsEditBudgetDialogOpen(false);
+        setEditBudgetForm({ id: '', name: '', type: 'expense', amount: 0, tags: '' });
     };
 
     const openEditActual = (actual: {id: string, name: string, amount: number}) => {
@@ -465,6 +469,8 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             "Actual updated successfully",
             "Failed to update actual"
         );
+        setIsEditActualDialogOpen(false);
+        setEditActualForm({ id: '', name: '', amount: 0 });
     };
 
     // Header drag/drop handlers with dnd-kit
