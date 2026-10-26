@@ -212,6 +212,41 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         }
     };
 
+    // Helper: Handle create operation with toast feedback
+    const handleCreateOperation = async (
+        createFn: (data: any) => Promise<any>,
+        data: any,
+        successMessage: string,
+        errorMessage: string
+    ) => {
+        try {
+            await createFn(data);
+            toast.success(successMessage);
+            await showSuccessWithReload("");
+        } catch (error: any) {
+            const errMessage = error?.response?.data?.error || errorMessage;
+            toast.error(errMessage);
+        }
+    };
+
+    // Helper: Handle update operation with toast feedback
+    const handleUpdateOperation = async (
+        updateFn: (id: string, data: any) => Promise<any>,
+        id: string,
+        data: any,
+        successMessage: string,
+        errorMessage: string
+    ) => {
+        try {
+            await updateFn(id, data);
+            toast.success(successMessage);
+            await showSuccessWithReload("");
+        } catch (error: any) {
+            const errMessage = error?.response?.data?.error || errorMessage;
+            toast.error(errMessage);
+        }
+    };
+
     // Expand all headers by default
     useEffect(() => {
         if (headers.length > 0) {
@@ -273,22 +308,18 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             return;
         }
 
-        try {
-            await headerApi.create({
+        await handleCreateOperation(
+            headerApi.create,
+            {
                 name: headerForm.name.trim(),
                 type: headerForm.type,
                 tags: parseTags(headerForm.tags),
                 project: projectId,
                 active: true
-            });
-            toast.success("Header added successfully");
-            setIsAddHeaderDialogOpen(false);
-            setHeaderForm({ name: '', type: 'expense', tags: '' });
-            await loadData();
-        } catch (error: any) {
-            const errorMessage = error?.response?.data?.error || "Failed to add header";
-            toast.error(errorMessage);
-        }
+            },
+            "Header added successfully",
+            "Failed to add header"
+        );
     };
 
     const handleAddBudget = async () => {
@@ -302,8 +333,9 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             return;
         }
 
-        try {
-            await budgetApi.create({
+        await handleCreateOperation(
+            budgetApi.create,
+            {
                 name: budgetForm.name.trim(),
                 type: budgetForm.type,
                 amount: budgetForm.amount,
@@ -311,16 +343,10 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                 project: projectId,
                 header: selectedHeaderId,
                 active: true
-            });
-            toast.success("Budget added successfully");
-            setIsAddBudgetDialogOpen(false);
-            setBudgetForm({ name: '', type: 'expense', amount: 0, tags: '' });
-            setSelectedHeaderId(null);
-            await loadData();
-        } catch (error: any) {
-            const errorMessage = error?.response?.data?.error || "Failed to add budget";
-            toast.error(errorMessage);
-        }
+            },
+            "Budget added successfully",
+            "Failed to add budget"
+        );
     };
 
     const handleDeleteHeader = async (id: string) => {
@@ -344,18 +370,11 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             return;
         }
         
-        if (!window.confirm("Delete this header?")) {
-            return;
-        }
-
-        try {
-            await headerApi.delete(id);
-            toast.success("Header deleted successfully");
-            await loadData();
-        } catch (error: any) {
-            const errorMessage = error?.response?.data?.error || error?.message || "Failed to delete header";
-            toast.error(errorMessage);
-        }
+        await handleDeleteOperation(
+            async () => await headerApi.delete(id),
+            "Header deleted successfully",
+            "Failed to delete header"
+        );
     };
 
     const openEditHeader = (header: Header) => {
@@ -369,21 +388,18 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     };
 
     const handleEditHeader = async () => {
-        try {
-            const tagArray = parseTags(editHeaderForm.tags);
-            await headerApi.update(editHeaderForm.id, {
+        const tagArray = parseTags(editHeaderForm.tags);
+        await handleUpdateOperation(
+            headerApi.update,
+            editHeaderForm.id,
+            {
                 name: editHeaderForm.name.trim(),
                 type: editHeaderForm.type,
                 tags: tagArray
-            });
-            toast.success("Header updated successfully");
-            setIsEditHeaderDialogOpen(false);
-            setEditHeaderForm({ id: '', name: '', type: 'expense', tags: '' });
-            await loadData();
-        } catch (error: any) {
-            const errorMessage = error?.response?.data?.error || "Failed to update header";
-            toast.error(errorMessage);
-        }
+            },
+            "Header updated successfully",
+            "Failed to update header"
+        );
     };
 
     const openEditBudget = (budget: Budget) => {
@@ -406,22 +422,19 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     };
 
     const handleEditBudget = async () => {
-        try {
-            const tagArray = parseTags(editBudgetForm.tags);
-            await budgetApi.update(editBudgetForm.id, {
+        const tagArray = parseTags(editBudgetForm.tags);
+        await handleUpdateOperation(
+            budgetApi.update,
+            editBudgetForm.id,
+            {
                 name: editBudgetForm.name.trim(),
                 type: editBudgetForm.type,
                 amount: editBudgetForm.amount,
                 tags: tagArray
-            });
-            toast.success("Budget updated successfully");
-            setIsEditBudgetDialogOpen(false);
-            setEditBudgetForm({ id: '', name: '', type: 'expense', amount: 0, tags: '' });
-            await loadData();
-        } catch (error: any) {
-            const errorMessage = error?.response?.data?.error || "Failed to update budget";
-            toast.error(errorMessage);
-        }
+            },
+            "Budget updated successfully",
+            "Failed to update budget"
+        );
     };
 
     const openEditActual = (actual: {id: string, name: string, amount: number}) => {
@@ -442,19 +455,16 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     };
 
     const handleEditActual = async () => {
-        try {
-            await actualApi.update(editActualForm.id, {
+        await handleUpdateOperation(
+            actualApi.update,
+            editActualForm.id,
+            {
                 name: editActualForm.name.trim(),
                 amount: editActualForm.amount
-            });
-            toast.success("Actual updated successfully");
-            setIsEditActualDialogOpen(false);
-            setEditActualForm({ id: '', name: '', amount: 0 });
-            await loadData();
-        } catch (error: any) {
-            const errorMessage = error?.response?.data?.error || "Failed to update actual";
-            toast.error(errorMessage);
-        }
+            },
+            "Actual updated successfully",
+            "Failed to update actual"
+        );
     };
 
     // Header drag/drop handlers with dnd-kit
