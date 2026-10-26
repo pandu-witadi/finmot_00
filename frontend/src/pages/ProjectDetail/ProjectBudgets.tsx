@@ -15,7 +15,7 @@ import { DndContext, DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { actualApi } from "@/services/api";
 import { formatNumber, getTypeLabel, parseTags } from "@/utils/formatters";
@@ -781,27 +781,37 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                             </div>
                                             <div className="flex gap-2">
                                                 {associatedBudgets.length > 0 && Array.from(selectedBudgetIds).some(id => associatedBudgets.some(b => b.id === id)) && (
-                                                    <DropdownMenu>
-                                                        <Button size="sm" type="button" className="h-8 px-3" onClick={(e) => {
-                                                            e.stopPropagation()
-                                                        }}>
-                                                            {Array.from(selectedBudgetIds).filter(id => associatedBudgets.some(b => b.id === id)).length} selected
-                                                        </Button>
-                                                        <DropdownMenuContent align="end">
-                                                            <DropdownMenuItem onClick={openCloneConfirm}>
-                                                                Clone
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuItem onClick={() => {
-                                                                const selectedInHeader = Array.from(selectedBudgetIds).filter(id => associatedBudgets.some(b => b.id === id));
-                                                                toast.success("Register action would register " + selectedInHeader.length + " budgets in this header");
-                                                            }}>
-                                                                Register
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuItem onClick={handleCloneToTransactionForSelected}>
-                                                                Clone to Transaction
-                                                            </DropdownMenuItem>
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
+                                                    (() => {
+                                                        const selectedCount = Array.from(selectedBudgetIds).filter(id => associatedBudgets.some(b => b.id === id)).length;
+                                                        const selectedBudgets = budgets.filter(b => selectedBudgetIds.has(b.id));
+                                                        const hasDelete = selectedBudgets.some(b => b.active);
+                                                        return (
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button size="sm" type="button" className="h-8 px-3" onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                    }}>
+                                                                        {selectedCount} selected
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end">
+                                                                    {selectedCount === 1 && (
+                                                                        <DropdownMenuItem onClick={openCloneConfirm}>
+                                                                            Clone
+                                                                        </DropdownMenuItem>
+                                                                    )}
+                                                                    {hasDelete && (
+                                                                        <DropdownMenuItem onClick={() => {
+                                                                            const selectedInHeader = Array.from(selectedBudgetIds).filter(id => associatedBudgets.some(b => b.id === id));
+                                                                            toast.success("Delete action would delete " + selectedInHeader.length + " budgets in this header");
+                                                                        }}>
+                                                                            Delete
+                                                                        </DropdownMenuItem>
+                                                                    )}
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        );
+                                                    })()
                                                 )}
                                                 <Button
                                                     variant="ghost"
