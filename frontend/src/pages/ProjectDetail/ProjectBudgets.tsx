@@ -188,6 +188,30 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         }
     };
 
+    // Helper: Show success toast with data reload
+    const showSuccessWithReload = async (message: string) => {
+        toast.success(message);
+        await loadData();
+    };
+
+    // Helper: Handle save operation with confirm dialog
+    const handleSaveOperation = async (
+        saveFn: () => Promise<any>,
+        confirmMessage: string,
+        successMessage: string,
+        errorMessage: string
+    ) => {
+        if (!showConfirm(confirmMessage)) return;
+        
+        try {
+            await saveFn();
+            await showSuccessWithReload(successMessage);
+        } catch (error: any) {
+            const errMessage = error?.response?.data?.error || errorMessage;
+            toast.error(errMessage);
+        }
+    };
+
     // Expand all headers by default
     useEffect(() => {
         if (headers.length > 0) {
@@ -482,15 +506,13 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     };
 
     const handleSaveHeaderPositions = async () => {
-        try {
-            const projectHeaderOrder = headers.map(h => h.id);
-            await projectApi.update(projectId, { arrHeader: projectHeaderOrder });
-            toast.success("Header positions saved successfully");
-            await loadData();
-        } catch (error: any) {
-            console.error("Failed to save header positions:", error);
-            toast.error("Failed to save header positions");
-        }
+        const projectHeaderOrder = headers.map(h => h.id);
+        await handleSaveOperation(
+            async () => await projectApi.update(projectId, { arrHeader: projectHeaderOrder }),
+            "Save header positions?",
+            "Header positions saved successfully",
+            "Failed to save header positions"
+        );
     };
 
     const handleSaveBudgetPositions = async (headerId: string) => {
@@ -506,19 +528,13 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             return;
         }
 
-        if (!window.confirm(`Save positions for ${header.name}? This will update the order of ${associatedBudgets.length} budgets.`)) {
-            return;
-        }
-
-        try {
-            const budgetIds = associatedBudgets.map(b => b.id);
-            await headerApi.update(headerId, { arrBudget: budgetIds });
-            toast.success("Budget positions saved successfully");
-            await loadData();
-        } catch (error: any) {
-            console.error("Failed to save budget positions:", error);
-            toast.error("Failed to save budget positions");
-        }
+        const budgetIds = associatedBudgets.map(b => b.id);
+        await handleSaveOperation(
+            async () => await headerApi.update(headerId, { arrBudget: budgetIds }),
+            `Save positions for ${header.name}? This will update the order of ${associatedBudgets.length} budgets.`,
+            "Budget positions saved successfully",
+            "Failed to save budget positions"
+        );
     };
 
     const getHeaderTotal = (header: Header) => {
