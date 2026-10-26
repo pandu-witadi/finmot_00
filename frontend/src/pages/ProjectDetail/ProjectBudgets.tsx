@@ -171,8 +171,8 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     const showConfirm = (message: string) => window.confirm(message);
 
     // Helper: Handle delete operation with toast feedback
-    const handleDeleteOperation = async (
-        deleteFn: () => Promise<void>,
+    const handleDeleteOperation = async <T>(
+        deleteFn: () => Promise<T>,
         successMessage: string,
         errorMessage: string
     ) => {
