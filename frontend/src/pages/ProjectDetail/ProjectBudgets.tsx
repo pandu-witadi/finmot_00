@@ -558,9 +558,9 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         return headerBudgets.reduce((sum, b) => sum + (b.type === 'income' ? b.amount : -b.amount), 0);
     };
 
-    // Helper: Render hidden connector cell (2% width, only visible with purple border for >1 actuals)
-    const renderConnectorCell = (budgetActualsLength: number) => (
-        <TableCell className={`w-[2%] p-0 ${budgetActualsLength > 1 ? 'border-r border-purple-300' : ''}`}></TableCell>
+    // Helper: Render connector cell (2% width, visually hidden)
+    const renderConnectorCell = () => (
+        <TableCell className="w-[2%] p-0"></TableCell>
     );
 
     if (isLoading) {
@@ -811,7 +811,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                                                             {formatNumber(budget.amount)}
                                                                                         </span>
                                                                                     </TableCell>
-                                                                                    {renderConnectorCell(budgetActuals.length)}
+                                                                                    {renderConnectorCell()}
                                                                                     <TableCell className="w-[40%] text-left">
                                                                                         <span className="text-sm text-muted-foreground">—</span>
                                                                                     </TableCell>
@@ -870,7 +870,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                                                             </TableCell>
                                                                                         </>
                                                                                     )}
-                                                                                    {renderConnectorCell(budgetActuals.length)}
+                                                                                    {renderConnectorCell()}
                                                                                     <TableCell className="w-[40%] text-left">
                                                                                         <span 
                                                                                             className="text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground hover:underline cursor-pointer" 
