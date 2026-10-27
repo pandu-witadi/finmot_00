@@ -558,11 +558,6 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         return headerBudgets.reduce((sum, b) => sum + (b.type === 'income' ? b.amount : -b.amount), 0);
     };
 
-    // Helper: Render connector cell (2% width, visually hidden)
-    const renderConnectorCell = () => (
-        <TableCell className="w-[2%] p-0"></TableCell>
-    );
-
     if (isLoading) {
         return (
             <div className="flex items-center justify-center py-12">
@@ -756,9 +751,9 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                                             onChange={() => {}}
                                                                         />
                                                                     </TableHead>
-                                                                    <TableHead className="w-[50%] px-2 text-left">Name</TableHead>
-                                                                    <TableHead className="w-[12.5%] px-2 text-center">t</TableHead>
-                                                                    <TableHead className="text-right w-[12.5%] border-r border-green-300">Amount</TableHead>
+                                                                    <TableHead className="w-[50%] px-2 text-left border-b border-gray-200">Name</TableHead>
+                                                                    <TableHead className="w-[12.5%] px-2 text-center border-b border-gray-200">t</TableHead>
+                                                                    <TableHead className="text-right w-[12.5%] border-b border-gray-200">Amount</TableHead>
                                                                     <TableHead className="text-center w-[2%]"></TableHead>
                                                                     <TableHead className="text-left w-[40%]">actName</TableHead>
                                                                     <TableHead className="text-right w-[20%]">actAmount</TableHead>
@@ -783,7 +778,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                                                             onChange={() => {}}
                                                                                         />
                                                                                     </TableCell>
-                                                                                    <TableCell className="w-[50%] px-2 text-left">
+                                                                                    <TableCell className="w-[50%] px-2 text-left border-b border-gray-200">
                                                                                         <div className="flex items-center gap-2">
                                                                                             <span
                                                                                                 className="cursor-pointer hover:underline font-medium"
@@ -799,23 +794,22 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                                                             </span>
                                                                                         </div>
                                                                                     </TableCell>
-                                                                                    <TableCell className="w-[12.5%] px-2 text-center">
+                                                                                    <TableCell className="w-[12.5%] px-2 text-center border-b border-gray-200">
                                                                                         <span className={`text-xs px-2 py-0.5 rounded ${
                                                                                             budget.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                                                                                         }`}>
                                                                                             {getTypeLabel(budget.type)}
                                                                                         </span>
                                                                                     </TableCell>
-                                                                                    <TableCell className="w-[12.5%] text-right border-r border-green-300">
+                                                                                    <TableCell className="w-[12.5%] text-right border-b border-gray-200">
                                                                                         <span className="text-sm">
                                                                                             {formatNumber(budget.amount)}
                                                                                         </span>
                                                                                     </TableCell>
-                                                                                    {renderConnectorCell()}
-                                                                                    <TableCell className="w-[40%] text-left">
+                                                                                    <TableCell className="w-[40%] text-left border-b border-gray-200">
                                                                                         <span className="text-sm text-muted-foreground">—</span>
                                                                                     </TableCell>
-                                                                                    <TableCell className="w-[20%] text-right">
+                                                                                    <TableCell className="w-[20%] text-right border-b border-gray-200">
                                                                                         <span className="text-sm text-muted-foreground">—</span>
                                                                                     </TableCell>
                                                                                 </BudgetSortableRow>
@@ -840,7 +834,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                                                                     onChange={() => {}}
                                                                                                 />
                                                                                             </TableCell>
-                                                                                            <TableCell rowSpan={budgetActuals.length} className="w-[50%] px-2 text-left">
+                                                                                            <TableCell rowSpan={budgetActuals.length} className="w-[50%] px-2 text-left border-b border-gray-200">
                                                                                                 <div className="flex items-center gap-2">
                                                                                                     <span
                                                                                                         className="cursor-pointer hover:underline font-medium"
@@ -856,22 +850,21 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                                                                     </span>
                                                                                                 </div>
                                                                                             </TableCell>
-                                                                                            <TableCell rowSpan={budgetActuals.length} className="w-[12.5%] px-2 text-center">
+                                                                                            <TableCell rowSpan={budgetActuals.length} className="w-[12.5%] px-2 text-center border-b border-gray-200">
                                                                                                 <span className={`text-xs px-2 py-0.5 rounded ${
                                                                                                     budget.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                                                                                                 }`}>
                                                                                                     {getTypeLabel(budget.type)}
                                                                                                 </span>
                                                                                             </TableCell>
-                                                                                            <TableCell rowSpan={budgetActuals.length} className="w-[12.5%] text-right border-r border-green-300">
+                                                                                            <TableCell rowSpan={budgetActuals.length} className="w-[12.5%] text-right border-b border-gray-200">
                                                                                                 <span className="text-sm">
                                                                                                     {formatNumber(budget.amount)}
                                                                                                 </span>
                                                                                             </TableCell>
                                                                                         </>
                                                                                     )}
-                                                                                    {renderConnectorCell()}
-                                                                                    <TableCell className="w-[40%] text-left">
+                                                                                    <TableCell className="w-[40%] text-left border-b border-gray-200">
                                                                                         <span 
                                                                                             className="text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground hover:underline cursor-pointer" 
                                                                                             title={actual.name}
@@ -886,7 +879,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                                                             {actual.name}
                                                                                         </span>
                                                                                     </TableCell>
-                                                                                    <TableCell className="w-[20%] text-right">
+                                                                                    <TableCell className="w-[20%] text-right border-b border-gray-200">
                                                                                         <span className="text-sm text-muted-foreground">
                                                                                             {formatNumber(actual.amount)}
                                                                                         </span>
