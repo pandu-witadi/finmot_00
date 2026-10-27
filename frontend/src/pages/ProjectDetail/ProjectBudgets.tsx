@@ -320,6 +320,8 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             "Header added successfully",
             "Failed to add header"
         );
+        setIsAddHeaderDialogOpen(false);
+        setHeaderForm({ name: '', type: 'expense', tags: '' });
     };
 
     const handleAddBudget = async () => {
@@ -347,6 +349,8 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             "Budget added successfully",
             "Failed to add budget"
         );
+        setIsAddBudgetDialogOpen(false);
+        setBudgetForm({ name: '', type: 'expense', amount: 0, tags: '' });
     };
 
     const handleDeleteHeader = async (id: string) => {
