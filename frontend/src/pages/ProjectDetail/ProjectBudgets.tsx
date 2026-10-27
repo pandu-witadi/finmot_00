@@ -409,8 +409,12 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     };
 
     const handleDeleteBudget = async (budgetId: string) => {
+        if (!showConfirm("Are you sure you want to delete this budget?")) return;
         await handleDeleteOperation(
-            async () => await budgetApi.delete(budgetId),
+            async () => {
+                await budgetApi.delete(budgetId);
+                setIsEditBudgetDialogOpen(false);
+            },
             "Budget deleted successfully",
             "Failed to delete budget"
         );
@@ -444,8 +448,12 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     };
 
     const handleDeleteActual = async (actualId: string) => {
+        if (!showConfirm("Are you sure you want to delete this actual?")) return;
         await handleDeleteOperation(
-            async () => await actualApi.delete(actualId),
+            async () => {
+                await actualApi.delete(actualId);
+                setIsEditActualDialogOpen(false);
+            },
             "Actual deleted successfully",
             "Failed to delete actual"
         );
