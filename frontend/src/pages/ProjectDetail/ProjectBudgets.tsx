@@ -734,7 +734,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                         <Table className="table-fixed">
                                                             <TableHeader>
                                                                 <TableRow>
-                                                                    <TableHead className="w-10 px-2 text-left">
+                                                                    <TableHead className="w-10 px-2 text-left bg-magenta-50">
                                                                         <input
                                                                             type="checkbox"
                                                                             className="h-4 w-4 accent-primary"
@@ -746,11 +746,11 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                                             onChange={() => {}}
                                                                         />
                                                                     </TableHead>
-                                                                    <TableHead className="w-[50%] px-2 text-left border-b border-gray-200">Name</TableHead>
-                                                                    <TableHead className="w-[12.5%] px-2 text-center border-b border-gray-200">t</TableHead>
-                                                                    <TableHead className="text-right w-[12.5%] border-b border-gray-200 border-r border-magenta-300">Amount</TableHead>
-                                                                    <TableHead className="text-left w-[40%]">actName</TableHead>
-                                                                    <TableHead className="text-right w-[20%]">actAmount</TableHead>
+                                                                    <TableHead className="w-[50%] px-2 text-left border-b border-gray-200 bg-magenta-50">Name</TableHead>
+                                                                    <TableHead className="w-[12.5%] px-2 text-center border-b border-gray-200 bg-magenta-50">t</TableHead>
+                                                                    <TableHead className="text-right w-[12.5%] border-b border-gray-200 border-r border-magenta-300 bg-magenta-50">Amount</TableHead>
+                                                                    <TableHead className="text-left w-[40%] bg-magenta-50">actName</TableHead>
+                                                                    <TableHead className="text-right w-[20%] bg-magenta-50">actAmount</TableHead>
                                                                 </TableRow>
                                                             </TableHeader>
                                                             <SortableContext items={associatedBudgets.map((b) => b.id)} strategy={verticalListSortingStrategy}>
