@@ -356,13 +356,6 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             return;
         }
 
-        const arrBudget = Array.isArray(header.arrBudget) ? header.arrBudget : [];
-        
-        if (arrBudget.length > 0) {
-            toast.error(`Cannot delete header. There are ${arrBudget.length} budgets still associated with this header. Please remove budgets first.`);
-            return;
-        }
-        
         const budgetsUnderHeader = budgets.filter(b => b.header === id);
         
         if (budgetsUnderHeader.length > 0) {
