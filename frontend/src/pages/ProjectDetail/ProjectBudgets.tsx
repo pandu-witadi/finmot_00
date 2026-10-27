@@ -753,7 +753,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                                     </TableHead>
                                                                     <TableHead className="w-[50%] px-2 text-left border-b border-gray-200">Name</TableHead>
                                                                     <TableHead className="w-[12.5%] px-2 text-center border-b border-gray-200">t</TableHead>
-                                                                    <TableHead className="text-right w-[12.5%] border-b border-gray-200">Amount</TableHead>
+                                                                    <TableHead className="text-right w-[12.5%] border-b border-gray-200 border-r border-magenta-300">Amount</TableHead>
                                                                     <TableHead className="text-left w-[40%]">actName</TableHead>
                                                                     <TableHead className="text-right w-[20%]">actAmount</TableHead>
                                                                 </TableRow>
@@ -800,7 +800,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                                                             {getTypeLabel(budget.type)}
                                                                                         </span>
                                                                                     </TableCell>
-                                                                                    <TableCell className="w-[12.5%] text-right border-b border-gray-200">
+                                                                                    <TableCell className="w-[12.5%] text-right border-b border-gray-200 border-r border-magenta-300">
                                                                                         <span className="text-sm">
                                                                                             {formatNumber(budget.amount)}
                                                                                         </span>
@@ -856,7 +856,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                                                                     {getTypeLabel(budget.type)}
                                                                                                 </span>
                                                                                             </TableCell>
-                                                                                            <TableCell rowSpan={budgetActuals.length} className="w-[12.5%] text-right border-b border-gray-200">
+                                                                                            <TableCell rowSpan={budgetActuals.length} className="w-[12.5%] text-right border-b border-gray-200 border-r border-magenta-300">
                                                                                                 <span className="text-sm">
                                                                                                     {formatNumber(budget.amount)}
                                                                                                 </span>
