@@ -224,6 +224,11 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         }
     };
 
+    // Helper: Reset form states
+    const resetHeaderForm = () => setEditHeaderForm({ id: '', name: '', type: 'expense', tags: '' });
+    const resetBudgetForm = () => setEditBudgetForm({ id: '', name: '', type: 'expense', amount: 0, tags: '' });
+    const resetActualForm = () => setEditActualForm({ id: '', name: '', amount: 0 });
+
     // Helper: Handle update operation with toast feedback
     const handleUpdateOperation = async (
         updateFn: (id: string, data: any) => Promise<any>,
@@ -396,7 +401,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             "Failed to update header"
         );
         setIsEditHeaderDialogOpen(false);
-        setEditHeaderForm({ id: '', name: '', type: 'expense', tags: '' });
+        resetHeaderForm();
     };
 
     const openEditBudget = (budget: Budget) => {
@@ -433,7 +438,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             "Failed to update budget"
         );
         setIsEditBudgetDialogOpen(false);
-        setEditBudgetForm({ id: '', name: '', type: 'expense', amount: 0, tags: '' });
+        resetBudgetForm();
     };
 
     const openEditActual = (actual: {id: string, name: string, amount: number}) => {
@@ -465,7 +470,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             "Failed to update actual"
         );
         setIsEditActualDialogOpen(false);
-        setEditActualForm({ id: '', name: '', amount: 0 });
+        resetActualForm();
     };
 
     // Header drag/drop handlers with dnd-kit
