@@ -864,7 +864,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                                                             </TableCell>
                                                                                         </>
                                                                                     )}
-                                                                                    <TableCell className="w-[40%] text-left border-b border-gray-200">
+                                                                                    <TableCell className={`w-[40%] text-left ${index === budgetActuals.length - 1 ? "border-b border-gray-200" : ""}`}>
                                                                                         <span 
                                                                                             className="text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground hover:underline cursor-pointer" 
                                                                                             title={actual.name}
@@ -879,7 +879,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                                                             {actual.name}
                                                                                         </span>
                                                                                     </TableCell>
-                                                                                    <TableCell className="w-[20%] text-right border-b border-gray-200">
+                                                                                    <TableCell className={`w-[20%] text-right ${index === budgetActuals.length - 1 ? "border-b border-gray-200" : ""}`}>
                                                                                         <span className="text-sm text-muted-foreground">
                                                                                             {formatNumber(actual.amount)}
                                                                                         </span>
