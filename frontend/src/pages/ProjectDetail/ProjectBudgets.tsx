@@ -188,12 +188,6 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         }
     };
 
-    // Helper: Show success toast with data reload
-    const showSuccessWithReload = async (message: string) => {
-        toast.success(message);
-        await loadData();
-    };
-
     // Helper: Handle save operation with confirm dialog
     const handleSaveOperation = async (
         saveFn: () => Promise<any>,
@@ -205,7 +199,8 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         
         try {
             await saveFn();
-            await showSuccessWithReload(successMessage);
+            toast.success(successMessage);
+            await loadData();
         } catch (error: any) {
             const errMessage = error?.response?.data?.error || errorMessage;
             toast.error(errMessage);
@@ -222,7 +217,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         try {
             await createFn(data);
             toast.success(successMessage);
-            await showSuccessWithReload("");
+            await loadData();
         } catch (error: any) {
             const errMessage = error?.response?.data?.error || errorMessage;
             toast.error(errMessage);
@@ -240,7 +235,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         try {
             await updateFn(id, data);
             toast.success(successMessage);
-            await showSuccessWithReload("");
+            await loadData();
         } catch (error: any) {
             const errMessage = error?.response?.data?.error || errorMessage;
             toast.error(errMessage);
