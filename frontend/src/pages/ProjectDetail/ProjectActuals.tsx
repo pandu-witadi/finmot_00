@@ -3,7 +3,7 @@ import { headerApi, budgetApi, actualApi, userApi, api } from "@/services/api";
 import { toast } from "react-hot-toast";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { TrashIcon, UserPlusIcon } from "lucide-react";
+import { UserPlusIcon, SaveIcon } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -22,6 +22,7 @@ import { formatNumber, getTypeLabel } from "@/utils/formatters";
 
 interface ProjectActualsProps {
     projectId: string;
+    active: boolean;
 }
 
 interface TransactionInfo {
@@ -61,7 +62,7 @@ function ActualSortableRow({ id, children, disabled }: { id: string; children: R
     );
 }
 
-export function ProjectActuals({ projectId }: ProjectActualsProps) {
+export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
     const [actuals, setActuals] = useState<ActualWithBudgetInfo[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isEditActualDialogOpen, setIsEditActualDialogOpen] = useState(false);
@@ -76,6 +77,7 @@ export function ProjectActuals({ projectId }: ProjectActualsProps) {
     const [allUsers, setAllUsers] = useState<User[]>([]);
     const [isLoadingUsers, setIsLoadingUsers] = useState(false);
     const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set<string>());
+    const [projectData, setProjectData] = useState<{ arrActual: string[] } | null>(null);
 
     const loadData = async () => {
         try {
@@ -85,6 +87,18 @@ export function ProjectActuals({ projectId }: ProjectActualsProps) {
                 actualApi.getAllByProject(projectId),
                 api.get('/transaction')
             ]);
+
+            // Load project data for arrActual order
+            let projectDataRes: { arrActual: string[] } | null = null;
+            try {
+                const projectRes = await api.get(`/project/${projectId}`);
+                projectDataRes = {
+                    arrActual: projectRes.data.arrActual || []
+                };
+            } catch (err: any) {
+                console.debug("Failed to load project data:", err);
+            }
+            setProjectData(projectDataRes);
 
             const headersData = Array.isArray(headersRes.data) ? headersRes.data : [];
             const budgetsData = Array.isArray(budgetsRes.data) ? budgetsRes.data : [];
@@ -141,7 +155,21 @@ export function ProjectActuals({ projectId }: ProjectActualsProps) {
                 return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
             });
 
-            setActuals(sortedActuals);
+            // Use project's arrActual order if available
+            if (projectDataRes?.arrActual && projectDataRes.arrActual.length > 0) {
+                const actualsWithIndex = sortedActuals.map(a => ({
+                    actual: a,
+                    index: projectDataRes.arrActual.indexOf(a.id)
+                }));
+                actualsWithIndex.sort((a, b) => {
+                    const indexA = a.index !== -1 ? a.index : Infinity;
+                    const indexB = b.index !== -1 ? b.index : Infinity;
+                    return indexA - indexB;
+                });
+                setActuals(actualsWithIndex.map(x => x.actual));
+            } else {
+                setActuals(sortedActuals);
+            }
         } catch (error: any) {
             const errorMessage = error?.response?.data?.error || error?.message || "Failed to load actuals";
             toast.error(errorMessage);
@@ -166,8 +194,10 @@ export function ProjectActuals({ projectId }: ProjectActualsProps) {
     };
 
     useEffect(() => {
-        loadData();
-    }, [projectId]);
+        if (active) {
+            loadData();
+        }
+    }, [projectId, active]);
 
     const loadUsers = async () => {
         if (allUsers.length > 0) return;
@@ -238,7 +268,7 @@ export function ProjectActuals({ projectId }: ProjectActualsProps) {
         }
 
         try {
-            const result = await budgetApi.cloneToTransaction({
+            await budgetApi.cloneToTransaction({
                 actualId: actualId,
                 trxName: trxName.trim(),
             });
@@ -294,7 +324,7 @@ export function ProjectActuals({ projectId }: ProjectActualsProps) {
         }
     };
 
-    const handleActualDragEnd = (event: DragEndEvent) => {
+    const handleActualDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
 
         if (!over || active.id === over.id) {
@@ -308,7 +338,31 @@ export function ProjectActuals({ projectId }: ProjectActualsProps) {
             return;
         }
 
-        setActuals((prev) => arrayMove(prev, activeIndex, overIndex));
+        const newActuals = arrayMove(actuals, activeIndex, overIndex);
+        setActuals(newActuals);
+
+        // Save order to project
+        try {
+            const newOrder = newActuals.map(a => a.id);
+            await api.put(`/project/${projectId}`, { arrActual: newOrder });
+            // Update local state to reflect new order immediately
+            setProjectData({ arrActual: newOrder });
+        } catch (error: any) {
+            console.error("Failed to save order:", error);
+            toast.error("Failed to save order");
+        }
+    };
+
+    const handleSavePosition = async () => {
+        try {
+            await api.put(`/project/${projectId}`, { arrActual: actuals.map(a => a.id) });
+            // Update local state to reflect new order immediately
+            setProjectData({ arrActual: actuals.map(a => a.id) });
+            toast.success("Actual position saved successfully");
+        } catch (error: any) {
+            console.error("Failed to save position:", error);
+            toast.error("Failed to save position");
+        }
     };
 
     if (isLoading) {
@@ -328,10 +382,10 @@ export function ProjectActuals({ projectId }: ProjectActualsProps) {
         <div className="space-y-6">
             <Card>
                 <CardHeader>
-                    <div className="flex items-center justify-end">
+                    <div className="flex items-center justify-between">
                         {selectedActualIds.size > 0 && (
                             <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
+                                <DropdownMenuTrigger>
                                     <Button variant="destructive">
                                         ({selectedActualIds.size}) selected
                                     </Button>
@@ -355,6 +409,10 @@ export function ProjectActuals({ projectId }: ProjectActualsProps) {
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         )}
+                        <Button onClick={handleSavePosition} variant="outline" size="sm" className="gap-2">
+                            <SaveIcon className="w-4 h-4" />
+                            <span>Save Position</span>
+                        </Button>
                     </div>
                 </CardHeader>
                 <CardContent>

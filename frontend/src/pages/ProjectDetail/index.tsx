@@ -86,11 +86,11 @@ export function ProjectDetail() {
                     </TabsContent>
 
                     <TabsContent value="actuals" className="mt-6">
-                        <ProjectActuals projectId={id!} />
+                        <ProjectActuals active={activeTab === "actuals"} key={activeTab} projectId={id!} />
                     </TabsContent>
 
                     <TabsContent value="transactions" className="mt-6">
-                        <ProjectTransactions />
+                        <ProjectTransactions projectId={id!} />
                     </TabsContent>
                 </Tabs>
             </div>

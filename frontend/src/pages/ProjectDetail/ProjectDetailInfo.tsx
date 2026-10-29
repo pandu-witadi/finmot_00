@@ -102,131 +102,139 @@ export function ProjectDetailInfo({ project, onSave }: ProjectDetailInfoProps) {
     };
 
     if (isEditing) {
-        return (
-            <div className="space-y-4">
-                <div className="bg-white p-8 rounded-lg border shadow-sm">
-                    <h2 className="text-2xl font-semibold mb-6">Edit Project</h2>
-                    <div className="grid grid-cols-2 gap-6">
-                        <div className="col-span-2">
-                            <label className="block text-base text-base font-medium text-muted-foreground mb-1">Code</label>
-                            <input
-                                type="text"
-                                value={formData.code}
-                                onChange={(e) => handleChange('code', e.target.value)}
-                                className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                            />
-                        </div>
-                        <div className="col-span-2">
-                            <label className="block text-base text-base font-medium text-muted-foreground mb-1">Name</label>
-                            <input
-                                type="text"
-                                value={formData.name}
-                                onChange={(e) => handleChange('name', e.target.value)}
-                                className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-base text-base font-medium text-muted-foreground mb-1">Type</label>
-                            <select
-                                value={formData.typ}
-                                onChange={(e) => handleChange('typ', e.target.value)}
-                                className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                            >
-                                <option value="project">Project</option>
-                                <option value="routine">Routine</option>
-                                <option value="other">Other</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-base text-base font-medium text-muted-foreground mb-1">Active</label>
-                            <select
-                                value={formData.active ? 'true' : 'false'}
-                                onChange={(e) => handleChange('active', e.target.value === 'true')}
-                                className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                            >
-                                <option value="true">Yes</option>
-                                <option value="false">No</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-base text-base font-medium text-muted-foreground mb-1">Done</label>
-                            <select
-                                value={formData.done ? 'true' : 'false'}
-                                onChange={(e) => handleChange('done', e.target.value === 'true')}
-                                className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                            >
-                                <option value="true">Yes</option>
-                                <option value="false">No</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-base text-base font-medium text-muted-foreground mb-1">Start Date</label>
-                            <input
-                                type="date"
-                                value={formData.stDate ? new Date(formData.stDate).toISOString().split('T')[0] : ''}
-                                onChange={(e) => handleChange('stDate', e.target.value ? new Date(e.target.value) : null)}
-                                className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-base text-base font-medium text-muted-foreground mb-1">End Date</label>
-                            <input
-                                type="date"
-                                value={formData.endDate ? new Date(formData.endDate).toISOString().split('T')[0] : ''}
-                                onChange={(e) => handleChange('endDate', e.target.value)}
-                                className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                            />
-                        </div>
-                        <div className="col-span-2">
-                            <label className="block text-base text-base font-medium text-muted-foreground mb-1">Note</label>
-                            <textarea
-                                value={formData.note}
-                                onChange={(e) => handleChange('note', e.target.value)}
-                                className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                            />
-                        </div>
-                        <div className="col-span-2">
-                            <label className="block text-base text-base font-medium text-muted-foreground mb-1">Tags (comma-separated)</label>
-                            <input
-                                type="text"
-                                value={formData.tags}
-                                onChange={(e) => handleChange('tags', e.target.value)}
-                                className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                            />
-                        </div>
-                    </div>
-                    <div className="flex gap-2 mt-6">
-                        <button
-                            onClick={handleSave}
-                            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-                        >
-                            Save
-                        </button>
-                        <button
-                            onClick={() => {
-                                setIsEditing(false);
-                                setFormData({
-                                    code: project.code,
-                                    name: project.name,
-                                    note: project.note || '',
-                                    active: project.active,
-                                    done: project.done,
-                                    typ: project.typ,
-                                    tags: project.tags.join(', '),
-                                    stDate: project.stDate,
-                                    endDate: project.endDate || '',
-                                });
-                            }}
-                            className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80"
-                        >
-                            Cancel
-                        </button>
-                    </div>
-                </div>
-            </div>
-        );
+        return renderEditForm(project, formData, handleChange, handleSave, setIsEditing);
     }
 
+    return renderViewMode(project, getUserName);
+}
+
+function renderEditForm(project: any, formData: any, handleChange: (field: string, value: any) => void, handleSave: () => void, setIsEditing: (v: boolean) => void) {
+    return (
+        <div className="space-y-4">
+            <div className="bg-white p-8 rounded-lg border shadow-sm">
+                <h2 className="text-2xl font-semibold mb-6">Edit Project</h2>
+                <div className="grid grid-cols-2 gap-6">
+                    <div className="col-span-2">
+                        <label className="block text-base text-base font-medium text-muted-foreground mb-1">Code</label>
+                        <input
+                            type="text"
+                            value={formData.code}
+                            onChange={(e) => handleChange('code', e.target.value)}
+                            className="w-full px-3 py-2 rounded-md border border-input bg-background"
+                        />
+                    </div>
+                    <div className="col-span-2">
+                        <label className="block text-base text-base font-medium text-muted-foreground mb-1">Name</label>
+                        <input
+                            type="text"
+                            value={formData.name}
+                            onChange={(e) => handleChange('name', e.target.value)}
+                            className="w-full px-3 py-2 rounded-md border border-input bg-background"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-base text-base font-medium text-muted-foreground mb-1">Type</label>
+                        <select
+                            value={formData.typ}
+                            onChange={(e) => handleChange('typ', e.target.value)}
+                            className="w-full px-3 py-2 rounded-md border border-input bg-background"
+                        >
+                            <option value="project">Project</option>
+                            <option value="routine">Routine</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-base text-base font-medium text-muted-foreground mb-1">Active</label>
+                        <select
+                            value={formData.active ? 'true' : 'false'}
+                            onChange={(e) => handleChange('active', e.target.value === 'true')}
+                            className="w-full px-3 py-2 rounded-md border border-input bg-background"
+                        >
+                            <option value="true">Yes</option>
+                            <option value="false">No</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-base text-base font-medium text-muted-foreground mb-1">Done</label>
+                        <select
+                            value={formData.done ? 'true' : 'false'}
+                            onChange={(e) => handleChange('done', e.target.value === 'true')}
+                            className="w-full px-3 py-2 rounded-md border border-input bg-background"
+                        >
+                            <option value="true">Yes</option>
+                            <option value="false">No</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-base text-base font-medium text-muted-foreground mb-1">Start Date</label>
+                        <input
+                            type="date"
+                            value={formData.stDate ? new Date(formData.stDate).toISOString().split('T')[0] : ''}
+                            onChange={(e) => handleChange('stDate', e.target.value ? new Date(e.target.value) : null)}
+                            className="w-full px-3 py-2 rounded-md border border-input bg-background"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-base text-base font-medium text-muted-foreground mb-1">End Date</label>
+                        <input
+                            type="date"
+                            value={formData.endDate ? new Date(formData.endDate).toISOString().split('T')[0] : ''}
+                            onChange={(e) => handleChange('endDate', e.target.value)}
+                            className="w-full px-3 py-2 rounded-md border border-input bg-background"
+                        />
+                    </div>
+                    <div className="col-span-2">
+                        <label className="block text-base text-base font-medium text-muted-foreground mb-1">Note</label>
+                        <textarea
+                            value={formData.note}
+                            onChange={(e) => handleChange('note', e.target.value)}
+                            className="w-full px-3 py-2 rounded-md border border-input bg-background"
+                        />
+                    </div>
+                    <div className="col-span-2">
+                        <label className="block text-base text-base font-medium text-muted-foreground mb-1">Tags (comma-separated)</label>
+                        <input
+                            type="text"
+                            value={formData.tags}
+                            onChange={(e) => handleChange('tags', e.target.value)}
+                            className="w-full px-3 py-2 rounded-md border border-input bg-background"
+                        />
+                    </div>
+                </div>
+                <div className="flex gap-2 mt-6">
+                    <button
+                        onClick={handleSave}
+                        className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+                    >
+                        Save
+                    </button>
+                    <button
+                        onClick={() => {
+                            setIsEditing(false);
+                            setFormData({
+                                code: project.code,
+                                name: project.name,
+                                note: project.note || '',
+                                active: project.active,
+                                done: project.done,
+                                typ: project.typ,
+                                tags: project.tags.join(', '),
+                                stDate: project.stDate,
+                                endDate: project.endDate || '',
+                            });
+                        }}
+                        className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function renderViewMode(project: any, getUserName: (userId: string) => string) {
     return (
         <div className="space-y-4">
             <div className="bg-white p-8 rounded-lg border shadow-sm">

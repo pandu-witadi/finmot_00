@@ -78,6 +78,7 @@ export const budgetApi = {
     delete: (id: string) => api.delete(`/budget/${id}`),
     clone: (data: any) => api.post(`/budget/clone`, data),
     cloneToTransaction: (data: any) => api.post(`/budget/clonetotransaction`, data),
+    updateBudgetActualOrder: (budgetId: string, actualIds: string[]) => api.put(`/budget/${budgetId}`, { arrActual: actualIds }),
 };
 
 export const actualApi = {
@@ -86,4 +87,19 @@ export const actualApi = {
     create: (data: any) => api.post(`/actual`, data),
     update: (id: string, data: any) => api.put(`/actual/${id}`, data),
     delete: (id: string) => api.delete(`/actual/${id}`),
+};
+
+export const transactionApi = {
+    getAll: (filter?: any, sort?: any, limit?: number, offset?: number) => {
+        const params = new URLSearchParams();
+        if (filter) params.append('filter', JSON.stringify(filter));
+        if (sort) params.append('sort', JSON.stringify(sort));
+        if (limit !== undefined) params.append('limit', String(limit));
+        if (offset !== undefined) params.append('offset', String(offset));
+        return api.get(`/transaction?${params.toString()}`);
+    },
+    getById: (id: string) => api.get(`/transaction/${id}`),
+    create: (data: any) => api.post(`/transaction`, data),
+    update: (id: string, data: any) => api.put(`/transaction/${id}`, data),
+    delete: (id: string) => api.delete(`/transaction/${id}`),
 };

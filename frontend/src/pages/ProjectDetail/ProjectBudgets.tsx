@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { headerApi, budgetApi, projectApi } from "@/services/api";
+import { headerApi, budgetApi, projectApi, actualApi } from "@/services/api";
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
@@ -17,7 +17,6 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { actualApi } from "@/services/api";
 import { formatNumber, getTypeLabel, parseTags } from "@/utils/formatters";
 
 interface ProjectBudgetsProps {
@@ -162,15 +161,12 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         }
     };
 
-    // Load data on initial mount and when projectId changes
     useEffect(() => {
         loadData();
     }, [projectId]);
 
-    // Helper: Show confirmation dialog
     const showConfirm = (message: string) => window.confirm(message);
 
-    // Helper: Handle delete operation with toast feedback
     const handleDeleteOperation = async (
         deleteFn: () => Promise<any>,
         successMessage: string,
@@ -188,7 +184,6 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         }
     };
 
-    // Helper: Handle save operation with confirm dialog
     const handleSaveOperation = async (
         saveFn: () => Promise<any>,
         confirmMessage: string,
@@ -207,7 +202,6 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         }
     };
 
-    // Helper: Handle create operation with toast feedback
     const handleCreateOperation = async (
         createFn: (data: any) => Promise<any>,
         data: any,
@@ -224,12 +218,10 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         }
     };
 
-    // Helper: Reset form states
     const resetHeaderForm = () => setEditHeaderForm({ id: '', name: '', type: 'expense', tags: '' });
     const resetBudgetForm = () => setEditBudgetForm({ id: '', name: '', type: 'expense', amount: 0, tags: '' });
     const resetActualForm = () => setEditActualForm({ id: '', name: '', amount: 0 });
 
-    // Helper: Handle update operation with toast feedback
     const handleUpdateOperation = async (
         updateFn: (id: string, data: any) => Promise<any>,
         id: string,
@@ -247,7 +239,6 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         }
     };
 
-    // Expand all headers by default
     useEffect(() => {
         if (headers.length > 0) {
             setExpandedHeaders(new Set(headers.map((h) => h.id)));
@@ -264,7 +255,6 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             const headers = Array.isArray(headersRes.data) ? headersRes.data : [];
             setHeaders(headers);
             
-            // Sort budgets according to each header's arrBudget order
             const budgetsData = Array.isArray(budgetsRes.data) ? budgetsRes.data : [];
             const sortedBudgets = budgetsData.sort((a, b) => {
                 const headerA = headers.find(h => h.id === a.header);
@@ -278,7 +268,6 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             });
             setBudgets(sortedBudgets);
             
-            // Group actuals by budget ID
             const actualsData = Array.isArray(actualsRes.data) ? actualsRes.data : [];
             const actualsMap: {[budgetId: string]: {id: string, name: string, amount: number}[]} = {};
             actualsData.forEach((actual: any) => {
@@ -478,7 +467,6 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         resetActualForm();
     };
 
-    // Header drag/drop handlers with dnd-kit
     const handleHeaderDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
 
@@ -499,7 +487,6 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         });
     };
 
-    // Budget drag/drop handlers with dnd-kit
     const handleBudgetDragEnd = (event: DragEndEvent, headerId: string) => {
         const { active, over } = event;
 
@@ -520,7 +507,6 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             const headerBudgets = newBudgets.filter((b) => b.header === headerId);
             const movedBudgets = arrayMove(headerBudgets, activeBudgetIndex, overBudgetIndex);
 
-            // Replace the header's budgets in the main array
             const otherBudgets = newBudgets.filter((b) => b.header !== headerId);
             return [...otherBudgets, ...movedBudgets];
         });
@@ -571,338 +557,393 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         );
     }
 
+    const renderToolbar = () => (
+        <div className="flex items-center justify-between">
+            <div className="flex gap-2">
+                <Button onClick={() => setIsAddHeaderDialogOpen(true)}>
+                    Add Header
+                </Button>
+                <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleSaveHeaderPositions}
+                    title="Save Header Positions"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-save">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                        <path d="M17 21v-8H7v8" />
+                        <path d="M7 10V3a1 1 0 0 1 1-1h5v7" />
+                    </svg>
+                </Button>
+            </div>
+        </div>
+    );
+
+    const renderHeader = (header: Header) => {
+        const associatedBudgets = budgets.filter(b => b.header === header.id);
+        const headerTotal = getHeaderTotal(header);
+
+        return (
+            <HeaderSortableItem key={header.id} id={header.id} isExpanded={expandedHeaders.has(header.id)}>
+                <Card className="transition-all">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <div
+                            className={`cursor-move space-y-1 ${!expandedHeaders.has(header.id) ? 'cursor-grab' : 'cursor-not-allowed'}`}
+                        >
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    className="text-muted-foreground hover:text-foreground pointer-events-auto"
+                                    onPointerDown={(e) => {
+                                        e.stopPropagation();
+                                    }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        const newExpanded = new Set(expandedHeaders);
+                                        if (newExpanded.has(header.id)) {
+                                            newExpanded.delete(header.id);
+                                        } else {
+                                            newExpanded.add(header.id);
+                                        }
+                                        setExpandedHeaders(newExpanded);
+                                    }}
+                                >
+                                    {expandedHeaders.has(header.id) ? (
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-up">
+                                            <path d="m18 15-6-6-6 6" />
+                                        </svg>
+                                    ) : (
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-down">
+                                            <path d="m6 9 6 6 6-6" />
+                                        </svg>
+                                    )}
+                                </button>
+                                <button
+                                    type="button"
+                                    className="text-lg font-bold text-primary hover:underline"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        openEditHeader(header);
+                                    }}
+                                >
+                                    {header.name}
+                                </button>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground ml-6">
+                                <span className={`text-xs px-2 py-0.5 rounded ${
+                                    header.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                }`}>
+                                    {getTypeLabel(header.type)}
+                                </span>
+                                <span>{formatNumber(headerTotal)}</span>
+                                {associatedBudgets.length > 0 && Array.from(selectedBudgetIds).some(id => associatedBudgets.some(b => b.id === id)) && (
+                                    <span className="ml-2 text-xs text-muted-foreground">
+                                        {Array.from(selectedBudgetIds).filter(id => associatedBudgets.some(b => b.id === id)).length} selected
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            {associatedBudgets.length > 0 && Array.from(selectedBudgetIds).some(id => associatedBudgets.some(b => b.id === id)) && (
+                                (() => {
+                                    const selectedCount = Array.from(selectedBudgetIds).filter(id => associatedBudgets.some(b => b.id === id)).length;
+                                    const selectedBudgets = budgets.filter(b => selectedBudgetIds.has(b.id));
+                                    const hasDelete = selectedBudgets.some(b => b.active);
+                                    return (
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger>
+                                                <Button size="sm" type="button" className="h-8 px-3" onClick={(e) => {
+                                                    e.stopPropagation();
+                                                }}>
+                                                    {selectedCount} selected
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                {selectedCount === 1 && (
+                                                    <DropdownMenuItem onClick={openCloneConfirm}>
+                                                        Clone
+                                                    </DropdownMenuItem>
+                                                )}
+                                                {hasDelete && (
+                                                    <DropdownMenuItem onClick={() => {
+                                                        const selectedInHeader = Array.from(selectedBudgetIds).filter(id => associatedBudgets.some(b => b.id === id));
+                                                        toast.success("Delete action would delete " + selectedInHeader.length + " budgets in this header");
+                                                    }}>
+                                                        Delete
+                                                    </DropdownMenuItem>
+                                                )}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    );
+                                })()
+                            )}
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => { e.stopPropagation(); setSelectedHeaderId(header.id); setIsAddBudgetDialogOpen(true); }}
+                                title="Add budget"
+                            >
+                                +
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => { e.stopPropagation(); handleSaveBudgetPositions(header.id); }}
+                                title="Save budget positions"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-save">
+                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                                    <path d="M17 21v-8H7v8" />
+                                    <path d="M7 10V3a1 1 0 0 1 1-1h5v7" />
+                                </svg>
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => { e.stopPropagation(); handleDeleteHeader(header.id); }}
+                                title="Delete header"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2">
+                                    <path d="M3 6h18" />
+                                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                                    <path d="M19 4v16c0 1-1 2-2 2H7c-1 0-2-1-2-2V4" />
+                                </svg>
+                            </Button>
+                        </div>
+                    </CardHeader>
+                    <CardContent className={!expandedHeaders.has(header.id) ? 'p-0' : ''}>
+                        {!expandedHeaders.has(header.id) ? (
+                            <div className="py-4 text-center text-sm text-muted-foreground">
+                                Click chevron to show budgets
+                            </div>
+                        ) : (
+                            <BudgetTable header={header} associatedBudgets={associatedBudgets} />
+                        )}
+                    </CardContent>
+                </Card>
+            </HeaderSortableItem>
+        );
+    };
+
+    const BudgetTable = ({ header, associatedBudgets }: { header: Header; associatedBudgets: Budget[] }) => (
+        <DndContext onDragEnd={(event) => handleBudgetDragEnd(event, header.id)}>
+            <Table className="table-fixed">
+                <TableHeader>
+                    <TableRow>
+                        <TableHead className="w-10 px-2 text-left bg-magenta-50">
+                            <input
+                                type="checkbox"
+                                className="h-4 w-4 accent-primary"
+                                checked={associatedBudgets.length > 0 && associatedBudgets.every(b => selectedBudgetIds.has(b.id))}
+                                onPointerDown={(e) => {
+                                    e.stopPropagation();
+                                    toggleSelectAllBudgets(associatedBudgets);
+                                }}
+                                onChange={() => {}}
+                            />
+                        </TableHead>
+                        <TableHead className="w-[50%] px-2 text-left border-b border-gray-200 bg-magenta-50">Name</TableHead>
+                        <TableHead className="w-[12.5%] px-2 text-center border-b border-gray-200 bg-magenta-50">t</TableHead>
+                        <TableHead className="text-right w-[12.5%] border-b border-gray-200 border-r border-magenta-300 bg-magenta-50">Amount</TableHead>
+                        <TableHead className="text-left w-[40%] bg-magenta-50">actName</TableHead>
+                        <TableHead className="text-right w-[20%] bg-magenta-50">actAmount</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <SortableContext items={associatedBudgets.map((b) => b.id)} strategy={verticalListSortingStrategy}>
+                    <TableBody>
+                        {associatedBudgets.flatMap((budget) => {
+                            const budgetActuals = actuals[budget.id] || [];
+                            if (budgetActuals.length === 0) {
+                                return renderBudgetRow(budget, null, 0);
+                            }
+                            return budgetActuals.map((actual, index) => renderBudgetRow(budget, actual, index));
+                        })}
+                    </TableBody>
+                </SortableContext>
+            </Table>
+        </DndContext>
+    );
+
+    const renderBudgetRow = (budget: Budget, actual: {id: string, name: string, amount: number} | null, index: number) => {
+        const budgetActuals = actuals[budget.id] || [];
+        const isDraggable = index === 0;
+        const rowKey = index === 0 ? budget.id : actual?.id || budget.id;
+        const hasActuals = budgetActuals.length > 0;
+
+        if (!hasActuals) {
+            return (
+                <BudgetSortableRow key={budget.id} id={budget.id} disabled={false}>
+                    <TableCell className="px-2 text-left">
+                        <input
+                            type="checkbox"
+                            className="h-4 w-4 accent-primary"
+                            checked={selectedBudgetIds.has(budget.id)}
+                            onPointerDown={(e) => {
+                                e.stopPropagation();
+                                toggleSelectBudget(budget.id);
+                            }}
+                            onChange={() => {}}
+                        />
+                    </TableCell>
+                    <TableCell className="w-[50%] px-2 text-left border-b border-gray-200">
+                        <div className="flex items-center gap-2">
+                            <span
+                                className="cursor-pointer hover:underline font-medium"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    openEditBudget(budget);
+                                }}
+                                onPointerDown={(e) => {
+                                    e.stopPropagation();
+                                }}
+                            >
+                                {budget.name}
+                            </span>
+                        </div>
+                    </TableCell>
+                    <TableCell className="w-[12.5%] px-2 text-center border-b border-gray-200">
+                        <span className={`text-xs px-2 py-0.5 rounded ${
+                            budget.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                        }`}>
+                            {getTypeLabel(budget.type)}
+                        </span>
+                    </TableCell>
+                    <TableCell className="w-[12.5%] text-right border-b border-gray-200 border-r border-magenta-300">
+                        <span className="text-sm">
+                            {formatNumber(budget.amount)}
+                        </span>
+                    </TableCell>
+                    <TableCell className="w-[40%] text-left border-b border-gray-200">
+                        <span className="text-sm text-muted-foreground">—</span>
+                    </TableCell>
+                    <TableCell className="w-[20%] text-right border-b border-gray-200">
+                        <span className="text-sm text-muted-foreground">—</span>
+                    </TableCell>
+                </BudgetSortableRow>
+            );
+        }
+
+        const sharedCells = (
+            <>
+                <TableCell rowSpan={budgetActuals.length} className="px-2 text-left">
+                    <input
+                        type="checkbox"
+                        className="h-4 w-4 accent-primary"
+                        checked={selectedBudgetIds.has(budget.id)}
+                        onPointerDown={(e) => {
+                            e.stopPropagation();
+                            toggleSelectBudget(budget.id);
+                        }}
+                        onChange={() => {}}
+                    />
+                </TableCell>
+                <TableCell rowSpan={budgetActuals.length} className="w-[50%] px-2 text-left border-b border-gray-200">
+                    <div className="flex items-center gap-2">
+                        <span
+                            className="cursor-pointer hover:underline font-medium"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                openEditBudget(budget);
+                            }}
+                            onPointerDown={(e) => {
+                                e.stopPropagation();
+                            }}
+                        >
+                            {budget.name}
+                        </span>
+                    </div>
+                </TableCell>
+                <TableCell rowSpan={budgetActuals.length} className="w-[12.5%] px-2 text-center border-b border-gray-200">
+                    <span className={`text-xs px-2 py-0.5 rounded ${
+                        budget.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    }`}>
+                        {getTypeLabel(budget.type)}
+                    </span>
+                </TableCell>
+                <TableCell rowSpan={budgetActuals.length} className="w-[12.5%] text-right border-b border-gray-200 border-r border-magenta-300">
+                    <span className="text-sm">
+                        {formatNumber(budget.amount)}
+                    </span>
+                </TableCell>
+            </>
+        );
+
+        const lastRowClass = index === budgetActuals.length - 1 ? "border-b border-gray-200" : "";
+
+        return (
+            <BudgetSortableRow key={rowKey} id={rowKey} disabled={!isDraggable}>
+                {index === 0 && sharedCells}
+                <TableCell className={`w-[40%] text-left ${lastRowClass}`}>
+                    <span 
+                        className="text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground hover:underline cursor-pointer" 
+                        title={actual?.name}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            openEditActual(actual!);
+                        }}
+                        onPointerDown={(e) => {
+                            e.stopPropagation();
+                        }}
+                    >
+                        {actual?.name}
+                    </span>
+                </TableCell>
+                <TableCell className={`w-[20%] text-right ${lastRowClass}`}>
+                    <span className="text-sm text-muted-foreground">
+                        {formatNumber(actual?.amount || 0)}
+                    </span>
+                </TableCell>
+            </BudgetSortableRow>
+        );
+    };
+
+    const renderCloneConfirmDialog = () => (
+        <Dialog open={isCloneConfirmOpen} onOpenChange={setIsCloneConfirmOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Clone Budget to Actual</DialogTitle>
+                    <DialogDescription>
+                        This will create Actual records for {clonedBudgets.length} selected budget(s). Each Actual will copy the name, type, amount, and tags from the Budget.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                    <div className="space-y-2">
+                        {clonedBudgets.map((item, index) => (
+                            <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                                <div>
+                                    <div className="font-medium">{item.name}</div>
+                                    <div className="text-sm text-muted-foreground">
+                                        {item.budget.type === 'income' ? 'Income' : 'Expense'} - {formatNumber(item.budget.amount)}
+                                    </div>
+                                </div>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
+                                    <path d="m12 3 1.912 5.513a2 2 0 0 0 2.549 1.532l5.508-.918a2 2 0 0 1 2.49 2.49l-.918 5.508a2 2 0 0 0 1.532 2.549l5.513 1.912a2 2 0 0 1 0 3.824l-5.513 1.912a2 2 0 0 0-1.532 2.549l.918 5.508a2 2 0 0 1-2.49 2.49l-5.508-.918a2 2 0 0 0-2.549 1.532l-1.912 5.513a2 2 0 0 1-3.824 0l-1.912-5.513a2 2 0 0 0-2.549-1.532l-5.508.918a2 2 0 0 1-2.49-2.49l.918-5.508a2 2 0 0 0-1.532-2.549l-5.513-1.912a2 2 0 0 1 0-3.824l5.513-1.912a2 2 0 0 0 1.532-2.549l-.918-5.508a2 2 0 0 1 2.49-2.49l5.508.918a2 2 0 0 0 2.549-1.532L12 3Z"/>
+                                </svg>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsCloneConfirmOpen(false)}>
+                        Cancel
+                    </Button>
+                    <Button onClick={handleCloneConfirm}>
+                        Clone {clonedBudgets.length} budget{clonedBudgets.length !== 1 ? 's' : ''}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+
     return (
         <div className="space-y-8">
-            <div className="flex items-center justify-between">
-                <div className="flex gap-2">
-                    <Button onClick={() => setIsAddHeaderDialogOpen(true)}>
-                        Add Header
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={handleSaveHeaderPositions}
-                        title="Save Header Positions"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-save">
-                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                            <path d="M17 21v-8H7v8" />
-                            <path d="M7 10V3a1 1 0 0 1 1-1h5v7" />
-                        </svg>
-                    </Button>
-                </div>
-            </div>
-
-            {/* DndContext for headers - wrapping the grid */}
+            {renderToolbar()}
+            
             <DndContext onDragEnd={handleHeaderDragEnd}>
                 <div className="grid gap-4">
                     <SortableContext items={headers.map((h) => h.id)} strategy={verticalListSortingStrategy}>
-                        {headers.map((header) => {
-                            const associatedBudgets = budgets.filter(b => b.header === header.id);
-                            const headerTotal = getHeaderTotal(header);
-
-                            return (
-                                <HeaderSortableItem key={header.id} id={header.id} isExpanded={expandedHeaders.has(header.id)}>
-                                    <Card
-                                        className={`transition-all`}
-                                    >
-                                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                            <div
-                                                className={`cursor-move space-y-1 ${!expandedHeaders.has(header.id) ? 'cursor-grab' : 'cursor-not-allowed'}`}
-                                            >
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        type="button"
-                                                        className="text-muted-foreground hover:text-foreground pointer-events-auto"
-                                                        onPointerDown={(e) => {
-                                                            e.stopPropagation();
-                                                        }}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            const newExpanded = new Set(expandedHeaders);
-                                                            if (newExpanded.has(header.id)) {
-                                                                newExpanded.delete(header.id);
-                                                            } else {
-                                                                newExpanded.add(header.id);
-                                                            }
-                                                            setExpandedHeaders(newExpanded);
-                                                        }}
-                                                    >
-                                                        {expandedHeaders.has(header.id) ? (
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-up">
-                                                                <path d="m18 15-6-6-6 6" />
-                                                            </svg>
-                                                        ) : (
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-down">
-                                                                <path d="m6 9 6 6 6-6" />
-                                                            </svg>
-                                                        )}
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="text-lg font-bold text-primary hover:underline"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            openEditHeader(header);
-                                                        }}
-                                                    >
-                                                        {header.name}
-                                                    </button>
-                                                </div>
-                                                <div className="flex items-center gap-2 text-sm text-muted-foreground ml-6">
-                                                    <span className={`text-xs px-2 py-0.5 rounded ${
-                                                        header.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                                                    }`}>
-                                                        {getTypeLabel(header.type)}
-                                                    </span>
-                                                    <span>{formatNumber(headerTotal)}</span>
-                                                    {associatedBudgets.length > 0 && Array.from(selectedBudgetIds).some(id => associatedBudgets.some(b => b.id === id)) && (
-                                                        <span className="ml-2 text-xs text-muted-foreground">
-                                                            {Array.from(selectedBudgetIds).filter(id => associatedBudgets.some(b => b.id === id)).length} selected
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                {associatedBudgets.length > 0 && Array.from(selectedBudgetIds).some(id => associatedBudgets.some(b => b.id === id)) && (
-                                                    (() => {
-                                                        const selectedCount = Array.from(selectedBudgetIds).filter(id => associatedBudgets.some(b => b.id === id)).length;
-                                                        const selectedBudgets = budgets.filter(b => selectedBudgetIds.has(b.id));
-                                                        const hasDelete = selectedBudgets.some(b => b.active);
-                                                        return (
-                                                            <DropdownMenu>
-                                                                <DropdownMenuTrigger asChild>
-                                                                    <Button size="sm" type="button" className="h-8 px-3" onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                    }}>
-                                                                        {selectedCount} selected
-                                                                    </Button>
-                                                                </DropdownMenuTrigger>
-                                                                <DropdownMenuContent align="end">
-                                                                    {selectedCount === 1 && (
-                                                                        <DropdownMenuItem onClick={openCloneConfirm}>
-                                                                            Clone
-                                                                        </DropdownMenuItem>
-                                                                    )}
-                                                                    {hasDelete && (
-                                                                        <DropdownMenuItem onClick={() => {
-                                                                            const selectedInHeader = Array.from(selectedBudgetIds).filter(id => associatedBudgets.some(b => b.id === id));
-                                                                            toast.success("Delete action would delete " + selectedInHeader.length + " budgets in this header");
-                                                                        }}>
-                                                                            Delete
-                                                                        </DropdownMenuItem>
-                                                                    )}
-                                                                </DropdownMenuContent>
-                                                            </DropdownMenu>
-                                                        );
-                                                    })()
-                                                )}
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={(e) => { e.stopPropagation(); setSelectedHeaderId(header.id); setIsAddBudgetDialogOpen(true); }}
-                                                    title="Add budget"
-                                                >
-                                                    +
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={(e) => { e.stopPropagation(); handleSaveBudgetPositions(header.id); }}
-                                                    title="Save budget positions"
-                                                >
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-save">
-                                                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                                                        <path d="M17 21v-8H7v8" />
-                                                        <path d="M7 10V3a1 1 0 0 1 1-1h5v7" />
-                                                    </svg>
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={(e) => { e.stopPropagation(); handleDeleteHeader(header.id); }}
-                                                    title="Delete header"
-                                                >
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2">
-                                                        <path d="M3 6h18" />
-                                                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                                                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                                                        <path d="M19 4v16c0 1-1 2-2 2H7c-1 0-2-1-2-2V4" />
-                                                    </svg>
-                                                </Button>
-                                            </div>
-                                        </CardHeader>
-                                        <CardContent className={!expandedHeaders.has(header.id) ? 'p-0' : ''}>
-                                            {!expandedHeaders.has(header.id) ? (
-                                                <div className="py-4 text-center text-sm text-muted-foreground">
-                                                    Click chevron to show budgets
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    {/* DndContext for budgets within each header */}
-                                                    <DndContext onDragEnd={(event) => handleBudgetDragEnd(event, header.id)}>
-                                                        <Table className="table-fixed">
-                                                            <TableHeader>
-                                                                <TableRow>
-                                                                    <TableHead className="w-10 px-2 text-left bg-magenta-50">
-                                                                        <input
-                                                                            type="checkbox"
-                                                                            className="h-4 w-4 accent-primary"
-                                                                            checked={associatedBudgets.length > 0 && associatedBudgets.every(b => selectedBudgetIds.has(b.id))}
-                                                                            onPointerDown={(e) => {
-                                                                                e.stopPropagation();
-                                                                                toggleSelectAllBudgets(associatedBudgets);
-                                                                            }}
-                                                                            onChange={() => {}}
-                                                                        />
-                                                                    </TableHead>
-                                                                    <TableHead className="w-[50%] px-2 text-left border-b border-gray-200 bg-magenta-50">Name</TableHead>
-                                                                    <TableHead className="w-[12.5%] px-2 text-center border-b border-gray-200 bg-magenta-50">t</TableHead>
-                                                                    <TableHead className="text-right w-[12.5%] border-b border-gray-200 border-r border-magenta-300 bg-magenta-50">Amount</TableHead>
-                                                                    <TableHead className="text-left w-[40%] bg-magenta-50">actName</TableHead>
-                                                                    <TableHead className="text-right w-[20%] bg-magenta-50">actAmount</TableHead>
-                                                                </TableRow>
-                                                            </TableHeader>
-                                                            <SortableContext items={associatedBudgets.map((b) => b.id)} strategy={verticalListSortingStrategy}>
-                                                                <TableBody>
-                                                                    {associatedBudgets.flatMap((budget) => {
-                                                                        const budgetActuals = actuals[budget.id] || [];
-                                                                        if (budgetActuals.length === 0) {
-                                                                            return (
-                                                                                <BudgetSortableRow key={budget.id} id={budget.id} disabled={false}>
-                                                                                    <TableCell className="px-2 text-left">
-                                                                                        <input
-                                                                                            type="checkbox"
-                                                                                            className="h-4 w-4 accent-primary"
-                                                                                            checked={selectedBudgetIds.has(budget.id)}
-                                                                                            onPointerDown={(e) => {
-                                                                                                e.stopPropagation();
-                                                                                                toggleSelectBudget(budget.id);
-                                                                                            }}
-                                                                                            onChange={() => {}}
-                                                                                        />
-                                                                                    </TableCell>
-                                                                                    <TableCell className="w-[50%] px-2 text-left border-b border-gray-200">
-                                                                                        <div className="flex items-center gap-2">
-                                                                                            <span
-                                                                                                className="cursor-pointer hover:underline font-medium"
-                                                                                                onClick={(e) => {
-                                                                                                    e.stopPropagation();
-                                                                                                    openEditBudget(budget);
-                                                                                                }}
-                                                                                                onPointerDown={(e) => {
-                                                                                                    e.stopPropagation();
-                                                                                                }}
-                                                                                            >
-                                                                                                {budget.name}
-                                                                                            </span>
-                                                                                        </div>
-                                                                                    </TableCell>
-                                                                                    <TableCell className="w-[12.5%] px-2 text-center border-b border-gray-200">
-                                                                                        <span className={`text-xs px-2 py-0.5 rounded ${
-                                                                                            budget.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                                                                                        }`}>
-                                                                                            {getTypeLabel(budget.type)}
-                                                                                        </span>
-                                                                                    </TableCell>
-                                                                                    <TableCell className="w-[12.5%] text-right border-b border-gray-200 border-r border-magenta-300">
-                                                                                        <span className="text-sm">
-                                                                                            {formatNumber(budget.amount)}
-                                                                                        </span>
-                                                                                    </TableCell>
-                                                                                    <TableCell className="w-[40%] text-left border-b border-gray-200">
-                                                                                        <span className="text-sm text-muted-foreground">—</span>
-                                                                                    </TableCell>
-                                                                                    <TableCell className="w-[20%] text-right border-b border-gray-200">
-                                                                                        <span className="text-sm text-muted-foreground">—</span>
-                                                                                    </TableCell>
-                                                                                </BudgetSortableRow>
-                                                                            );
-                                                                        }
-                                                                        return budgetActuals.map((actual, index) => {
-                                                                            const isDraggable = index === 0;
-                                                                            const rowKey = index === 0 ? budget.id : actual.id;
-                                                                            return (
-                                                                                <BudgetSortableRow key={rowKey} id={rowKey} disabled={!isDraggable}>
-                                                                                    {index === 0 && (
-                                                                                        <>
-                                                                                            <TableCell rowSpan={budgetActuals.length} className="px-2 text-left">
-                                                                                                <input
-                                                                                                    type="checkbox"
-                                                                                                    className="h-4 w-4 accent-primary"
-                                                                                                    checked={selectedBudgetIds.has(budget.id)}
-                                                                                                    onPointerDown={(e) => {
-                                                                                                        e.stopPropagation();
-                                                                                                        toggleSelectBudget(budget.id);
-                                                                                                    }}
-                                                                                                    onChange={() => {}}
-                                                                                                />
-                                                                                            </TableCell>
-                                                                                            <TableCell rowSpan={budgetActuals.length} className="w-[50%] px-2 text-left border-b border-gray-200">
-                                                                                                <div className="flex items-center gap-2">
-                                                                                                    <span
-                                                                                                        className="cursor-pointer hover:underline font-medium"
-                                                                                                        onClick={(e) => {
-                                                                                                            e.stopPropagation();
-                                                                                                            openEditBudget(budget);
-                                                                                                        }}
-                                                                                                        onPointerDown={(e) => {
-                                                                                                            e.stopPropagation();
-                                                                                                        }}
-                                                                                                    >
-                                                                                                        {budget.name}
-                                                                                                    </span>
-                                                                                                </div>
-                                                                                            </TableCell>
-                                                                                            <TableCell rowSpan={budgetActuals.length} className="w-[12.5%] px-2 text-center border-b border-gray-200">
-                                                                                                <span className={`text-xs px-2 py-0.5 rounded ${
-                                                                                                    budget.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                                                                                                }`}>
-                                                                                                    {getTypeLabel(budget.type)}
-                                                                                                </span>
-                                                                                            </TableCell>
-                                                                                            <TableCell rowSpan={budgetActuals.length} className="w-[12.5%] text-right border-b border-gray-200 border-r border-magenta-300">
-                                                                                                <span className="text-sm">
-                                                                                                    {formatNumber(budget.amount)}
-                                                                                                </span>
-                                                                                            </TableCell>
-                                                                                        </>
-                                                                                    )}
-                                                                                    <TableCell className={`w-[40%] text-left ${index === budgetActuals.length - 1 ? "border-b border-gray-200" : ""}`}>
-                                                                                        <span 
-                                                                                            className="text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground hover:underline cursor-pointer" 
-                                                                                            title={actual.name}
-                                                                                            onClick={(e) => {
-                                                                                                e.stopPropagation();
-                                                                                                openEditActual(actual);
-                                                                                            }}
-                                                                                            onPointerDown={(e) => {
-                                                                                                e.stopPropagation();
-                                                                                            }}
-                                                                                        >
-                                                                                            {actual.name}
-                                                                                        </span>
-                                                                                    </TableCell>
-                                                                                    <TableCell className={`w-[20%] text-right ${index === budgetActuals.length - 1 ? "border-b border-gray-200" : ""}`}>
-                                                                                        <span className="text-sm text-muted-foreground">
-                                                                                            {formatNumber(actual.amount)}
-                                                                                        </span>
-                                                                                    </TableCell>
-                                                                                </BudgetSortableRow>
-                                                                            );
-                                                                        });
-                                                                        })}
-                                                                </TableBody>
-                                                            </SortableContext>
-                                                        </Table>
-                                                    </DndContext>
-                                                </>
-                                            )}
-                                        </CardContent>
-                                    </Card>
-                                </HeaderSortableItem>
-                            );
-                        })}
+                        {headers.map((header) => renderHeader(header))}
                     </SortableContext>
                 </div>
             </DndContext>
@@ -953,44 +994,9 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                 onDeleteActual={() => handleDeleteActual(editActualForm.id)}
             />
 
-            <Dialog open={isCloneConfirmOpen} onOpenChange={setIsCloneConfirmOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Clone Budget to Actual</DialogTitle>
-                        <DialogDescription>
-                            This will create Actual records for {clonedBudgets.length} selected budget(s). Each Actual will copy the name, type, amount, and tags from the Budget.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="py-4">
-                        <div className="space-y-2">
-                            {clonedBudgets.map((item, index) => (
-                                <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                                    <div>
-                                        <div className="font-medium">{item.name}</div>
-                                        <div className="text-sm text-muted-foreground">
-                                            {item.budget.type === 'income' ? 'Income' : 'Expense'} - {formatNumber(item.budget.amount)}
-                                        </div>
-                                    </div>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
-                                        <path d="m12 3 1.912 5.513a2 2 0 0 0 2.549 1.532l5.508-.918a2 2 0 0 1 2.49 2.49l-.918 5.508a2 2 0 0 0 1.532 2.549l5.513 1.912a2 2 0 0 1 0 3.824l-5.513 1.912a2 2 0 0 0-1.532 2.549l.918 5.508a2 2 0 0 1-2.49 2.49l-5.508-.918a2 2 0 0 0-2.549 1.532l-1.912 5.513a2 2 0 0 1-3.824 0l-1.912-5.513a2 2 0 0 0-2.549-1.532l-5.508.918a2 2 0 0 1-2.49-2.49l.918-5.508a2 2 0 0 0-1.532-2.549l-5.513-1.912a2 2 0 0 1 0-3.824l5.513-1.912a2 2 0 0 0 1.532-2.549l-.918-5.508a2 2 0 0 1 2.49-2.49l5.508.918a2 2 0 0 0 2.549-1.532L12 3Z"/>
-                                    </svg>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsCloneConfirmOpen(false)}>
-                            Cancel
-                        </Button>
-                        <Button onClick={handleCloneConfirm}>
-                            Clone {clonedBudgets.length} budget{clonedBudgets.length !== 1 ? 's' : ''}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            {renderCloneConfirmDialog()}
         </div>
     );
 }
 
 export default ProjectBudgets;
-

@@ -16,7 +16,6 @@ export function UserDetail() {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState("mainInfo");
     
-    // Main form state
     const [formData, setFormData] = useState<UserForm>({
         email: "",
         password: "",
@@ -29,11 +28,9 @@ export function UserDetail() {
     const [isDataLoading, setIsDataLoading] = useState(true);
     const [showPassword, setShowPassword] = useState(false);
 
-    // Hooks for bank and deposit info
     const [bankState, bankActions] = useBankInfo(formData, setFormData);
     const [depositState, depositActions] = useDepositInfo();
 
-    // Load user data
     useEffect(() => {
         const loadUserData = async () => {
             if (!id) return;
@@ -42,12 +39,10 @@ export function UserDetail() {
                 const response = await userApi.getById(id);
                 const user = response.data;
                 
-                // Helper function to get date value (supports both 'date' and 'dateEntry' field names)
                 const getDepositDate = (deposit: any): Date | undefined => {
                     return deposit.date || deposit.dateEntry;
                 };
                 
-                // Helper function to normalize deposit data
                 const normalizeDeposit = (deposit: any): any => {
                     const date = getDepositDate(deposit);
                     return {
@@ -56,7 +51,6 @@ export function UserDetail() {
                     };
                 };
                 
-                // Normalize all deposits to use 'date' field
                 const normalizedDeposits = (user.deposit?.detail || [])
                     .map(normalizeDeposit)
                     .sort((a: any, b: any) => {
@@ -86,165 +80,11 @@ export function UserDetail() {
         loadUserData();
     }, [id, navigate]);
 
-    // Handle main info change
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
         if (errors[name as keyof UserForm]) {
             setErrors(prev => ({ ...prev, [name]: undefined }));
-        }
-    };
-
-    // Handle save handlers for each section
-    const handleMainInfoSave = async (e: React.FormEvent) => {
-        e.preventDefault();
-
-        if (!id) {
-            toast.error("User ID not found");
-            return;
-        }
-
-        try {
-            // Validate main info fields only
-            const { email, password, name, role } = formData;
-            userSchema.parse({ email, password, name, role });
-            
-            setErrors({});
-            setIsLoading(true);
-
-            const submitData: any = {
-                email: formData.email || undefined,
-                password: formData.password || undefined,
-                name: formData.name && formData.name.trim() !== "" ? formData.name : undefined,
-                role: formData.role,
-            };
-
-            await userApi.updateMainInfo(id, submitData);
-
-            toast.success("Main information updated successfully");
-        } catch (error: any) {
-            if (error instanceof z.ZodError) {
-                const fieldErrors: Record<string, string> = {};
-                error.issues.forEach((err: any) => {
-                    if (err.path && err.path.length > 0) {
-                        fieldErrors[err.path[0]] = err.message;
-                    }
-                });
-                setErrors(fieldErrors as Partial<UserForm>);
-                toast.error("Please fix the errors below");
-            } else if (error.response) {
-                const errorMessage = error.response?.data?.error || "Failed to update main information";
-                toast.error(errorMessage);
-            } else if (error.request) {
-                toast.error("Network error. Please check if the server is running.");
-            } else {
-                toast.error(error.message || "An error occurred");
-            }
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleBankInfoSave = async (e: React.FormEvent) => {
-        e.preventDefault();
-
-        if (!id) {
-            toast.error("User ID not found");
-            return;
-        }
-
-        try {
-            // Validate bank info
-            const hasPendingBankInfo = bankState.bankAccount.bank.trim() !== "" && 
-                                       bankState.bankAccount.code.trim() !== "" && 
-                                       bankState.bankAccount.accountNo.trim() !== "" && 
-                                       bankState.bankAccount.name.trim() !== "";
-            
-            const finalBankInfo = hasPendingBankInfo 
-                ? [...(formData.bankInfo || []), bankState.bankAccount]
-                : formData.bankInfo || [];
-
-            if (finalBankInfo.length > 0) {
-                const { bankInfoSchema } = await import("./schemas");
-                finalBankInfo.forEach((bank: any) => {
-                    bankInfoSchema.parse(bank);
-                });
-            }
-
-            setIsLoading(true);
-
-            await userApi.updateBankInfo(id, { bankInfo: finalBankInfo });
-
-            toast.success(hasPendingBankInfo ? "Bank information updated successfully (new account added)" : "Bank information updated successfully");
-        } catch (error: any) {
-            if (error instanceof z.ZodError) {
-                const fieldErrors: Record<string, string> = {};
-                error.issues.forEach((err: any) => {
-                    if (err.path && err.path.length > 0) {
-                        fieldErrors[err.path[0]] = err.message;
-                    }
-                });
-                bankActions.setBankErrors(fieldErrors);
-                toast.error("Please fix the errors below");
-            } else if (error.response) {
-                const errorMessage = error.response?.data?.error || "Failed to update bank information";
-                toast.error(errorMessage);
-            } else if (error.request) {
-                toast.error("Network error. Please check if the server is running.");
-            } else {
-                toast.error(error.message || "An error occurred");
-            }
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleDepositInfoSave = async (e: React.FormEvent) => {
-        e.preventDefault();
-
-        if (!id) {
-            toast.error("User ID not found");
-            return;
-        }
-
-        try {
-            // Validate deposits
-            if (depositState.deposits.length > 0) {
-                const { depositEntrySchema } = await import("./schemas");
-                depositState.deposits.forEach((deposit: any) => depositEntrySchema.parse(deposit));
-            }
-
-            // Transform deposits to ensure dates are ISO strings for API
-            const depositsForAPI = depositState.deposits.map(deposit => ({
-                ...deposit,
-                date: deposit.date ? new Date(deposit.date).toISOString() : undefined,
-            }));
-
-            setIsLoading(true);
-
-            await userApi.updateDeposit(id, { detail: depositsForAPI });
-
-            toast.success("Deposit information updated successfully");
-        } catch (error: any) {
-            if (error instanceof z.ZodError) {
-                const fieldErrors: Record<string, string> = {};
-                error.issues.forEach((err: any) => {
-                    if (err.path && err.path.length > 0) {
-                        fieldErrors[err.path[0]] = err.message;
-                    }
-                });
-                depositActions.setDepositErrors(fieldErrors);
-                toast.error("Please fix the errors below");
-            } else if (error.response) {
-                const errorMessage = error.response?.data?.error || "Failed to update deposit information";
-                toast.error(errorMessage);
-            } else if (error.request) {
-                toast.error("Network error. Please check if the server is running.");
-            } else {
-                toast.error(error.message || "An error occurred");
-            }
-        } finally {
-            setIsLoading(false);
         }
     };
 
@@ -268,15 +108,9 @@ export function UserDetail() {
 
                 <Tabs defaultValue="mainInfo" value={activeTab} onValueChange={setActiveTab} className="w-full">
                     <TabsList className="w-full">
-                        <TabsTrigger value="mainInfo" className="flex-1">
-                            Main Info
-                        </TabsTrigger>
-                        <TabsTrigger value="bankInfo" className="flex-1">
-                            Bank Information
-                        </TabsTrigger>
-                        <TabsTrigger value="depositInfo" className="flex-1">
-                            Deposit Information
-                        </TabsTrigger>
+                        <TabsTrigger value="mainInfo" className="flex-1">Main Info</TabsTrigger>
+                        <TabsTrigger value="bankInfo" className="flex-1">Bank Information</TabsTrigger>
+                        <TabsTrigger value="depositInfo" className="flex-1">Deposit Information</TabsTrigger>
                     </TabsList>
                     
                     <TabsContent value="mainInfo" className="space-y-4 mt-6">
@@ -315,6 +149,154 @@ export function UserDetail() {
             </div>
         </div>
     );
+}
+
+async function handleMainInfoSave(e: React.FormEvent, id: string | undefined, formData: UserForm, errors: Partial<UserForm>, setErrors: any, setIsLoading: any) {
+    e.preventDefault();
+
+    if (!id) {
+        toast.error("User ID not found");
+        return;
+    }
+
+    try {
+        const { email, password, name, role } = formData;
+        userSchema.parse({ email, password, name, role });
+        
+        setErrors({});
+        setIsLoading(true);
+
+        const submitData: any = {
+            email: formData.email || undefined,
+            password: formData.password || undefined,
+            name: formData.name && formData.name.trim() !== "" ? formData.name : undefined,
+            role: formData.role,
+        };
+
+        await userApi.updateMainInfo(id, submitData);
+
+        toast.success("Main information updated successfully");
+    } catch (error: any) {
+        if (error instanceof z.ZodError) {
+            const fieldErrors: Record<string, string> = {};
+            error.issues.forEach((err: any) => {
+                if (err.path && err.path.length > 0) {
+                    fieldErrors[err.path[0]] = err.message;
+                }
+            });
+            setErrors(fieldErrors as Partial<UserForm>);
+            toast.error("Please fix the errors below");
+        } else if (error.response) {
+            const errorMessage = error.response?.data?.error || "Failed to update main information";
+            toast.error(errorMessage);
+        } else if (error.request) {
+            toast.error("Network error. Please check if the server is running.");
+        } else {
+            toast.error(error.message || "An error occurred");
+        }
+    } finally {
+        setIsLoading(false);
+    }
+}
+
+async function handleBankInfoSave(e: React.FormEvent, id: string | undefined, formData: any, bankState: any, setIsLoading: any) {
+    e.preventDefault();
+
+    if (!id) {
+        toast.error("User ID not found");
+        return;
+    }
+
+    try {
+        const hasPendingBankInfo = bankState.bankAccount.bank.trim() !== "" && 
+                                   bankState.bankAccount.code.trim() !== "" && 
+                                   bankState.bankAccount.accountNo.trim() !== "" && 
+                                   bankState.bankAccount.name.trim() !== "";
+        
+        const finalBankInfo = hasPendingBankInfo 
+            ? [...(formData.bankInfo || []), bankState.bankAccount]
+            : formData.bankInfo || [];
+
+        if (finalBankInfo.length > 0) {
+            const { bankInfoSchema } = await import("./schemas");
+            finalBankInfo.forEach((bank: any) => {
+                bankInfoSchema.parse(bank);
+            });
+        }
+
+        setIsLoading(true);
+
+        await userApi.updateBankInfo(id, { bankInfo: finalBankInfo });
+
+        toast.success(hasPendingBankInfo ? "Bank information updated successfully (new account added)" : "Bank information updated successfully");
+    } catch (error: any) {
+        if (error instanceof z.ZodError) {
+            const fieldErrors: Record<string, string> = {};
+            error.issues.forEach((err: any) => {
+                if (err.path && err.path.length > 0) {
+                    fieldErrors[err.path[0]] = err.message;
+                }
+            });
+            bankActions.setBankErrors(fieldErrors);
+            toast.error("Please fix the errors below");
+        } else if (error.response) {
+            const errorMessage = error.response?.data?.error || "Failed to update bank information";
+            toast.error(errorMessage);
+        } else if (error.request) {
+            toast.error("Network error. Please check if the server is running.");
+        } else {
+            toast.error(error.message || "An error occurred");
+        }
+    } finally {
+        setIsLoading(false);
+    }
+}
+
+async function handleDepositInfoSave(e: React.FormEvent, id: string | undefined, depositState: any, setIsLoading: any, depositActions: any) {
+    e.preventDefault();
+
+    if (!id) {
+        toast.error("User ID not found");
+        return;
+    }
+
+    try {
+        if (depositState.deposits.length > 0) {
+            const { depositEntrySchema } = await import("./schemas");
+            depositState.deposits.forEach((deposit: any) => depositEntrySchema.parse(deposit));
+        }
+
+        const depositsForAPI = depositState.deposits.map(deposit => ({
+            ...deposit,
+            date: deposit.date ? new Date(deposit.date).toISOString() : undefined,
+        }));
+
+        setIsLoading(true);
+
+        await userApi.updateDeposit(id, { detail: depositsForAPI });
+
+        toast.success("Deposit information updated successfully");
+    } catch (error: any) {
+        if (error instanceof z.ZodError) {
+            const fieldErrors: Record<string, string> = {};
+            error.issues.forEach((err: any) => {
+                if (err.path && err.path.length > 0) {
+                    fieldErrors[err.path[0]] = err.message;
+                }
+            });
+            depositActions.setDepositErrors(fieldErrors);
+            toast.error("Please fix the errors below");
+        } else if (error.response) {
+            const errorMessage = error.response?.data?.error || "Failed to update deposit information";
+            toast.error(errorMessage);
+        } else if (error.request) {
+            toast.error("Network error. Please check if the server is running.");
+        } else {
+            toast.error(error.message || "An error occurred");
+        }
+    } finally {
+        setIsLoading(false);
+    }
 }
 
 export default UserDetail;
