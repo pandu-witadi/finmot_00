@@ -308,6 +308,7 @@ export async function cloneBudget(body: CloneBudgetRequest): Promise<ActualRespo
         project: budget.project,
         budget: budget._id,
         trx: new mongoose.Types.ObjectId("000000000000000000000000"),
+        exDate: new Date(),
         updatedBy: new mongoose.Types.ObjectId(body.updatedBy),
     });
     await actual.save();
@@ -340,6 +341,8 @@ export async function cloneToTransaction(body: CloneToTransactionRequest): Promi
         amount: actual.amount,
         project: actual.project,
         arrActual: [actual._id],
+        exDate: actual.exDate || new Date(),
+        assignedTo: actual.assignedTo || undefined,
         updatedBy: new mongoose.Types.ObjectId(body.updatedBy),
     });
     await transaction.save();
@@ -369,6 +372,8 @@ export async function cloneToTransaction(body: CloneToTransactionRequest): Promi
             amount: transaction.amount,
             project: transaction.project.toString(),
             arrActual: [actual._id.toString()],
+            exDate: transaction.exDate,
+            assignedTo: transaction.assignedTo ? transaction.assignedTo.toString() : "000000000000000000000000",
             updatedBy: transaction.updatedBy.toString(),
             createdAt: transaction.createdAt,
         },

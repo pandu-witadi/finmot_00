@@ -2,7 +2,6 @@ import { z } from "zod";
 
 const bankInfoSchema = z.object({
     bank: z.string().min(1, "Bank name is required"),
-    code: z.string().min(1, "Bank code is required"),
     accountNo: z.string().min(1, "Account number is required"),
     name: z.string().min(1, "Account holder name is required"),
 });
@@ -24,6 +23,7 @@ const userSchema = z.object({
         .transform((val) => val === "" ? undefined : val)
         .optional(),
     name: z.string().optional(),
+    fullname: z.string().optional(),
     role: z.enum(["user", "admin", "finance", "vendor", "guest", "government"]),
     bankInfo: z.array(bankInfoSchema).optional(),
     deposit: z.object({
@@ -33,5 +33,8 @@ const userSchema = z.object({
 });
 
 export type UserForm = z.infer<typeof userSchema>;
+export type UserFormWithoutPassword = Omit<UserForm, 'password'>;
+
+export type BankInfo = z.infer<typeof bankInfoSchema>;
 
 export { bankInfoSchema, depositEntrySchema, userSchema };

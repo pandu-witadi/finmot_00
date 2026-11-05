@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTransactions } from "./useTransactions";
 import { formatNumber, getTypeLabel } from "@/utils/formatters";
+import { userApi } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableRow, TableHead, TableHeader } from "@/components/ui/table";
@@ -36,6 +37,7 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
         active: true,
     });
     const [searchTerm, setSearchTerm] = useState("");
+    const [users, setUsers] = useState<{id: string, name: string, email: string}[]>([]);
 
     const {
         transactions,
@@ -47,6 +49,20 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
         createTransaction,
         deleteTransaction,
     } = useTransactions(projectId);
+
+    useEffect(() => {
+        const loadUsers = async () => {
+            try {
+                const res = await userApi.getAll();
+                if (Array.isArray(res.data)) {
+                    setUsers(res.data);
+                }
+            } catch (error: any) {
+                console.debug("Failed to load users for transactions:", error);
+            }
+        };
+        loadUsers();
+    }, []);
 
     const handleAddTransaction = async () => {
         if (!form.name.trim()) {
@@ -85,6 +101,12 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
         t.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
+    const getUserById = (userId: string) => {
+        if (!userId || userId === "000000000000000000000000") return "—";
+        const user = users.find(u => String(u.id) === String(userId));
+        return user ? user.name : "Unknown";
+    };
+
     const sortedTransactions = [...filteredTransactions].sort((a, b) => {
         let cmp = 0;
         if (sort.field === 'name') {
@@ -117,7 +139,7 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
                     {renderTableHeader({ searchTerm, setSearchTerm, filter, setFilter, sort, setSort })}
                 </CardHeader>
                 <CardContent>
-                    {renderTable({ sortedTransactions, handleDelete })}
+                    {renderTable({ sortedTransactions, handleDelete, getUserById })}
                 </CardContent>
             </Card>
             {isAddDialogOpen && renderAddTransactionDialog({ form, setForm, handleAddTransaction, setIsAddDialogOpen })}
@@ -181,10 +203,10 @@ function renderTableHeader({ searchTerm, setSearchTerm, filter, setFilter, sort,
             />
             <div className="flex gap-2">
                 <DropdownMenu>
-                    <DropdownMenuTrigger>
-                        <Button variant="outline" size="sm">
+                    <DropdownMenuTrigger asChild>
+                        <button type="button" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background px-3 py-1.5 hover:bg-accent hover:text-accent-foreground h-8 px-3">
                             Type: {filter.type ? (filter.type === 'income' ? 'Income' : 'Expense') : 'All'}
-                        </Button>
+                        </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => setFilter({ ...filter, type: undefined })}>
@@ -199,10 +221,10 @@ function renderTableHeader({ searchTerm, setSearchTerm, filter, setFilter, sort,
                     </DropdownMenuContent>
                 </DropdownMenu>
                 <DropdownMenu>
-                    <DropdownMenuTrigger>
-                        <Button variant="outline" size="sm">
+                    <DropdownMenuTrigger asChild>
+                        <button type="button" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background px-3 py-1.5 hover:bg-accent hover:text-accent-foreground h-8 px-3">
                             Sort: {sort.field === 'createdAt' ? 'Date' : sort.field === 'amount' ? 'Amount' : 'Name'}
-                        </Button>
+                        </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => setSort({ field: 'createdAt', order: 'desc' })}>
@@ -230,30 +252,33 @@ function renderTableHeader({ searchTerm, setSearchTerm, filter, setFilter, sort,
 interface TableProps {
     sortedTransactions: any[];
     handleDelete: (id: string) => void;
+    getUserById: (userId: string) => string;
 }
 
-function renderTable({ sortedTransactions, handleDelete }: TableProps) {
+function renderTable({ sortedTransactions, handleDelete, getUserById }: TableProps) {
     return (
         <Table>
             <TableHeader>
                 <TableRow>
-                    <TableHead className="w-[50%]">Name</TableHead>
-                    <TableHead className="w-[10%] text-center">t</TableHead>
-                    <TableHead className="text-right w-[15%]">Amount</TableHead>
+                    <TableHead className="w-[40%]">Name</TableHead>
+                    <TableHead className="w-[8%] text-center">t</TableHead>
+                    <TableHead className="text-right w-[12%]">Amount</TableHead>
+                    <TableHead className="w-[15%]">asgTo</TableHead>
                     <TableHead className="w-[25%]">Tags</TableHead>
+                    <TableHead className="w-[10%]">exDate</TableHead>
                     <TableHead className="w-[10%] text-right">Actions</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
                 {sortedTransactions.length === 0 ? (
                     <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                             No transactions found
                         </TableCell>
                     </TableRow>
                 ) : (
                     sortedTransactions.map((transaction) => (
-                        <TransactionRow key={transaction.id} transaction={transaction} onDelete={handleDelete} />
+                        <TransactionRow key={transaction.id} transaction={transaction} onDelete={handleDelete} getUserById={getUserById} />
                     ))
                 )}
             </TableBody>
@@ -264,9 +289,10 @@ function renderTable({ sortedTransactions, handleDelete }: TableProps) {
 interface TransactionRowProps {
     transaction: any;
     onDelete: (id: string) => void;
+    getUserById: (userId: string) => string;
 }
 
-function TransactionRow({ transaction, onDelete }: TransactionRowProps) {
+function TransactionRow({ transaction, onDelete, getUserById }: TransactionRowProps) {
     return (
         <TableRow key={transaction.id}>
             <TableCell className="font-medium">
@@ -288,6 +314,9 @@ function TransactionRow({ transaction, onDelete }: TransactionRowProps) {
                     {formatNumber(transaction.amount)}
                 </span>
             </TableCell>
+            <TableCell className="text-sm text-muted-foreground">
+                {getUserById(transaction.assignedTo)}
+            </TableCell>
             <TableCell>
                 <div className="flex flex-wrap gap-1">
                     {transaction.tags.length > 0 ? (
@@ -300,6 +329,9 @@ function TransactionRow({ transaction, onDelete }: TransactionRowProps) {
                         <span className="text-sm text-muted-foreground">—</span>
                     )}
                 </div>
+            </TableCell>
+            <TableCell className="text-sm text-muted-foreground">
+                {transaction.exDate ? <span className="text-xs">{new Date(transaction.exDate).toISOString().split('T')[0]}</span> : '—'}
             </TableCell>
             <TableCell className="text-right">
                 <Button

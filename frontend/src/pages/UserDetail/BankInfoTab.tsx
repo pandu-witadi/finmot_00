@@ -29,24 +29,22 @@ export function BankInfoTab({ formData, isLoading, state, actions, handleBankInf
         <div className="space-y-4">
             {formData.bankInfo && formData.bankInfo.length > 0 && (
                 <div className="rounded-md border">
-                    <div className="grid grid-cols-9 gap-2 bg-muted p-3 text-xs font-semibold">
+                    <div className="grid grid-cols-7 gap-2 bg-muted p-3 text-xs font-semibold">
                         <div className="col-span-1 flex items-center justify-center">No</div>
                         <div className="col-span-2">Bank Name</div>
                         <div className="col-span-2">Account No</div>
-                        <div className="col-span-2">Account Holder</div>
-                        <div className="col-span-1 flex items-center justify-center">Bank Code</div>
+                        <div className="col-span-2">Account Name</div>
                         <div className="col-span-1 flex items-center justify-center">Actions</div>
                     </div>
                     <div className="divide-y">
                         {formData.bankInfo.map((bank: any, index: number) => (
-                            <div key={index} className="grid grid-cols-9 gap-2 p-3 text-sm items-center">
+                            <div key={index} className="grid grid-cols-7 gap-2 p-3 text-sm items-center">
                                 <div className="col-span-1 flex items-center justify-center font-medium text-muted-foreground">
                                     {index + 1}
                                 </div>
                                 <div className="col-span-2 font-medium">{bank.bank}</div>
                                 <div className="col-span-2 text-muted-foreground">{bank.accountNo}</div>
                                 <div className="col-span-2 text-muted-foreground">{bank.name}</div>
-                                <div className="col-span-1 flex items-center justify-center text-muted-foreground">{bank.code}</div>
                                 <div className="col-span-1 flex items-center justify-center">
                                     {isEditingBank && editingBankIndex === index ? (
                                         <div className="flex gap-1">
@@ -116,31 +114,17 @@ export function BankInfoTab({ formData, isLoading, state, actions, handleBankInf
 
             <Label>{isEditingBank ? "Edit Bank Account" : "Add New Bank Account"}</Label>
             <div className="rounded-md border p-4 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                        <Label htmlFor="bank" className="text-xs">Bank Name</Label>
-                        <Input
-                            id="bank"
-                            name="bank"
-                            placeholder="Bank Name"
-                            value={getBankAccountValue("bank")}
-                            onChange={handleBankChange}
-                            className={bankErrors.bank ? "border-red-500" : ""}
-                        />
-                        {bankErrors.bank && <p className="text-xs text-red-500">{bankErrors.bank}</p>}
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="code" className="text-xs">Bank Code</Label>
-                        <Input
-                            id="code"
-                            name="code"
-                            placeholder="Code"
-                            value={getBankAccountValue("code")}
-                            onChange={handleBankChange}
-                            className={bankErrors.code ? "border-red-500" : ""}
-                        />
-                        {bankErrors.code && <p className="text-xs text-red-500">{bankErrors.code}</p>}
-                    </div>
+                <div className="space-y-2">
+                    <Label htmlFor="bank" className="text-xs">Bank Name</Label>
+                    <Input
+                        id="bank"
+                        name="bank"
+                        placeholder="Bank Name"
+                        value={getBankAccountValue("bank")}
+                        onChange={handleBankChange}
+                        className={bankErrors.bank ? "border-red-500" : ""}
+                    />
+                    {bankErrors.bank && <p className="text-xs text-red-500">{bankErrors.bank}</p>}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
@@ -156,11 +140,11 @@ export function BankInfoTab({ formData, isLoading, state, actions, handleBankInf
                         {bankErrors.accountNo && <p className="text-xs text-red-500">{bankErrors.accountNo}</p>}
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="accountName" className="text-xs">Account Holder</Label>
+                        <Label htmlFor="name" className="text-xs">Account Name</Label>
                         <Input
-                            id="accountName"
+                            id="name"
                             name="name"
-                            placeholder="Account Holder Name"
+                            placeholder="Account Name"
                             value={getBankAccountValue("name")}
                             onChange={handleBankChange}
                             className={bankErrors.name ? "border-red-500" : ""}

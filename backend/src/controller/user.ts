@@ -6,10 +6,10 @@ export interface GetUserResponse {
     id: string;
     email: string;
     name: string;
+    fullname?: string;
     role: string;
     bankInfo?: Array<{
         bank: string;
-        code: string;
         accountNo: string;
         name: string;
     }>;
@@ -29,10 +29,10 @@ export interface CreateUserRequest {
     email: string;
     password?: string;
     name?: string;
+    fullname?: string;
     role?: string;
     bankInfo?: Array<{
         bank: string;
-        code: string;
         accountNo: string;
         name: string;
     }>;
@@ -51,10 +51,10 @@ export interface UpdateUserRequest {
     email?: string;
     password?: string;
     name?: string;
+    fullname?: string;
     role?: string;
     bankInfo?: Array<{
         bank: string;
-        code: string;
         accountNo: string;
         name: string;
     }>;
@@ -74,6 +74,7 @@ function userToResponse(user: any): GetUserResponse {
         id: user._id.toString(),
         email: user.email,
         name: user.name,
+        fullname: user.fullname,
         role: user.role,
         bankInfo: user.bankInfo,
         deposit: user.deposit,
@@ -105,6 +106,7 @@ export async function createUser(body: CreateUserRequest): Promise<GetUserRespon
         email: body.email,
         password: hashedPassword,
         name: body.name?.trim() || '',
+        fullname: body.fullname?.trim() || '',
         role: body.role || 'user',
         bankInfo: body.bankInfo,
         deposit: {
@@ -132,6 +134,10 @@ export async function updateUser(id: string, body: UpdateUserRequest): Promise<G
     
     if (body.name !== undefined && body.name !== "") {
         updateFields.name = body.name;
+    }
+    
+    if (body.fullname !== undefined && body.fullname !== "") {
+        updateFields.fullname = body.fullname;
     }
     
     if (body.role !== undefined) {
@@ -173,6 +179,7 @@ export interface UpdateUserMainInfoRequest {
     email?: string;
     password?: string;
     name?: string;
+    fullname?: string;
     role?: string;
 }
 
@@ -192,6 +199,10 @@ export async function updateUserMainInfo(
     
     if (body.name !== undefined && body.name !== "") {
         updateFields.name = body.name;
+    }
+    
+    if (body.fullname !== undefined && body.fullname !== "") {
+        updateFields.fullname = body.fullname;
     }
     
     if (body.role !== undefined) {
@@ -214,7 +225,6 @@ export async function updateUserMainInfo(
 export interface UpdateUserBankInfoRequest {
     bankInfo: Array<{
         bank: string;
-        code: string;
         accountNo: string;
         name: string;
     }>;

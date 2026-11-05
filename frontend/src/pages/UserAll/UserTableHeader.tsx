@@ -20,6 +20,7 @@ export function UserTableHeader({ isAllSelected, onToggleSelectAll }: UserTableH
                 <TableHead>#</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Name</TableHead>
+                <TableHead>Fullname</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Created At</TableHead>
                 <TableHead className="text-right">Actions</TableHead>

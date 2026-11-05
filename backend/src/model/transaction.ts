@@ -8,6 +8,8 @@ export interface TransactionDoc extends Document {
     amount: number;
     project: Schema.Types.ObjectId;
     arrActual: Schema.Types.ObjectId[];
+    exDate: Date;
+    assignedTo: Schema.Types.ObjectId;
     updatedBy: Schema.Types.ObjectId;
     createdAt: Date;
 }
@@ -44,6 +46,15 @@ const transactionSchema = new Schema<TransactionDoc>({
     arrActual: {
         type: [Schema.Types.ObjectId],
         default: []
+    },
+    exDate: {
+        type: Date,
+        required: true
+    },
+    assignedTo: {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+        default: null
     },
     updatedBy: {
         type: Schema.Types.ObjectId,

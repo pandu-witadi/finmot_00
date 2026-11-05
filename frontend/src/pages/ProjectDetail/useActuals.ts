@@ -9,6 +9,8 @@ export interface Actual {
     active: boolean
     budget: string
     project: string
+    exDate: Date
+    assignedTo: string
     updatedBy: string
     createdAt: string
 }

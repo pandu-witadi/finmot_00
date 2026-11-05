@@ -8,6 +8,7 @@ interface User {
     id: string
     email: string
     name: string | null
+    fullname: string | null
     role: string
     createdAt: string
 }
@@ -39,6 +40,7 @@ export function UserTableRow({ user, index, isSelected, onSelect, onRowClick }: 
             <TableCell className="text-muted-foreground">{index + 1}</TableCell>
             <TableCell className="font-medium">{user.email}</TableCell>
             <TableCell>{user.name || "-"}</TableCell>
+            <TableCell className="text-muted-foreground">{user.fullname || "-"}</TableCell>
             <TableCell>
                 <span className="inline-flex items-center rounded-full bg-muted px-2 py-1 text-xs font-medium">
                     {user.role}

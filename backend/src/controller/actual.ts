@@ -13,6 +13,7 @@ export interface ActualResponse {
     project: string;
     budget: string;
     trx: string;
+    exDate: Date;
     assignedTo: string;
     updatedBy: string;
     createdAt: Date;
@@ -27,6 +28,7 @@ export interface CreateActualRequest {
     project: string;
     budget: string;
     trx: string;
+    exDate: Date;
     updatedBy?: string;
 }
 
@@ -39,6 +41,7 @@ export interface UpdateActualRequest {
     project?: string;
     budget?: string;
     trx?: string;
+    exDate?: Date;
     assignedTo?: string;
     updatedBy?: string;
 }
@@ -75,6 +78,7 @@ function actualToResponse(actual: any): ActualResponse {
         project: actual.project.toString(),
         budget: actual.budget.toString(),
         trx: actual.trx.toString(),
+        exDate: actual.exDate,
         assignedTo: actual.assignedTo ? actual.assignedTo.toString() : "000000000000000000000000",
         updatedBy: actual.updatedBy.toString(),
         createdAt: actual.createdAt,
@@ -151,6 +155,7 @@ export async function createActual(body: CreateActualRequest): Promise<ActualRes
         project: new mongoose.Types.ObjectId(body.project),
         budget: new mongoose.Types.ObjectId(body.budget),
         trx: new mongoose.Types.ObjectId(body.trx),
+        exDate: body.exDate,
         updatedBy: new mongoose.Types.ObjectId(body.updatedBy || "000000000000000000000000"),
     });
     await actual.save();
@@ -190,6 +195,10 @@ export async function updateActual(id: string, body: UpdateActualRequest): Promi
 
     if (body.trx !== undefined) {
         updateFields.trx = new mongoose.Types.ObjectId(body.trx);
+    }
+
+    if (body.exDate !== undefined) {
+        updateFields.exDate = body.exDate;
     }
 
     if (body.assignedTo !== undefined) {

@@ -4,7 +4,6 @@ import { bankInfoSchema } from "./schemas";
 
 export interface BankAccount {
     bank: string;
-    code: string;
     accountNo: string;
     name: string;
 }
@@ -38,7 +37,6 @@ export function useBankInfo(
 ): [BankInfoState, BankInfoActions] {
     const [bankAccount, setBankAccount] = useState<BankAccount>({
         bank: "",
-        code: "",
         accountNo: "",
         name: "",
     });
@@ -47,7 +45,6 @@ export function useBankInfo(
     const [editingBankIndex, setEditingBankIndex] = useState<number | null>(null);
     const [editBankInfoData, setEditBankInfoData] = useState<BankAccount>({
         bank: "",
-        code: "",
         accountNo: "",
         name: "",
     });
@@ -79,7 +76,7 @@ export function useBankInfo(
                     bankInfo: newBankInfo,
                 };
             });
-            setBankAccount({ bank: "", code: "", accountNo: "", name: "" });
+            setBankAccount({ bank: "", accountNo: "", name: "" });
         } catch (error: any) {
             if (error instanceof z.ZodError) {
                 const fieldErrors: Record<string, string> = {};
@@ -104,7 +101,6 @@ export function useBankInfo(
         const bankToEdit = formData.bankInfo?.[index];
         setEditBankInfoData({
             bank: bankToEdit?.bank || "",
-            code: bankToEdit?.code || "",
             accountNo: bankToEdit?.accountNo || "",
             name: bankToEdit?.name || "",
         });
@@ -113,7 +109,7 @@ export function useBankInfo(
     };
 
     const cancelEditBank = () => {
-        setEditBankInfoData({ bank: "", code: "", accountNo: "", name: "" });
+        setEditBankInfoData({ bank: "", accountNo: "", name: "" });
         setEditingBankIndex(null);
         setIsEditingBank(false);
         setBankErrors({});
@@ -146,7 +142,7 @@ export function useBankInfo(
                         bankInfo: newBankInfo,
                     };
                 });
-                setBankAccount({ bank: "", code: "", accountNo: "", name: "" });
+                setBankAccount({ bank: "", accountNo: "", name: "" });
             }
         } catch (error: any) {
             if (error instanceof z.ZodError) {

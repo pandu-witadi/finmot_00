@@ -7,6 +7,7 @@ interface User {
     id: string
     email: string
     name: string | null
+    fullname: string | null
     role: string
     createdAt: string
 }

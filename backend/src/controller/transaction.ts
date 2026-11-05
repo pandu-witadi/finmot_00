@@ -10,6 +10,8 @@ export interface TransactionResponse {
     amount: number;
     project: string;
     arrActual: string[];
+    exDate: Date;
+    assignedTo: string;
     updatedBy: string;
     createdAt: Date;
 }
@@ -22,6 +24,8 @@ export interface CreateTransactionRequest {
     amount: number;
     project: string;
     arrActual?: string[];
+    exDate: Date;
+    assignedTo?: string;
     updatedBy?: string;
 }
 
@@ -33,6 +37,8 @@ export interface UpdateTransactionRequest {
     amount?: number;
     project?: string;
     arrActual?: string[];
+    exDate?: Date;
+    assignedTo?: string;
     updatedBy?: string;
 }
 
@@ -66,6 +72,8 @@ function transactionToResponse(transaction: any): TransactionResponse {
         amount: transaction.amount,
         project: transaction.project.toString(),
         arrActual: transaction.arrActual.map((id: any) => id.toString()),
+        exDate: transaction.exDate,
+        assignedTo: transaction.assignedTo ? transaction.assignedTo.toString() : "000000000000000000000000",
         updatedBy: transaction.updatedBy.toString(),
         createdAt: transaction.createdAt,
     };
@@ -136,6 +144,8 @@ export async function createTransaction(body: CreateTransactionRequest): Promise
         amount: body.amount,
         project: new mongoose.Types.ObjectId(body.project),
         arrActual: (body.arrActual ?? []).map((id: any) => new mongoose.Types.ObjectId(id)),
+        exDate: body.exDate,
+        assignedTo: body.assignedTo ? new mongoose.Types.ObjectId(body.assignedTo) : undefined,
         updatedBy: new mongoose.Types.ObjectId(body.updatedBy || "000000000000000000000000"),
     });
     await transaction.save();
@@ -171,6 +181,14 @@ export async function updateTransaction(id: string, body: UpdateTransactionReque
 
     if (body.arrActual !== undefined) {
         updateFields.arrActual = body.arrActual.map((id: any) => new mongoose.Types.ObjectId(id));
+    }
+
+    if (body.exDate !== undefined) {
+        updateFields.exDate = body.exDate;
+    }
+
+    if (body.assignedTo !== undefined) {
+        updateFields.assignedTo = new mongoose.Types.ObjectId(body.assignedTo);
     }
 
     if (body.updatedBy !== undefined) {

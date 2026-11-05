@@ -11,6 +11,8 @@ export interface Transaction {
     amount: number;
     project: string;
     arrActual: string[];
+    exDate: Date;
+    assignedTo: string;
     updatedBy: string;
     createdAt: Date;
 }

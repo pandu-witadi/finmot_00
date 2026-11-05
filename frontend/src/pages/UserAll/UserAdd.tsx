@@ -22,6 +22,7 @@ const userSchema = z.object({
         .min(1, { message: "Password is required." })
         .optional(),
     name: z.string().optional(),
+    fullname: z.string().optional(),
     role: z.enum(["user", "admin", "finance", "vendor", "guest", "government"]),
 });
 
@@ -33,6 +34,7 @@ export function UserAdd() {
         email: "",
         password: "",
         name: "",
+        fullname: "",
         role: "user",
     });
     const [errors, setErrors] = useState<Partial<UserForm>>({});
@@ -60,6 +62,7 @@ export function UserAdd() {
                 email: formData.email,
                 password: formData.password,
                 name: formData.name || "",
+                fullname: formData.fullname || "",
                 role: formData.role,
             };
 
@@ -166,6 +169,24 @@ export function UserAdd() {
                             {errors.name && (
                                 <p className="text-sm text-red-500">
                                     {errors.name}
+                                </p>
+                            )}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="fullname">Fullname (optional)</Label>
+                            <Input
+                                id="fullname"
+                                name="fullname"
+                                type="text"
+                                placeholder="John Michael Doe"
+                                value={formData.fullname}
+                                onChange={handleChange}
+                                className={errors.fullname ? "border-red-500" : ""}
+                            />
+                            {errors.fullname && (
+                                <p className="text-sm text-red-500">
+                                    {errors.fullname}
                                 </p>
                             )}
                         </div>

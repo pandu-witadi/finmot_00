@@ -8,7 +8,7 @@ interface MainInfoTabProps {
     errors: Partial<UserForm>;
     isLoading: boolean;
     handleChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-    handleMainInfoSave: (e: React.FormEvent) => void;
+    onSave: () => void;
     setShowPassword: React.Dispatch<React.SetStateAction<boolean>>;
     showPassword: boolean;
     setFormData: React.Dispatch<React.SetStateAction<UserForm>>;
@@ -20,7 +20,7 @@ export function MainInfoTab({
     errors,
     isLoading,
     handleChange,
-    handleMainInfoSave,
+    onSave,
     setShowPassword,
     showPassword,
     setFormData,
@@ -98,6 +98,22 @@ export function MainInfoTab({
             </div>
 
             <div className="space-y-2">
+                <Label htmlFor="fullname">Fullname (optional)</Label>
+                <Input
+                    id="fullname"
+                    name="fullname"
+                    type="text"
+                    placeholder="John Michael Doe"
+                    value={formData.fullname}
+                    onChange={handleChange}
+                    className={errors.fullname ? "border-red-500" : ""}
+                />
+                {errors.fullname && (
+                    <p className="text-sm text-red-500">{errors.fullname}</p>
+                )}
+            </div>
+
+            <div className="space-y-2">
                 <Label htmlFor="role">Role</Label>
                 <select
                     id="role"
@@ -126,10 +142,10 @@ export function MainInfoTab({
 
             <div className="pt-6">
                 <Button
-                    type="submit"
+                    type="button"
                     className="w-full"
                     disabled={isLoading}
-                    onClick={handleMainInfoSave}
+                    onClick={onSave}
                 >
                     {isLoading ? "Saving..." : "Save Changes"}
                 </Button>

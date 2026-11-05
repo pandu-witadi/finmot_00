@@ -3,7 +3,7 @@ import { headerApi, budgetApi, actualApi, userApi, api } from "@/services/api";
 import { toast } from "react-hot-toast";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { UserPlusIcon, SaveIcon } from "lucide-react";
+import { UserPlusIcon } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -39,6 +39,7 @@ interface ActualWithBudgetInfo extends Actual {
     transaction?: TransactionInfo;
     assignedTo: string;
     assignedToName: string;
+    exDate: Date;
 }
 
 interface User {
@@ -69,7 +70,8 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
     const [editActualForm, setEditActualForm] = useState({
         id: '',
         name: '',
-        amount: 0
+        amount: 0,
+        exDate: new Date()
     });
     const [selectedActualIds, setSelectedActualIds] = useState<Set<string>>(new Set<string>());
     const [isAssignToMenuOpen, setIsAssignToMenuOpen] = useState(false);
@@ -78,6 +80,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
     const [isLoadingUsers, setIsLoadingUsers] = useState(false);
     const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set<string>());
     const [projectData, setProjectData] = useState<{ arrActual: string[] } | null>(null);
+    const [searchNameTerm, setSearchNameTerm] = useState("");
 
     const loadData = async () => {
         try {
@@ -179,6 +182,12 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
         }
     };
 
+    const filteredActuals = actuals.filter(actual => {
+        const nameMatch = actual.name.toLowerCase().includes(searchNameTerm.toLowerCase());
+        const assignToMatch = actual.assignedToName.toLowerCase().includes(assignToSearchTerm.toLowerCase());
+        return nameMatch && assignToMatch;
+    });
+
     const toggleSelectActual = (actualId: string) => {
         const newSet = new Set(selectedActualIds);
         newSet.has(actualId) ? newSet.delete(actualId) : newSet.add(actualId);
@@ -232,7 +241,8 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
         setEditActualForm({
             id: actual.id,
             name: actual.name,
-            amount: actual.amount
+            amount: actual.amount,
+            exDate: actual.exDate || new Date()
         });
         setIsEditActualDialogOpen(true);
     };
@@ -312,11 +322,12 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
         try {
             await actualApi.update(editActualForm.id, {
                 name: editActualForm.name.trim(),
-                amount: editActualForm.amount
+                amount: editActualForm.amount,
+                exDate: editActualForm.exDate
             });
             toast.success("Actual updated successfully");
             setIsEditActualDialogOpen(false);
-            setEditActualForm({ id: '', name: '', amount: 0 });
+            setEditActualForm({ id: '', name: '', amount: 0, exDate: new Date() });
             await loadData();
         } catch (error: any) {
             const errorMessage = error?.response?.data?.error || "Failed to update actual";
@@ -355,9 +366,9 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
 
     const handleSavePosition = async () => {
         try {
-            await api.put(`/project/${projectId}`, { arrActual: actuals.map(a => a.id) });
+            await api.put(`/project/${projectId}`, { arrActual: filteredActuals.map(a => a.id) });
             // Update local state to reflect new order immediately
-            setProjectData({ arrActual: actuals.map(a => a.id) });
+            setProjectData({ arrActual: filteredActuals.map(a => a.id) });
             toast.success("Actual position saved successfully");
         } catch (error: any) {
             console.error("Failed to save position:", error);
@@ -409,15 +420,37 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         )}
-                        <Button onClick={handleSavePosition} variant="outline" size="sm" className="gap-2">
-                            <SaveIcon className="w-4 h-4" />
-                            <span>Save Position</span>
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <Input
+                                placeholder="Search name..."
+                                value={searchNameTerm}
+                                onChange={(e) => setSearchNameTerm(e.target.value)}
+                                className="h-8 w-48"
+                            />
+                            <Input
+                                placeholder="Search asgTo..."
+                                value={assignToSearchTerm}
+                                onChange={(e) => setAssignToSearchTerm(e.target.value)}
+                                className="h-8 w-48"
+                            />
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={handleSavePosition}
+                                title="Save actual positions"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-save">
+                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                                    <path d="M17 21v-8H7v8" />
+                                    <path d="M7 10V3a1 1 0 0 1 1-1h5v7" />
+                                </svg>
+                            </Button>
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent>
                     <DndContext onDragEnd={handleActualDragEnd}>
-                        <SortableContext items={actuals.map((a) => a.id)} strategy={verticalListSortingStrategy}>
+                        <SortableContext items={filteredActuals.map((a) => a.id)} strategy={verticalListSortingStrategy}>
                             <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -425,7 +458,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                                             <input
                                                 type="checkbox"
                                                 className="h-4 w-4 accent-primary"
-                                                checked={selectedActualIds.size > 0 && selectedActualIds.size === actuals.length}
+                                                checked={selectedActualIds.size > 0 && selectedActualIds.size === filteredActuals.length}
                                                 onChange={toggleSelectAll}
                                             />
                                         </TableHead>
@@ -433,13 +466,14 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                                         <TableHead className="w-[7%] text-center">t</TableHead>
                                         <TableHead className="w-[15%]">Header</TableHead>
                                         <TableHead className="w-[15%] text-right">Amount</TableHead>
+                                        <TableHead className="w-[10%]">exDate</TableHead>
                                         <TableHead className="w-[8%]">asgTo</TableHead>
                                         <TableHead className="w-[22%] border-l-2 border-border">trxName</TableHead>
                                         <TableHead className="w-[8%] text-right">trxAmount</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {actuals.map((actual) => (
+                                    {filteredActuals.map((actual) => (
                                         <ActualSortableRow key={actual.id} id={actual.id} disabled={false}>
                                             <TableCell className="px-2">
                                                 <input
@@ -482,6 +516,9 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                                                 <span className="text-sm font-medium">
                                                     {formatNumber(actual.amount)}
                                                 </span>
+                                            </TableCell>
+                                            <TableCell className="text-sm text-muted-foreground">
+                                                {actual.exDate ? <span className="text-xs">{new Date(actual.exDate).toISOString().split('T')[0]}</span> : '—'}
                                             </TableCell>
                                             <TableCell className="text-sm text-muted-foreground">
                                                 {actual.assignedToName !== "—" ? (

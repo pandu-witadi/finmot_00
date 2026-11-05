@@ -11,13 +11,15 @@ function DropdownMenuPortal({ ...props }: MenuPrimitive.Portal.Props) {
   return <MenuPrimitive.Portal data-slot="dropdown-menu-portal" {...props} />
 }
 
-function DropdownMenuTrigger({ children, ...props }: MenuPrimitive.Trigger.Props) {
+const DropdownMenuTrigger = React.forwardRef<HTMLButtonElement, MenuPrimitive.Trigger.Props & { asChild?: boolean }>(({ asChild, ...props }, ref) => {
+  if (asChild) {
+    return <MenuPrimitive.Trigger asChild data-slot="dropdown-menu-trigger" {...props} />
+  }
   return (
-    <MenuPrimitive.Trigger data-slot="dropdown-menu-trigger" {...props}>
-      {children}
-    </MenuPrimitive.Trigger>
+    <MenuPrimitive.Trigger ref={ref} data-slot="dropdown-menu-trigger" {...props} />
   )
-}
+})
+DropdownMenuTrigger.displayName = "DropdownMenuTrigger"
 
 function DropdownMenuContent({
   align = "start",

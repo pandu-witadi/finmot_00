@@ -15,6 +15,7 @@ interface EditActualForm {
     id: string;
     name: string;
     amount: number;
+    exDate: Date;
 }
 
 interface ActualEditDialogProps {
@@ -40,7 +41,7 @@ export function ActualEditDialog({
                 <DialogHeader>
                     <DialogTitle>Edit Actual</DialogTitle>
                     <DialogDescription>
-                        Edit the actual name and amount
+                        Edit the actual name, amount, and execution date
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -64,6 +65,15 @@ export function ActualEditDialog({
                                 setEditActualForm(prev => ({ ...prev, amount: parseFloat(rawValue) || 0 }));
                             }}
                             placeholder="0"
+                        />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="editActualExDate">Execution Date</Label>
+                        <Input
+                            id="editActualExDate"
+                            type="date"
+                            value={editActualForm.exDate ? new Date(editActualForm.exDate).toISOString().split('T')[0] : ''}
+                            onChange={e => setEditActualForm(prev => ({ ...prev, exDate: new Date(e.target.value) }))}
                         />
                     </div>
                 </div>

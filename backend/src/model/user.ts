@@ -4,10 +4,10 @@ export interface UserDoc extends Document {
     email: string;
     password?: string;
     name: string;
+    fullname?: string;
     role: "user" | "admin" | "finance" | "vendor" | "guest" | "government";
     bankInfo?: Array<{
         bank: string;
-        code: string;
         accountNo: string;
         name: string;
     }>;
@@ -26,11 +26,6 @@ export interface UserDoc extends Document {
 
 const bankEntry = {
     bank: {
-        type: String,
-        trim: true,
-        default: ""
-    },
-    code: {
         type: String,
         trim: true,
         default: ""
@@ -93,6 +88,11 @@ const userSchema = new Schema<UserDoc>({
     createdAt: {
         type: Date,
         default: Date.now,
+    },
+    fullname: {
+        type: String,
+        default: "",
+        trim: true
     },
     bankInfo: [ bankEntry ],
     deposit: {
