@@ -15,6 +15,7 @@ export interface ActualResponse {
     trx: string;
     exDate: Date;
     assignedTo: string;
+    updatedAt: Date;
     updatedBy: string;
     createdAt: Date;
 }
@@ -80,6 +81,7 @@ function actualToResponse(actual: any): ActualResponse {
         trx: actual.trx.toString(),
         exDate: actual.exDate,
         assignedTo: actual.assignedTo ? actual.assignedTo.toString() : "000000000000000000000000",
+        updatedAt: actual.updatedAt,
         updatedBy: actual.updatedBy.toString(),
         createdAt: actual.createdAt,
     };
@@ -156,6 +158,7 @@ export async function createActual(body: CreateActualRequest): Promise<ActualRes
         budget: new mongoose.Types.ObjectId(body.budget),
         trx: new mongoose.Types.ObjectId(body.trx),
         exDate: body.exDate,
+        updatedAt: new Date(),
         updatedBy: new mongoose.Types.ObjectId(body.updatedBy || "000000000000000000000000"),
     });
     await actual.save();
@@ -163,7 +166,9 @@ export async function createActual(body: CreateActualRequest): Promise<ActualRes
 }
 
 export async function updateActual(id: string, body: UpdateActualRequest): Promise<ActualResponse | null> {
-    const updateFields: any = {};
+    const updateFields: any = {
+        updatedAt: new Date()
+    };
 
     if (body.name !== undefined) {
         updateFields.name = body.name.trim();
@@ -222,10 +227,16 @@ export async function updateActual(id: string, body: UpdateActualRequest): Promi
     return actualToResponse(actual);
 }
 
-export async function deleteActual(id: string): Promise<boolean> {
+export async function deleteActual(id: string): Promise<{ success: boolean; error?: string }> {
     const actual = await Actual.findById(id);
     if (!actual) {
-        return false;
+        return { success: false, error: 'Actual not found' };
+    }
+
+    // Check if actual has a transaction connected (trx is not the default placeholder)
+    const hasTransaction = actual.trx && actual.trx.toString() !== '000000000000000000000000';
+    if (hasTransaction) {
+        return { success: false, error: 'Cannot delete actual: a transaction is connected to it' };
     }
 
     // Remove actual ID from budget's arrActual
@@ -243,5 +254,5 @@ export async function deleteActual(id: string): Promise<boolean> {
     }
 
     const result = await Actual.findByIdAndDelete(id);
-    return result !== null;
+    return { success: result !== null };
 }

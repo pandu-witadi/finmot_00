@@ -11,6 +11,7 @@ export interface Actual {
     project: string
     exDate: Date
     assignedTo: string
+    updatedAt: Date
     updatedBy: string
     createdAt: string
 }

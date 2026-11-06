@@ -11,6 +11,7 @@ export interface ActualDoc extends Document {
     trx: Schema.Types.ObjectId;
     exDate: Date;
     assignedTo: Schema.Types.ObjectId;
+    updatedAt: Date;
     updatedBy: Schema.Types.ObjectId;
     createdAt: Date;
 }
@@ -62,6 +63,10 @@ const actualSchema = new Schema<ActualDoc>({
     exDate: {
         type: Date,
         required: true
+    },
+    updatedAt: {
+        type: Date,
+        default: Date.now
     },
     updatedBy: {
         type: Schema.Types.ObjectId,

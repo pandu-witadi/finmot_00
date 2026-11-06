@@ -102,9 +102,13 @@ const transactionRoute = async (app: FastifyInstance): Promise<void> => {
         async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply): Promise<void> => {
             try {
                 await verifyAuth(request, reply);
-                const deleted = await deleteTransaction(request.params.id);
-                if (!deleted) {
-                    return reply.code(404).send({ error: 'Transaction not found' });
+                const result = await deleteTransaction(request.params.id);
+                if (!result.success) {
+                    const errorMessage = result.error || 'Failed to delete transaction';
+                    if (errorMessage.includes('actuals')) {
+                        return reply.code(400).send({ error: errorMessage });
+                    }
+                    return reply.code(404).send({ error: errorMessage });
                 }
                 reply.code(204).send();
             } catch (error) {

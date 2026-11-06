@@ -86,7 +86,9 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         name: '',
         type: 'expense' as 'income' | 'expense',
         amount: 0,
-        tags: ''
+        tags: [],
+        updatedAt: new Date(),
+        updatedBy: ''
     });
 
     const [budgetForm, setBudgetForm] = useState({
@@ -219,7 +221,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     };
 
     const resetHeaderForm = () => setEditHeaderForm({ id: '', name: '', type: 'expense', tags: '' });
-    const resetBudgetForm = () => setEditBudgetForm({ id: '', name: '', type: 'expense', amount: 0, tags: '' });
+    const resetBudgetForm = () => setEditBudgetForm({ id: '', name: '', type: 'expense', amount: 0, tags: [], updatedAt: new Date(), updatedBy: '' });
     const resetActualForm = () => setEditActualForm({ id: '', name: '', amount: 0 });
 
     const handleUpdateOperation = async (
@@ -396,7 +398,9 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             name: budget.name,
             type: budget.type,
             amount: budget.amount,
-            tags: budget.tags.join(', ')
+            tags: budget.tags || [],
+            updatedAt: budget.updatedAt,
+            updatedBy: budget.updatedBy
         });
         setIsEditBudgetDialogOpen(true);
     };
@@ -414,7 +418,6 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     };
 
     const handleEditBudget = async () => {
-        const tagArray = parseTags(editBudgetForm.tags);
         await handleUpdateOperation(
             budgetApi.update,
             editBudgetForm.id,
@@ -422,7 +425,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                 name: editBudgetForm.name.trim(),
                 type: editBudgetForm.type,
                 amount: editBudgetForm.amount,
-                tags: tagArray
+                tags: editBudgetForm.tags
             },
             "Budget updated successfully",
             "Failed to update budget"

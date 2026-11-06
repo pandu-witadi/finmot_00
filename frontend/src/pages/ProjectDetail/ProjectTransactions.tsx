@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useTransactions } from "./useTransactions";
 import { formatNumber, getTypeLabel } from "@/utils/formatters";
+import { formatDate } from "@/utils/dateFormatters";
 import { userApi } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +15,7 @@ import {
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { toast } from "react-hot-toast";
 import { TrashIcon, PlusIcon } from "lucide-react";
+import { TransactionDetailDialog } from "./TransactionDetailDialog";
 
 interface TransactionForm {
     name: string;
@@ -29,6 +31,8 @@ interface ProjectTransactionsProps {
 
 export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+    const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+    const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
     const [form, setForm] = useState<TransactionForm>({
         name: '',
         type: 'expense',
@@ -37,6 +41,7 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
         active: true,
     });
     const [searchTerm, setSearchTerm] = useState("");
+    const [selectedTransactionIds, setSelectedTransactionIds] = useState<Set<string>>(new Set<string>());
     const [users, setUsers] = useState<{id: string, name: string, email: string}[]>([]);
 
     const {
@@ -47,6 +52,7 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
         sort,
         setSort,
         createTransaction,
+        updateTransaction,
         deleteTransaction,
     } = useTransactions(projectId);
 
@@ -96,12 +102,44 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
         await deleteTransaction(id);
     };
 
+    const handleDeleteSelected = async () => {
+        if (selectedTransactionIds.size === 0) {
+            toast.error("No transactions selected");
+            return;
+        }
+
+        if (!window.confirm(`Delete ${selectedTransactionIds.size} selected transaction(s)?`)) {
+            return;
+        }
+
+        try {
+            await Promise.all(Array.from(selectedTransactionIds).map(id => deleteTransaction(id)));
+            toast.success(`${selectedTransactionIds.size} transaction(s) deleted successfully`);
+            setSelectedTransactionIds(new Set<string>());
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.error || "Failed to delete transactions";
+            toast.error(errorMessage);
+        }
+    };
+
     const filteredTransactions = transactions.filter(t =>
         t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         t.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
-    const getUserById = (userId: string) => {
+    const handleTransactionClick = (id: string) => {
+        setSelectedTransactionId(id);
+        setIsDetailDialogOpen(true);
+    };
+
+    const handleTransactionSave = async (updatedTransactionData: any) => {
+        if (!selectedTransactionId) return;
+        await updateTransaction(selectedTransactionId, updatedTransactionData);
+        setIsDetailDialogOpen(false);
+        setSelectedTransactionId(null);
+    };
+
+    const getUserById = (userId: string | null) => {
         if (!userId || userId === "000000000000000000000000") return "—";
         const user = users.find(u => String(u.id) === String(userId));
         return user ? user.name : "Unknown";
@@ -136,13 +174,39 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
             {renderSummaryBar({ totalIncome, totalExpense, netAmount, setIsAddDialogOpen })}
             <Card>
                 <CardHeader>
-                    {renderTableHeader({ searchTerm, setSearchTerm, filter, setFilter, sort, setSort })}
+                    <div className="flex items-center justify-between">
+                        {selectedTransactionIds.size > 0 && (
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-muted-foreground">
+                                    ({selectedTransactionIds.size}) selected
+                                </span>
+                                <Button 
+                                    variant="destructive" 
+                                    size="sm"
+                                    onClick={handleDeleteSelected}
+                                >
+                                    Delete
+                                </Button>
+                            </div>
+                        )}
+                        <div className={selectedTransactionIds.size > 0 ? "hidden" : ""}>
+                            {renderTableHeader({ searchTerm, setSearchTerm, filter, setFilter, sort, setSort })}
+                        </div>
+                    </div>
                 </CardHeader>
                 <CardContent>
-                    {renderTable({ sortedTransactions, handleDelete, getUserById })}
+                    {renderTable({ sortedTransactions, handleDelete, getUserById, selectedTransactionIds, setSelectedTransactionIds, onTransactionClick: handleTransactionClick })}
                 </CardContent>
             </Card>
             {isAddDialogOpen && renderAddTransactionDialog({ form, setForm, handleAddTransaction, setIsAddDialogOpen })}
+            {isDetailDialogOpen && selectedTransactionId && (
+                <TransactionDetailDialog
+                    isOpen={isDetailDialogOpen}
+                    onClose={() => setIsDetailDialogOpen(false)}
+                    transactionId={selectedTransactionId}
+                    onSave={handleTransactionSave}
+                />
+            )}
         </div>
     );
 }
@@ -253,13 +317,32 @@ interface TableProps {
     sortedTransactions: any[];
     handleDelete: (id: string) => void;
     getUserById: (userId: string) => string;
+    selectedTransactionIds: Set<string>;
+    setSelectedTransactionIds: React.Dispatch<React.SetStateAction<Set<string>>>;
+    onTransactionClick: (id: string) => void;
 }
 
-function renderTable({ sortedTransactions, handleDelete, getUserById }: TableProps) {
+function renderTable({ sortedTransactions, handleDelete, getUserById, selectedTransactionIds, setSelectedTransactionIds, onTransactionClick }: TableProps) {
+    const allSelected = sortedTransactions.length > 0 && sortedTransactions.every(t => selectedTransactionIds.has(t.id));
+
     return (
         <Table>
             <TableHeader>
                 <TableRow>
+                    <TableHead className="w-[5%]">
+                        <input
+                            type="checkbox"
+                            className="h-4 w-4 accent-primary"
+                            checked={allSelected}
+                            onChange={() => {
+                                if (allSelected) {
+                                    setSelectedTransactionIds(new Set<string>());
+                                } else {
+                                    setSelectedTransactionIds(new Set(sortedTransactions.map(t => t.id)));
+                                }
+                            }}
+                        />
+                    </TableHead>
                     <TableHead className="w-[40%]">Name</TableHead>
                     <TableHead className="w-[8%] text-center">t</TableHead>
                     <TableHead className="text-right w-[12%]">Amount</TableHead>
@@ -272,13 +355,32 @@ function renderTable({ sortedTransactions, handleDelete, getUserById }: TablePro
             <TableBody>
                 {sortedTransactions.length === 0 ? (
                     <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                             No transactions found
                         </TableCell>
                     </TableRow>
                 ) : (
                     sortedTransactions.map((transaction) => (
-                        <TransactionRow key={transaction.id} transaction={transaction} onDelete={handleDelete} getUserById={getUserById} />
+                        <TransactionRow 
+                            key={transaction.id} 
+                            transaction={transaction} 
+                            onDelete={handleDelete} 
+                            getUserById={getUserById}
+                            isSelected={selectedTransactionIds.has(transaction.id)}
+                            onToggle={() => {
+                                const newSet = new Set(selectedTransactionIds);
+                                if (newSet.has(transaction.id)) {
+                                    newSet.delete(transaction.id);
+                                } else {
+                                    newSet.add(transaction.id);
+                                }
+                                setSelectedTransactionIds(newSet);
+                            }}
+                            onNameClick={(e) => {
+                                e.stopPropagation();
+                                onTransactionClick(transaction.id);
+                            }}
+                        />
                     ))
                 )}
             </TableBody>
@@ -290,12 +392,26 @@ interface TransactionRowProps {
     transaction: any;
     onDelete: (id: string) => void;
     getUserById: (userId: string) => string;
+    isSelected: boolean;
+    onToggle: () => void;
+    onNameClick: (e: React.MouseEvent) => void;
 }
 
-function TransactionRow({ transaction, onDelete, getUserById }: TransactionRowProps) {
+function TransactionRow({ transaction, onDelete, getUserById, isSelected, onToggle, onNameClick }: TransactionRowProps) {
     return (
-        <TableRow key={transaction.id}>
-            <TableCell className="font-medium">
+        <TableRow key={transaction.id} className="cursor-pointer" onClick={onNameClick}>
+            <TableCell className="px-2">
+                <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-primary"
+                    checked={isSelected}
+                    onChange={onToggle}
+                    onPointerDown={(e) => {
+                        e.stopPropagation();
+                    }}
+                />
+            </TableCell>
+            <TableCell className="font-medium text-primary hover:underline">
                 {transaction.name}
             </TableCell>
             <TableCell className="text-center">
@@ -331,13 +447,16 @@ function TransactionRow({ transaction, onDelete, getUserById }: TransactionRowPr
                 </div>
             </TableCell>
             <TableCell className="text-sm text-muted-foreground">
-                {transaction.exDate ? <span className="text-xs">{new Date(transaction.exDate).toISOString().split('T')[0]}</span> : '—'}
+                {transaction.exDate ? <span className="text-xs">{formatDate(transaction.exDate)}</span> : '—'}
             </TableCell>
             <TableCell className="text-right">
                 <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => onDelete(transaction.id)}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(transaction.id);
+                    }}
                     className="text-red-600 hover:text-red-700 hover:bg-red-50"
                 >
                     <TrashIcon className="w-4 h-4" />

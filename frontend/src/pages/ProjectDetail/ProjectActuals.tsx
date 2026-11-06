@@ -19,6 +19,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Actual } from "./useActuals";
 import { ActualEditDialog } from "./ActualEditDialog";
 import { formatNumber, getTypeLabel } from "@/utils/formatters";
+import { formatDate } from "@/utils/dateFormatters";
 
 interface ProjectActualsProps {
     projectId: string;
@@ -71,7 +72,11 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
         id: '',
         name: '',
         amount: 0,
-        exDate: new Date()
+        exDate: new Date(),
+        tags: [],
+        assignedTo: '',
+        updatedAt: new Date(),
+        updatedBy: ''
     });
     const [selectedActualIds, setSelectedActualIds] = useState<Set<string>>(new Set<string>());
     const [isAssignToMenuOpen, setIsAssignToMenuOpen] = useState(false);
@@ -223,6 +228,12 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
     };
 
     const handleDeleteActual = async (actualId: string) => {
+        const actual = actuals.find(a => a.id === actualId);
+        if (actual && actual.transaction !== undefined) {
+            toast.error("Cannot delete actual: a transaction is connected to it. Remove the transaction connection first.");
+            return;
+        }
+
         if (!window.confirm("Delete this actual item?")) {
             return;
         }
@@ -242,7 +253,11 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
             id: actual.id,
             name: actual.name,
             amount: actual.amount,
-            exDate: actual.exDate || new Date()
+            exDate: actual.exDate || new Date(),
+            tags: actual.tags || [],
+            assignedTo: actual.assignedTo || '',
+            updatedAt: actual.updatedAt,
+            updatedBy: actual.updatedBy
         });
         setIsEditActualDialogOpen(true);
     };
@@ -250,6 +265,20 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
     const handleDeleteSelected = async () => {
         if (selectedActualIds.size === 0) {
             toast.error("No actuals selected");
+            return;
+        }
+
+        // Check if any selected actuals have transactions connected
+        const actualsToDelete = Array.from(selectedActualIds).map(id => 
+            actuals.find(a => a.id === id)
+        ).filter(Boolean) as ActualWithBudgetInfo[];
+        
+        const actualsWithTransaction = actualsToDelete.filter(a => 
+            a.transaction !== undefined
+        );
+        
+        if (actualsWithTransaction.length > 0) {
+            toast.error(`Cannot delete ${actualsWithTransaction.length} actual(s) because they have transactions connected. Remove the transaction connection first.`);
             return;
         }
 
@@ -323,11 +352,13 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
             await actualApi.update(editActualForm.id, {
                 name: editActualForm.name.trim(),
                 amount: editActualForm.amount,
-                exDate: editActualForm.exDate
+                exDate: editActualForm.exDate,
+                tags: editActualForm.tags,
+                assignedTo: editActualForm.assignedTo
             });
             toast.success("Actual updated successfully");
             setIsEditActualDialogOpen(false);
-            setEditActualForm({ id: '', name: '', amount: 0, exDate: new Date() });
+            setEditActualForm({ id: '', name: '', amount: 0, exDate: new Date(), tags: [], assignedTo: '', updatedAt: new Date(), updatedBy: '' });
             await loadData();
         } catch (error: any) {
             const errorMessage = error?.response?.data?.error || "Failed to update actual";
@@ -518,7 +549,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                                                 </span>
                                             </TableCell>
                                             <TableCell className="text-sm text-muted-foreground">
-                                                {actual.exDate ? <span className="text-xs">{new Date(actual.exDate).toISOString().split('T')[0]}</span> : '—'}
+                                                {actual.exDate ? <span className="text-xs">{formatDate(actual.exDate)}</span> : '—'}
                                             </TableCell>
                                             <TableCell className="text-sm text-muted-foreground">
                                                 {actual.assignedToName !== "—" ? (

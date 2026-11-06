@@ -90,7 +90,9 @@ const budgetRoute = async (app: FastifyInstance): Promise<void> => {
         async (request: FastifyRequest<{ Params: { id: string }; Body: UpdateBudgetRequest }>, reply: FastifyReply): Promise<void> => {
             try {
                 await verifyAuth(request, reply);
-                const budget = await updateBudget(request.params.id, request.body);
+                const user = (request as any).user;
+                const body = { ...request.body, updatedBy: user.id };
+                const budget = await updateBudget(request.params.id, body);
                 if (!budget) {
                     return reply.code(404).send({ error: 'Budget not found' });
                 }

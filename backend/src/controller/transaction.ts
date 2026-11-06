@@ -11,9 +11,10 @@ export interface TransactionResponse {
     project: string;
     arrActual: string[];
     exDate: Date;
-    assignedTo: string;
+    assignedTo: string | null;
     updatedBy: string;
     createdAt: Date;
+    updatedAt: Date;
 }
 
 export interface CreateTransactionRequest {
@@ -73,9 +74,10 @@ function transactionToResponse(transaction: any): TransactionResponse {
         project: transaction.project.toString(),
         arrActual: transaction.arrActual.map((id: any) => id.toString()),
         exDate: transaction.exDate,
-        assignedTo: transaction.assignedTo ? transaction.assignedTo.toString() : "000000000000000000000000",
+        assignedTo: transaction.assignedTo ? transaction.assignedTo.toString() : null,
         updatedBy: transaction.updatedBy.toString(),
         createdAt: transaction.createdAt,
+        updatedAt: transaction.updatedAt || transaction.createdAt,
     };
 }
 
@@ -145,7 +147,8 @@ export async function createTransaction(body: CreateTransactionRequest): Promise
         project: new mongoose.Types.ObjectId(body.project),
         arrActual: (body.arrActual ?? []).map((id: any) => new mongoose.Types.ObjectId(id)),
         exDate: body.exDate,
-        assignedTo: body.assignedTo ? new mongoose.Types.ObjectId(body.assignedTo) : undefined,
+        assignedTo: body.assignedTo ? new mongoose.Types.ObjectId(body.assignedTo) : null,
+        updatedAt: new Date(),
         updatedBy: new mongoose.Types.ObjectId(body.updatedBy || "000000000000000000000000"),
     });
     await transaction.save();
@@ -153,7 +156,9 @@ export async function createTransaction(body: CreateTransactionRequest): Promise
 }
 
 export async function updateTransaction(id: string, body: UpdateTransactionRequest): Promise<TransactionResponse | null> {
-    const updateFields: any = {};
+    const updateFields: any = {
+        updatedAt: new Date()
+    };
 
     if (body.name !== undefined) {
         updateFields.name = body.name.trim();
@@ -208,7 +213,17 @@ export async function updateTransaction(id: string, body: UpdateTransactionReque
     return transactionToResponse(transaction);
 }
 
-export async function deleteTransaction(id: string): Promise<boolean> {
+export async function deleteTransaction(id: string): Promise<{ success: boolean; error?: string }> {
+    const transaction = await Transaction.findById(id);
+    if (!transaction) {
+        return { success: false, error: 'Transaction not found' };
+    }
+
+    // Check if transaction has actuals connected (arrActual is not empty)
+    if (transaction.arrActual && transaction.arrActual.length > 0) {
+        return { success: false, error: 'Cannot delete transaction: actuals are connected to it' };
+    }
+
     const result = await Transaction.findByIdAndDelete(id);
-    return result !== null;
+    return { success: result !== null };
 }

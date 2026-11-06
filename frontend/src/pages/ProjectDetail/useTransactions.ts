@@ -12,9 +12,10 @@ export interface Transaction {
     project: string;
     arrActual: string[];
     exDate: Date;
-    assignedTo: string;
+    assignedTo: string | null;
     updatedBy: string;
     createdAt: Date;
+    updatedAt: Date;
 }
 
 export interface TransactionFilter {
@@ -94,6 +95,12 @@ export function useTransactions(projectId: string) {
     };
 
     const deleteTransaction = async (id: string) => {
+        const transaction = transactions.find(t => t.id === id);
+        if (transaction && transaction.arrActual && transaction.arrActual.length > 0) {
+            toast.error("Cannot delete transaction: actuals are connected to it");
+            return false;
+        }
+
         if (!window.confirm("Delete this transaction?")) {
             return false;
         }

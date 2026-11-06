@@ -14,6 +14,7 @@ export interface Budget {
     header: string
     updatedBy: string
     createdAt: string
+    updatedAt: string
 }
 
 export interface UseBudgetsReturn {

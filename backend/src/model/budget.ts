@@ -10,6 +10,7 @@ export interface BudgetDoc extends Document {
     header: Schema.Types.ObjectId;
     arrActual: Schema.Types.ObjectId[];
     arrTransaction: Schema.Types.ObjectId[];
+    updatedAt: Date;
     updatedBy: Schema.Types.ObjectId;
     createdAt: Date;
 }
@@ -55,6 +56,10 @@ const budgetSchema = new Schema<BudgetDoc>({
     arrTransaction: {
         type: [Schema.Types.ObjectId],
         default: []
+    },
+    updatedAt: {
+        type: Date,
+        default: Date.now
     },
     updatedBy: {
         type: Schema.Types.ObjectId,

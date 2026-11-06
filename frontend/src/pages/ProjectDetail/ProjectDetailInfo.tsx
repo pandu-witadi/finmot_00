@@ -3,6 +3,7 @@ import { projectApi } from "@/services/api";
 import { userApi } from "@/services/api";
 import { toast } from "react-hot-toast";
 import { useAuthStore } from "@/context/authStore";
+import { formatDate } from "@/utils/dateFormatters";
 
 interface ProjectDetailInfoProps {
     project: any;

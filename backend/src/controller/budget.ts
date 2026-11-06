@@ -17,6 +17,7 @@ interface ActualResponseInternal {
     trx: string;
     updatedBy: string;
     createdAt: Date;
+    updatedAt: Date;
 }
 
 function actualToResponse(actual: ActualDoc | ActualResponseInternal): ActualResponseInternal {
@@ -32,6 +33,7 @@ function actualToResponse(actual: ActualDoc | ActualResponseInternal): ActualRes
         trx: actual.trx.toString(),
         updatedBy: actual.updatedBy.toString(),
         createdAt: actual.createdAt,
+        updatedAt: actual.updatedAt || actual.createdAt,
     };
 }
 
@@ -48,6 +50,7 @@ export interface BudgetResponse {
     arrTransaction: string[];
     updatedBy: string;
     createdAt: Date;
+    updatedAt: Date;
 }
 
 export interface CloneBudgetRequest {
@@ -122,6 +125,7 @@ function budgetToResponse(budget: any): BudgetResponse {
         arrTransaction: budget.arrTransaction.map((id: any) => id.toString()),
         updatedBy: budget.updatedBy.toString(),
         createdAt: budget.createdAt,
+        updatedAt: budget.updatedAt || budget.createdAt,
     };
 }
 
@@ -194,6 +198,7 @@ export async function createBudget(body: CreateBudgetRequest): Promise<BudgetRes
         header: headerId,
         arrActual: (body.arrActual ?? []).map((id: any) => new mongoose.Types.ObjectId(id)),
         arrTransaction: (body.arrTransaction ?? []).map((id: any) => new mongoose.Types.ObjectId(id)),
+        updatedAt: new Date(),
         updatedBy: new mongoose.Types.ObjectId(body.updatedBy || "000000000000000000000000"),
     });
     await budget.save();
@@ -212,7 +217,9 @@ export async function createBudget(body: CreateBudgetRequest): Promise<BudgetRes
 }
 
 export async function updateBudget(id: string, body: UpdateBudgetRequest): Promise<BudgetResponse | null> {
-    const updateFields: any = {};
+    const updateFields: any = {
+        updatedAt: new Date()
+    };
 
     if (body.name !== undefined) {
         updateFields.name = body.name.trim();
