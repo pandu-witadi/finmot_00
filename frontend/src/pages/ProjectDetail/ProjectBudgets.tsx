@@ -11,6 +11,7 @@ import { BudgetEditDialog } from "./BudgetEditDialog";
 import { ActualEditDialog } from "./ActualEditDialog";
 import { Header } from "./useBudgetHeaders";
 import { Budget } from "./useBudgets";
+import { EditBudgetForm, BudgetForm, EditActualForm } from "./types";
 import { DndContext, DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useSortable } from "@dnd-kit/sortable";
@@ -81,18 +82,20 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         tags: ''
     });
 
-    const [editBudgetForm, setEditBudgetForm] = useState({
+    const [editBudgetForm, setEditBudgetForm] = useState<EditBudgetForm>({
         id: '',
         name: '',
+        note: '',
         type: 'expense' as 'income' | 'expense',
         amount: 0,
-        tags: [],
+        tags: '',
         updatedAt: new Date(),
         updatedBy: ''
     });
 
-    const [budgetForm, setBudgetForm] = useState({
+    const [budgetForm, setBudgetForm] = useState<BudgetForm>({
         name: '',
+        note: '',
         type: 'expense' as 'income' | 'expense',
         amount: 0,
         tags: ''
@@ -104,10 +107,15 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     const [clonedBudgets, setClonedBudgets] = useState<{budget: Budget, name: string}[]>([]);
     const [actuals, setActuals] = useState<{[budgetId: string]: {id: string, name: string, amount: number}[]}>({});
     const [isEditActualDialogOpen, setIsEditActualDialogOpen] = useState(false);
-    const [editActualForm, setEditActualForm] = useState({
+    const [editActualForm, setEditActualForm] = useState<EditActualForm>({
         id: '',
         name: '',
-        amount: 0
+        amount: 0,
+        exDate: new Date(),
+        tags: [],
+        assignedTo: '',
+        updatedAt: new Date(),
+        updatedBy: ''
     });
 
     const toggleSelectBudget = (budgetId: string) => {
@@ -221,8 +229,8 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     };
 
     const resetHeaderForm = () => setEditHeaderForm({ id: '', name: '', type: 'expense', tags: '' });
-    const resetBudgetForm = () => setEditBudgetForm({ id: '', name: '', type: 'expense', amount: 0, tags: [], updatedAt: new Date(), updatedBy: '' });
-    const resetActualForm = () => setEditActualForm({ id: '', name: '', amount: 0 });
+    const resetBudgetForm = () => setEditBudgetForm({ id: '', name: '', note: '', type: 'expense', amount: 0, tags: '', updatedAt: new Date(), updatedBy: '' });
+    const resetActualForm = () => setEditActualForm({ id: '', name: '', amount: 0, exDate: new Date(), tags: [], assignedTo: '', updatedAt: new Date(), updatedBy: '' });
 
     const handleUpdateOperation = async (
         updateFn: (id: string, data: any) => Promise<any>,
@@ -330,6 +338,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             budgetApi.create,
             {
                 name: budgetForm.name.trim(),
+                note: budgetForm.note,
                 type: budgetForm.type,
                 amount: budgetForm.amount,
                 tags: parseTags(budgetForm.tags),
@@ -341,7 +350,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             "Failed to add budget"
         );
         setIsAddBudgetDialogOpen(false);
-        setBudgetForm({ name: '', type: 'expense', amount: 0, tags: '' });
+        setBudgetForm({ name: '', note: '', type: 'expense', amount: 0, tags: '' });
     };
 
     const handleDeleteHeader = async (id: string) => {
@@ -396,10 +405,11 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         setEditBudgetForm({
             id: budget.id,
             name: budget.name,
+            note: budget.note || '',
             type: budget.type,
             amount: budget.amount,
-            tags: budget.tags || [],
-            updatedAt: budget.updatedAt,
+            tags: budget.tags ? budget.tags.join(', ') : '',
+            updatedAt: new Date(budget.updatedAt),
             updatedBy: budget.updatedBy
         });
         setIsEditBudgetDialogOpen(true);
@@ -423,9 +433,13 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             editBudgetForm.id,
             {
                 name: editBudgetForm.name.trim(),
+                note: editBudgetForm.note,
                 type: editBudgetForm.type,
                 amount: editBudgetForm.amount,
                 tags: editBudgetForm.tags
+                    .split(/\s*,\s*/)
+                    .map(t => t.trim())
+                    .filter(t => t.length > 0)
             },
             "Budget updated successfully",
             "Failed to update budget"
@@ -438,7 +452,12 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         setEditActualForm({
             id: actual.id,
             name: actual.name,
-            amount: actual.amount
+            amount: actual.amount,
+            exDate: new Date(),
+            tags: [],
+            assignedTo: '',
+            updatedAt: new Date(),
+            updatedBy: ''
         });
         setIsEditActualDialogOpen(true);
     };
@@ -746,7 +765,8 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                 onChange={() => {}}
                             />
                         </TableHead>
-                        <TableHead className="w-[50%] px-2 text-left border-b border-gray-200 bg-magenta-50">Name</TableHead>
+                        <TableHead className="w-[45%] px-2 text-left border-b border-gray-200 bg-magenta-50">Name</TableHead>
+                        <TableHead className="w-[25%] px-2 text-left border-b border-gray-200 bg-magenta-50">Tags</TableHead>
                         <TableHead className="w-[12.5%] px-2 text-center border-b border-gray-200 bg-magenta-50">t</TableHead>
                         <TableHead className="text-right w-[12.5%] border-b border-gray-200 border-r border-magenta-300 bg-magenta-50">Amount</TableHead>
                         <TableHead className="text-left w-[40%] bg-magenta-50">actName</TableHead>
@@ -789,7 +809,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                             onChange={() => {}}
                         />
                     </TableCell>
-                    <TableCell className="w-[50%] px-2 text-left border-b border-gray-200">
+                    <TableCell className="w-[45%] px-2 text-left border-b border-gray-200">
                         <div className="flex items-center gap-2">
                             <span
                                 className="cursor-pointer hover:underline font-medium"
@@ -804,6 +824,19 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                 {budget.name}
                             </span>
                         </div>
+                    </TableCell>
+                    <TableCell className="w-[25%] px-2 text-left border-b border-gray-200">
+                        {budget.tags && budget.tags.length > 0 ? (
+                            <div className="flex flex-col gap-0.5">
+                                {budget.tags.map((tag, idx) => (
+                                    <span key={idx} className="text-xs">
+                                        {tag}
+                                    </span>
+                                ))}
+                            </div>
+                        ) : (
+                            <span className="text-sm text-muted-foreground">—</span>
+                        )}
                     </TableCell>
                     <TableCell className="w-[12.5%] px-2 text-center border-b border-gray-200">
                         <span className={`text-xs px-2 py-0.5 rounded ${
@@ -841,7 +874,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                         onChange={() => {}}
                     />
                 </TableCell>
-                <TableCell rowSpan={budgetActuals.length} className="w-[50%] px-2 text-left border-b border-gray-200">
+                <TableCell rowSpan={budgetActuals.length} className="w-[45%] px-2 text-left border-b border-gray-200">
                     <div className="flex items-center gap-2">
                         <span
                             className="cursor-pointer hover:underline font-medium"
@@ -856,6 +889,19 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                             {budget.name}
                         </span>
                     </div>
+                </TableCell>
+                <TableCell rowSpan={budgetActuals.length} className="w-[25%] px-2 text-left border-b border-gray-200">
+                    {budget.tags && budget.tags.length > 0 ? (
+                        <div className="flex flex-col gap-0.5">
+                            {budget.tags.map((tag, idx) => (
+                                <span key={idx} className="text-xs">
+                                    {tag}
+                                </span>
+                            ))}
+                        </div>
+                    ) : (
+                        <span className="text-sm text-muted-foreground">—</span>
+                    )}
                 </TableCell>
                 <TableCell rowSpan={budgetActuals.length} className="w-[12.5%] px-2 text-center border-b border-gray-200">
                     <span className={`text-xs px-2 py-0.5 rounded ${

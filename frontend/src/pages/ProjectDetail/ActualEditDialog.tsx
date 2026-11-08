@@ -12,17 +12,7 @@ import { formatNumber } from "@/utils/formatters";
 import { formatDate, formatDateTime } from "@/utils/dateFormatters";
 import { useState, useEffect } from "react";
 import { userApi } from "@/services/api";
-
-interface EditActualForm {
-    id: string;
-    name: string;
-    amount: number;
-    exDate: Date;
-    tags: string[];
-    assignedTo: string;
-    updatedAt: Date;
-    updatedBy: string;
-}
+import { EditActualForm } from "./types";
 
 interface ActualEditDialogProps {
     isOpen: boolean;
@@ -187,7 +177,7 @@ export function ActualEditDialog({
                                 <Input
                                     id="editActualTags"
                                     value={editActualForm.tags.join(', ')}
-                                    onChange={e => setEditActualForm(prev => ({ ...prev, tags: e.target.value.split(',').map(t => t.trim()).filter(t => t !== '') }))}
+                                    onChange={e => setEditActualForm(prev => ({ ...prev, tags: e.target.value.split(/\s*,\s*/).map(t => t.trim()).filter(t => t !== '') }))}
                                     placeholder="tag1, tag2"
                                 />
                             </div>

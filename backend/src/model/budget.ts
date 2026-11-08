@@ -25,6 +25,11 @@ const budgetSchema = new Schema<BudgetDoc>({
         type: [String],
         default: []
     },
+     note: {
+        type: String,
+        default: "",
+        trim: true
+    },
     active: {
         type: Boolean,
         default: true

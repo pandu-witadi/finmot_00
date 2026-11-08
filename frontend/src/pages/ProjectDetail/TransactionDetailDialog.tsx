@@ -258,7 +258,7 @@ export function TransactionDetailDialog({
                                         value={editForm.tags?.join(', ') || ''}
                                         onChange={(e) => setEditForm({ 
                                             ...editForm, 
-                                            tags: e.target.value.split(',').map(t => t.trim()) 
+                                            tags: e.target.value.split(/\s*,\s*/).map(t => t.trim()).filter(t => t !== '') 
                                         })}
                                         className="mt-1"
                                         placeholder="comma,separated,tags"

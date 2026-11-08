@@ -21,6 +21,8 @@ const projectSchema = z.object({
     name: z.string().min(1, { message: "Project name is required." }),
     note: z.string().optional(),
     typ: z.enum(["project", "routine", "other"]),
+    tags: z.string().optional(),
+    stDate: z.string().optional(),
 });
 
 type ProjectForm = z.infer<typeof projectSchema>;
@@ -33,6 +35,8 @@ export function ProjectAdd() {
         name: "",
         note: "",
         typ: "project",
+        tags: "",
+        stDate: new Date().toISOString().split("T")[0],
     });
     const [errors, setErrors] = useState<Partial<ProjectForm>>({});
     const [isLoading, setIsLoading] = useState(false);
@@ -59,6 +63,8 @@ export function ProjectAdd() {
                 name: formData.name.trim(),
                 note: formData.note?.trim() || "",
                 typ: formData.typ,
+                tags: formData.tags?.split(/\s*,\s*/).map(tag => tag.trim()).filter(tag => tag.length > 0) || [],
+                stDate: formData.stDate ? new Date(formData.stDate) : new Date(),
                 updatedBy: user?.id || "",
             };
 
@@ -149,6 +155,41 @@ export function ProjectAdd() {
                             {errors.note && (
                                 <p className="text-sm text-red-500">
                                     {errors.note}
+                                </p>
+                            )}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="tags">Tags</Label>
+                            <Input
+                                id="tags"
+                                name="tags"
+                                type="text"
+                                placeholder="e.g., development, marketing, internal"
+                                value={formData.tags}
+                                onChange={handleChange}
+                                className={errors.tags ? "border-red-500" : ""}
+                            />
+                            {errors.tags && (
+                                <p className="text-sm text-red-500">
+                                    {errors.tags}
+                                </p>
+                            )}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="stDate">Start Date</Label>
+                            <Input
+                                id="stDate"
+                                name="stDate"
+                                type="date"
+                                value={formData.stDate}
+                                onChange={handleChange}
+                                className={errors.stDate ? "border-red-500" : ""}
+                            />
+                            {errors.stDate && (
+                                <p className="text-sm text-red-500">
+                                    {errors.stDate}
                                 </p>
                             )}
                         </div>

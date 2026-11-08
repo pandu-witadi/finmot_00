@@ -15,7 +15,7 @@ export function formatTypeBadge(type: 'income' | 'expense'): string {
 
 export function parseTags(tags: string): string[] {
     return tags
-        .split(',')
+        .split(/\s*,\s*/)
         .map(t => t.trim())
         .filter(t => t.length > 0);
 }

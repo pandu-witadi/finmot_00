@@ -13,6 +13,7 @@ export interface Header {
 export interface Budget {
     id: string;
     name: string;
+    note?: string;
     type: 'income' | 'expense';
     amount: number;
     tags: string[];
@@ -47,6 +48,7 @@ export interface EditHeaderForm {
 
 export interface BudgetForm {
     name: string;
+    note?: string;
     type: 'income' | 'expense';
     amount: number;
     tags: string;
@@ -55,15 +57,23 @@ export interface BudgetForm {
 export interface EditBudgetForm {
     id: string;
     name: string;
+    note?: string;
     type: 'income' | 'expense';
     amount: number;
     tags: string;
+    updatedAt?: Date;
+    updatedBy?: string;
 }
 
 export interface EditActualForm {
     id: string;
     name: string;
     amount: number;
+    exDate: Date;
+    tags: string[];
+    assignedTo: string;
+    updatedAt: Date;
+    updatedBy: string;
 }
 
 // Cloning-related types

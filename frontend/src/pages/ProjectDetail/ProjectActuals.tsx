@@ -18,6 +18,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Actual } from "./useActuals";
 import { ActualEditDialog } from "./ActualEditDialog";
+import { EditActualForm } from "./types";
 import { formatNumber, getTypeLabel } from "@/utils/formatters";
 import { formatDate } from "@/utils/dateFormatters";
 
@@ -68,7 +69,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
     const [actuals, setActuals] = useState<ActualWithBudgetInfo[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isEditActualDialogOpen, setIsEditActualDialogOpen] = useState(false);
-    const [editActualForm, setEditActualForm] = useState({
+    const [editActualForm, setEditActualForm] = useState<EditActualForm>({
         id: '',
         name: '',
         amount: 0,

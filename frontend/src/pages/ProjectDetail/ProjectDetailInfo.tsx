@@ -4,6 +4,17 @@ import { userApi } from "@/services/api";
 import { toast } from "react-hot-toast";
 import { useAuthStore } from "@/context/authStore";
 import { formatDate } from "@/utils/dateFormatters";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 
 interface ProjectDetailInfoProps {
     project: any;
@@ -32,6 +43,21 @@ export function ProjectDetailInfo({ project, onSave }: ProjectDetailInfoProps) {
         stDate: project.stDate,
         endDate: project.endDate || '',
     });
+
+    const handleClose = () => {
+        setIsEditing(false);
+        setFormData({
+            code: project.code,
+            name: project.name,
+            note: project.note || '',
+            active: project.active,
+            done: project.done,
+            typ: project.typ,
+            tags: project.tags.join(', '),
+            stDate: project.stDate,
+            endDate: project.endDate || '',
+        });
+    };
 
     useEffect(() => {
         const loadUserName = async (userId: string) => {
@@ -80,7 +106,7 @@ export function ProjectDetailInfo({ project, onSave }: ProjectDetailInfoProps) {
                 done: formData.done,
                 typ: formData.typ,
                 tags: formData.tags
-                    .split(',')
+                    .split(/\s*,\s*/)
                     .map((t: string) => t.trim())
                     .filter((t: string) => t.length > 0),
                 stDate: formData.stDate,
@@ -102,140 +128,137 @@ export function ProjectDetailInfo({ project, onSave }: ProjectDetailInfoProps) {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
-    if (isEditing) {
-        return renderEditForm(project, formData, handleChange, handleSave, setIsEditing);
-    }
-
-    return renderViewMode(project, getUserName);
+    return (
+        <>
+            {renderViewMode(project, getUserName, setIsEditing)}
+            <Dialog open={isEditing} onOpenChange={handleClose}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Edit Project</DialogTitle>
+                        <DialogDescription>
+                            Update project details
+                        </DialogDescription>
+                    </DialogHeader>
+                    {renderEditForm(project, formData, handleChange, handleSave, setIsEditing)}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={handleClose}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleSave}>
+                            Save Changes
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
+    );
 }
 
 function renderEditForm(project: any, formData: any, handleChange: (field: string, value: any) => void, handleSave: () => void, setIsEditing: (v: boolean) => void) {
     return (
-        <div className="space-y-4">
-            <div className="bg-white p-8 rounded-lg border shadow-sm">
-                <h2 className="text-2xl font-semibold mb-6">Edit Project</h2>
-                <div className="grid grid-cols-2 gap-6">
-                    <div className="col-span-2">
-                        <label className="block text-base text-base font-medium text-muted-foreground mb-1">Code</label>
-                        <input
-                            type="text"
-                            value={formData.code}
-                            onChange={(e) => handleChange('code', e.target.value)}
-                            className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                        />
-                    </div>
-                    <div className="col-span-2">
-                        <label className="block text-base text-base font-medium text-muted-foreground mb-1">Name</label>
-                        <input
-                            type="text"
-                            value={formData.name}
-                            onChange={(e) => handleChange('name', e.target.value)}
-                            className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-base text-base font-medium text-muted-foreground mb-1">Type</label>
-                        <select
-                            value={formData.typ}
-                            onChange={(e) => handleChange('typ', e.target.value)}
-                            className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                        >
-                            <option value="project">Project</option>
-                            <option value="routine">Routine</option>
-                            <option value="other">Other</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-base text-base font-medium text-muted-foreground mb-1">Active</label>
-                        <select
-                            value={formData.active ? 'true' : 'false'}
-                            onChange={(e) => handleChange('active', e.target.value === 'true')}
-                            className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                        >
-                            <option value="true">Yes</option>
-                            <option value="false">No</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-base text-base font-medium text-muted-foreground mb-1">Done</label>
-                        <select
-                            value={formData.done ? 'true' : 'false'}
-                            onChange={(e) => handleChange('done', e.target.value === 'true')}
-                            className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                        >
-                            <option value="true">Yes</option>
-                            <option value="false">No</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-base text-base font-medium text-muted-foreground mb-1">Start Date</label>
-                        <input
-                            type="date"
-                            value={formData.stDate ? new Date(formData.stDate).toISOString().split('T')[0] : ''}
-                            onChange={(e) => handleChange('stDate', e.target.value ? new Date(e.target.value) : null)}
-                            className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-base text-base font-medium text-muted-foreground mb-1">End Date</label>
-                        <input
-                            type="date"
-                            value={formData.endDate ? new Date(formData.endDate).toISOString().split('T')[0] : ''}
-                            onChange={(e) => handleChange('endDate', e.target.value)}
-                            className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                        />
-                    </div>
-                    <div className="col-span-2">
-                        <label className="block text-base text-base font-medium text-muted-foreground mb-1">Note</label>
-                        <textarea
-                            value={formData.note}
-                            onChange={(e) => handleChange('note', e.target.value)}
-                            className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                        />
-                    </div>
-                    <div className="col-span-2">
-                        <label className="block text-base text-base font-medium text-muted-foreground mb-1">Tags (comma-separated)</label>
-                        <input
-                            type="text"
-                            value={formData.tags}
-                            onChange={(e) => handleChange('tags', e.target.value)}
-                            className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                        />
-                    </div>
-                </div>
-                <div className="flex gap-2 mt-6">
-                    <button
-                        onClick={handleSave}
-                        className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-                    >
-                        Save
-                    </button>
-                    <button
-                        onClick={() => {
-                            setIsEditing(false);
-                            setFormData({
-                                code: project.code,
-                                name: project.name,
-                                note: project.note || '',
-                                active: project.active,
-                                done: project.done,
-                                typ: project.typ,
-                                tags: project.tags.join(', '),
-                                stDate: project.stDate,
-                                endDate: project.endDate || '',
-                            });
-                        }}
-                        className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80"
-                    >
-                        Cancel
-                    </button>
-                </div>
+        <div className="grid gap-4 py-4">
+            <div className="col-span-2">
+                <Label htmlFor="editCode">Code</Label>
+                <Input
+                    id="editCode"
+                    type="text"
+                    value={formData.code}
+                    onChange={(e) => handleChange('code', e.target.value)}
+                    className="w-full"
+                />
+            </div>
+            <div className="col-span-2">
+                <Label htmlFor="editName">Name</Label>
+                <Input
+                    id="editName"
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => handleChange('name', e.target.value)}
+                    className="w-full"
+                />
+            </div>
+            <div>
+                <Label htmlFor="editTyp">Type</Label>
+                <select
+                    id="editTyp"
+                    value={formData.typ}
+                    onChange={(e) => handleChange('typ', e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2"
+                >
+                    <option value="project">Project</option>
+                    <option value="routine">Routine</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            <div>
+                <Label htmlFor="editActive">Active</Label>
+                <select
+                    id="editActive"
+                    value={formData.active ? 'true' : 'false'}
+                    onChange={(e) => handleChange('active', e.target.value === 'true')}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2"
+                >
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                </select>
+            </div>
+            <div>
+                <Label htmlFor="editDone">Done</Label>
+                <select
+                    id="editDone"
+                    value={formData.done ? 'true' : 'false'}
+                    onChange={(e) => handleChange('done', e.target.value === 'true')}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2"
+                >
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                </select>
+            </div>
+            <div>
+                <Label htmlFor="editStDate">Start Date</Label>
+                <Input
+                    id="editStDate"
+                    type="date"
+                    value={formData.stDate ? new Date(formData.stDate).toISOString().split('T')[0] : ''}
+                    onChange={(e) => handleChange('stDate', e.target.value ? new Date(e.target.value) : null)}
+                    className="w-full"
+                />
+            </div>
+            <div>
+                <Label htmlFor="editEndDate">End Date</Label>
+                <Input
+                    id="editEndDate"
+                    type="date"
+                    value={formData.endDate ? new Date(formData.endDate).toISOString().split('T')[0] : ''}
+                    onChange={(e) => handleChange('endDate', e.target.value)}
+                    className="w-full"
+                />
+            </div>
+            <div className="col-span-2">
+                <Label htmlFor="editNote">Note</Label>
+                <textarea
+                    id="editNote"
+                    value={formData.note}
+                    onChange={(e) => handleChange('note', e.target.value)}
+                    className="flex h-24 w-full rounded-md border border-input bg-background px-3 py-2"
+                />
+            </div>
+            <div className="col-span-2">
+                <Label htmlFor="editTags">Tags (comma-separated)</Label>
+                <Input
+                    id="editTags"
+                    type="text"
+                    value={formData.tags}
+                    onChange={(e) => handleChange('tags', e.target.value)}
+                    className="w-full"
+                    placeholder="tag1, tag2"
+                />
             </div>
         </div>
     );
 }
 
-function renderViewMode(project: any, getUserName: (userId: string) => string) {
+function renderViewMode(project: any, getUserName: (userId: string) => string, setIsEditing: (v: boolean) => void) {
     return (
         <div className="space-y-4">
             <div className="bg-white p-8 rounded-lg border shadow-sm">

@@ -5,6 +5,7 @@ import { budgetApi } from "@/services/api"
 export interface Budget {
     id: string
     name: string
+    note?: string
     tags: string[]
     active: boolean
     type: "income" | "expense"

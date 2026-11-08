@@ -228,7 +228,7 @@ function TagsFilter({ filters, setFilter }: { filters: any; setFilter: (key: str
                 value={filters.tags.join(', ')}
                 onChange={(e) => {
                     const tags = e.target.value
-                        .split(',')
+                        .split(/\s*,\s*/)
                         .map(t => t.trim())
                         .filter(t => t.length > 0);
                     setFilter('tags', tags);

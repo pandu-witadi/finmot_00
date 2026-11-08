@@ -19,12 +19,14 @@ interface BudgetAddDialogProps {
     selectedHeaderId: string | null;
     budgetForm: {
         name: string;
+        note?: string;
         type: 'income' | 'expense';
         amount: number;
         tags: string;
     };
     setBudgetForm: React.Dispatch<React.SetStateAction<{
         name: string;
+        note?: string;
         type: 'income' | 'expense';
         amount: number;
         tags: string;
@@ -96,6 +98,16 @@ export function BudgetAddDialog({
                             value={budgetForm.tags}
                             onChange={e => setBudgetForm(prev => ({ ...prev, tags: e.target.value }))}
                             placeholder="tag1, tag2"
+                        />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="budgetNote">Note</Label>
+                        <textarea
+                            id="budgetNote"
+                            value={budgetForm.note}
+                            onChange={e => setBudgetForm(prev => ({ ...prev, note: e.target.value }))}
+                            className="flex h-20 w-full rounded-md border border-input bg-background px-3 py-2 resize-none"
+                            placeholder="Enter note"
                         />
                     </div>
                 </div>

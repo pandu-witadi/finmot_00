@@ -40,6 +40,7 @@ function actualToResponse(actual: ActualDoc | ActualResponseInternal): ActualRes
 export interface BudgetResponse {
     id: string;
     name: string;
+    note: string;
     tags: string[];
     active: boolean;
     type: 'income' | 'expense';
@@ -67,6 +68,7 @@ export interface CloneToTransactionRequest {
 
 export interface CreateBudgetRequest {
     name: string;
+    note?: string;
     tags?: string[];
     active?: boolean;
     type: 'income' | 'expense';
@@ -80,6 +82,7 @@ export interface CreateBudgetRequest {
 
 export interface UpdateBudgetRequest {
     name?: string;
+    note?: string;
     tags?: string[];
     active?: boolean;
     type?: 'income' | 'expense';
@@ -115,6 +118,7 @@ function budgetToResponse(budget: any): BudgetResponse {
     return {
         id: budget._id.toString(),
         name: budget.name,
+        note: budget.note || '',
         tags: budget.tags,
         active: budget.active,
         type: budget.type,
@@ -190,6 +194,7 @@ export async function createBudget(body: CreateBudgetRequest): Promise<BudgetRes
     
     const budget = new Budget({
         name: body.name.trim(),
+        note: body.note ?? '',
         tags: body.tags ?? [],
         active: body.active ?? true,
         type: body.type,
@@ -223,6 +228,10 @@ export async function updateBudget(id: string, body: UpdateBudgetRequest): Promi
 
     if (body.name !== undefined) {
         updateFields.name = body.name.trim();
+    }
+
+    if (body.note !== undefined) {
+        updateFields.note = body.note;
     }
 
     if (body.tags !== undefined) {

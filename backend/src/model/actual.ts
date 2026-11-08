@@ -26,6 +26,11 @@ const actualSchema = new Schema<ActualDoc>({
         type: [String],
         default: []
     },
+    note: {
+        type: String,
+        default: "",
+        trim: true
+    },
     active: {
         type: Boolean,
         default: true

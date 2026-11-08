@@ -12,16 +12,7 @@ import { formatNumber, getTypeLabel } from "@/utils/formatters";
 import { formatDateTime } from "@/utils/dateFormatters";
 import { useState, useEffect } from "react";
 import { userApi } from "@/services/api";
-
-interface EditBudgetForm {
-    id: string;
-    name: string;
-    type: 'income' | 'expense';
-    amount: number;
-    tags: string[];
-    updatedAt: Date;
-    updatedBy: string;
-}
+import { EditBudgetForm } from "./types";
 
 interface BudgetEditDialogProps {
     isOpen: boolean;
@@ -115,14 +106,25 @@ export function BudgetEditDialog({
                             </div>
                             
                             <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Note</Label>
+                                <div className="text-sm text-muted-foreground whitespace-pre-wrap">
+                                    {editBudgetForm.note || '—'}
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-1">
                                 <Label className="text-xs text-muted-foreground">Tags</Label>
-                                {editBudgetForm.tags && editBudgetForm.tags.length > 0 ? (
+                                {editBudgetForm.tags && editBudgetForm.tags.trim().length > 0 ? (
                                     <div className="flex flex-wrap gap-1">
-                                        {editBudgetForm.tags.map((tag, idx) => (
-                                            <span key={idx} className="text-xs px-2 py-1 bg-muted rounded">
-                                                {tag}
-                                            </span>
-                                        ))}
+                                        {editBudgetForm.tags
+                                            .split(',')
+                                            .map(t => t.trim())
+                                            .filter(t => t.length > 0)
+                                            .map((tag, idx) => (
+                                                <span key={idx} className="text-xs px-2 py-1 bg-muted rounded">
+                                                    {tag}
+                                                </span>
+                                            ))}
                                     </div>
                                 ) : (
                                     <span className="text-xs text-muted-foreground">No tags</span>
@@ -140,7 +142,7 @@ export function BudgetEditDialog({
                             
                             <div className="pt-4 border-t space-y-2">
                                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                    <span>Updated at: {formatDateTime(editBudgetForm.updatedAt || editBudgetForm.createdAt)}</span>
+                                    <span>Updated at: {editBudgetForm.updatedAt && formatDateTime(editBudgetForm.updatedAt)}</span>
                                 </div>
                                 {editBudgetForm.updatedBy && (
                                     <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -189,12 +191,22 @@ export function BudgetEditDialog({
                                 </div>
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="editBudgetTags">Tags</Label>
+                                <Label htmlFor="editBudgetTags">Tags (comma-separated)</Label>
                                 <Input
                                     id="editBudgetTags"
-                                    value={editBudgetForm.tags.join(', ')}
-                                    onChange={e => setEditBudgetForm(prev => ({ ...prev, tags: e.target.value.split(',').map(t => t.trim()).filter(t => t !== '') }))}
+                                    value={editBudgetForm.tags}
+                                    onChange={e => setEditBudgetForm(prev => ({ ...prev, tags: e.target.value }))}
                                     placeholder="tag1, tag2"
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="editBudgetNote">Note</Label>
+                                <textarea
+                                    id="editBudgetNote"
+                                    value={editBudgetForm.note}
+                                    onChange={e => setEditBudgetForm(prev => ({ ...prev, note: e.target.value }))}
+                                    className="flex h-20 w-full rounded-md border border-input bg-background px-3 py-2 resize-none"
+                                    placeholder="Enter note"
                                 />
                             </div>
                         </div>

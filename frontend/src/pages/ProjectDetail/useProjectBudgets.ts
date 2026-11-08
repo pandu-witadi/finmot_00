@@ -47,6 +47,7 @@ export function useProjectBudgets(projectId: string) {
 
     const [budgetForm, setBudgetForm] = useState<BudgetForm>({
         name: '',
+        note: '',
         type: 'expense',
         amount: 0,
         tags: ''
@@ -55,7 +56,12 @@ export function useProjectBudgets(projectId: string) {
     const [editActualForm, setEditActualForm] = useState<EditActualForm>({
         id: '',
         name: '',
-        amount: 0
+        amount: 0,
+        exDate: new Date(),
+        tags: [],
+        assignedTo: '',
+        updatedAt: new Date(),
+        updatedBy: ''
     });
 
     const [clonedBudgets, setClonedBudgets] = useState<BudgetWithName[]>([]);
@@ -213,6 +219,7 @@ export function useProjectBudgets(projectId: string) {
         try {
             await budgetApi.create({
                 name: budgetForm.name.trim(),
+                note: budgetForm.note,
                 type: budgetForm.type,
                 amount: budgetForm.amount,
                 tags: parseTags(budgetForm.tags),
@@ -222,7 +229,7 @@ export function useProjectBudgets(projectId: string) {
             });
             toast.success("Budget added successfully");
             setIsAddBudgetDialogOpen(false);
-            setBudgetForm({ name: '', type: 'expense', amount: 0, tags: '' });
+            setBudgetForm({ name: '', note: '', type: 'expense', amount: 0, tags: '' });
             setSelectedHeaderId(null);
             await loadData();
         } catch (error: any) {
@@ -236,13 +243,14 @@ export function useProjectBudgets(projectId: string) {
             const tagArray = parseTags(editBudgetForm.tags);
             await budgetApi.update(editBudgetForm.id, {
                 name: editBudgetForm.name.trim(),
+                note: editBudgetForm.note,
                 type: editBudgetForm.type,
                 amount: editBudgetForm.amount,
                 tags: tagArray
             });
             toast.success("Budget updated successfully");
             setIsEditBudgetDialogOpen(false);
-            setEditBudgetForm({ id: '', name: '', type: 'expense', amount: 0, tags: '' });
+            setEditBudgetForm({ id: '', name: '', note: '', type: 'expense', amount: 0, tags: '' });
             await loadData();
         } catch (error: any) {
             const errorMessage = error?.response?.data?.error || "Failed to update budget";
@@ -269,6 +277,7 @@ export function useProjectBudgets(projectId: string) {
         setEditBudgetForm({
             id: budget.id,
             name: budget.name,
+            note: budget.note || '',
             type: budget.type,
             amount: budget.amount,
             tags: budget.tags.join(', ')
@@ -285,7 +294,7 @@ export function useProjectBudgets(projectId: string) {
             });
             toast.success("Actual updated successfully");
             setIsEditActualDialogOpen(false);
-            setEditActualForm({ id: '', name: '', amount: 0 });
+            setEditActualForm({ id: '', name: '', amount: 0, exDate: new Date(), tags: [], assignedTo: '', updatedAt: new Date(), updatedBy: '' });
             await loadData();
         } catch (error: any) {
             const errorMessage = error?.response?.data?.error || "Failed to update actual";
@@ -312,7 +321,12 @@ export function useProjectBudgets(projectId: string) {
         setEditActualForm({
             id: actual.id,
             name: actual.name,
-            amount: actual.amount
+            amount: actual.amount,
+            exDate: new Date(),
+            tags: [],
+            assignedTo: '',
+            updatedAt: new Date(),
+            updatedBy: ''
         });
         setIsEditActualDialogOpen(true);
     };

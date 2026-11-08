@@ -168,8 +168,8 @@ interface BudgetAddDialogProps {
     onOpenChange: (isOpen: boolean) => void;
     headers: Header[];
     selectedHeaderId: string | null;
-    budgetForm: { name: string; type: 'income' | 'expense'; amount: number; tags: string };
-    setBudgetForm: React.Dispatch<React.SetStateAction<{ name: string; type: 'income' | 'expense'; amount: number; tags: string }>>;
+    budgetForm: { name: string; note?: string; type: 'income' | 'expense'; amount: number; tags: string };
+    setBudgetForm: React.Dispatch<React.SetStateAction<{ name: string; note?: string; type: 'income' | 'expense'; amount: number; tags: string }>>;
     onSelectHeader: (headerId: string | null) => void;
     onAddBudget: () => void;
 }

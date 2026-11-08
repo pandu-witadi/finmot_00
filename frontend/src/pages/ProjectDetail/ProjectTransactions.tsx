@@ -81,7 +81,7 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
                 name: form.name.trim(),
                 type: form.type,
                 amount: form.amount,
-                tags: form.tags ? form.tags.split(',').map(t => t.trim()) : [],
+                tags: form.tags ? form.tags.split(/\s*,\s*/).map(t => t.trim()).filter(t => t !== '') : [],
                 active: form.active,
                 project: projectId,
             });

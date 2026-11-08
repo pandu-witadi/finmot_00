@@ -29,6 +29,11 @@ const transactionSchema = new Schema<TransactionDoc>({
         type: Boolean,
         default: true
     },
+    note: {
+        type: String,
+        default: "",
+        trim: true
+    },
     type: {
         type: String,
         enum: ['income', 'expense'],
