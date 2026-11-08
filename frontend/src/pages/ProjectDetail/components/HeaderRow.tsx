@@ -19,7 +19,7 @@ interface HeaderRowProps {
     onAddBudget: (headerId: string) => void;
     onSaveBudgetPositions: (headerId: string) => void;
     onDeleteHeader: (headerId: string) => void;
-    onOpenCloneConfirm: () => void;
+    onOpenRegisterActualConfirm: () => void;
     onOpenEditBudget: (budget: Budget) => void;
     onToggleSelectAllBudgets: (budgets: { id: string }[]) => void;
     onToggleSelectBudget: (budgetId: string) => void;
@@ -41,7 +41,7 @@ export function HeaderRow({
     onAddBudget,
     onSaveBudgetPositions,
     onDeleteHeader,
-    onOpenCloneConfirm,
+    onOpenRegisterActualConfirm,
     onOpenEditBudget,
     onToggleSelectAllBudgets,
     onToggleSelectBudget,
@@ -109,8 +109,8 @@ export function HeaderRow({
                                 {Array.from(selectedBudgetIds).filter(id => associatedBudgets.some(b => b.id === id)).length} selected
                             </Button>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={onOpenCloneConfirm}>
-                                    Clone
+                                <DropdownMenuItem onClick={onOpenRegisterActualConfirm}>
+                                    Register Actual
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => {
                                     const selectedInHeader = Array.from(selectedBudgetIds).filter(id => associatedBudgets.some(b => b.id === id));
@@ -119,9 +119,9 @@ export function HeaderRow({
                                     Register
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => {
-                                    toast("Clone to transaction would create transactions for selected actuals");
+                                    toast("Register to transaction would create transactions for selected actuals");
                                 }}>
-                                    Clone to Transaction
+                                    Register to Transaction
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>

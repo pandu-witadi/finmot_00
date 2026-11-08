@@ -103,8 +103,8 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
 
     const [expandedHeaders, setExpandedHeaders] = useState<Set<string>>(new Set<string>());
     const [selectedBudgetIds, setSelectedBudgetIds] = useState<Set<string>>(new Set<string>());
-    const [isCloneConfirmOpen, setIsCloneConfirmOpen] = useState(false);
-    const [clonedBudgets, setClonedBudgets] = useState<{budget: Budget, name: string}[]>([]);
+    const [isRegisterActualConfirmOpen, setIsRegisterActualConfirmOpen] = useState(false);
+    const [registeredBudgets, setRegisteredBudgets] = useState<{budget: Budget, name: string}[]>([]);
     const [actuals, setActuals] = useState<{[budgetId: string]: {id: string, name: string, amount: number}[]}>({});
     const [isEditActualDialogOpen, setIsEditActualDialogOpen] = useState(false);
     const [editActualForm, setEditActualForm] = useState<EditActualForm>({
@@ -133,40 +133,41 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         setSelectedBudgetIds(newSet);
     };
 
-    const openCloneConfirm = () => {
-        const budgetsToClone = budgets.filter(b => selectedBudgetIds.has(b.id));
-        const budgetsWithNames = budgetsToClone.map(b => ({
+    const openRegisterActualConfirm = () => {
+        const budgetsToRegister = budgets.filter(b => selectedBudgetIds.has(b.id));
+        const budgetsWithNames = budgetsToRegister.map(b => ({
             budget: b,
             name: b.name
         }));
-        setClonedBudgets(budgetsWithNames);
-        setIsCloneConfirmOpen(true);
+        setRegisteredBudgets(budgetsWithNames);
+        setIsRegisterActualConfirmOpen(true);
     };
 
-    const handleCloneConfirm = async () => {
+    const handleRegisterActualConfirm = async () => {
         try {
-            const clonePromises = clonedBudgets.map(async (item) => {
+            const registerActualPromises = registeredBudgets.map(async (item) => {
                 const budget = budgets.find(b => b.id === item.budget.id);
                 if (!budget) return null;
                 
-                await budgetApi.clone({
+                await budgetApi.registerActual({
                     budgetId: budget.id,
                     actualName: item.name,
+                    updatedBy: 'user123' // TODO: Get actual user
                 });
                 
                 return budget;
             });
             
-            const cloned = await Promise.all(clonePromises);
-            const count = cloned.filter(b => b !== null).length;
-            toast.success(`Successfully cloned ${count} budget${count !== 1 ? 's' : ''}`);
+            const registers = await Promise.all(registerActualPromises);
+            const count = registers.filter(b => b !== null).length;
+            toast.success(`Successfully registered ${count} budget${count !== 1 ? 's' : ''}`);
             
-            setIsCloneConfirmOpen(false);
-            setClonedBudgets([]);
+            setIsRegisterActualConfirmOpen(false);
+            setRegisteredBudgets([]);
             setSelectedBudgetIds(new Set<string>());
             await loadData();
         } catch (error: any) {
-            const errorMessage = error?.response?.data?.error || "Failed to clone budgets";
+            const errorMessage = error?.response?.data?.error || "Failed to register budgets";
             toast.error(errorMessage);
         }
     };
@@ -682,8 +683,8 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
                                                 {selectedCount === 1 && (
-                                                    <DropdownMenuItem onClick={openCloneConfirm}>
-                                                        Clone
+                                                    <DropdownMenuItem onClick={openRegisterActualConfirm}>
+                                                        Register Actual
                                                     </DropdownMenuItem>
                                                 )}
                                                 {hasDelete && (
@@ -947,18 +948,18 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         );
     };
 
-    const renderCloneConfirmDialog = () => (
-        <Dialog open={isCloneConfirmOpen} onOpenChange={setIsCloneConfirmOpen}>
+    const renderRegisterActualConfirmDialog = () => (
+        <Dialog open={isRegisterActualConfirmOpen} onOpenChange={setIsRegisterActualConfirmOpen}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Clone Budget to Actual</DialogTitle>
+                    <DialogTitle>Register Budget to Actual</DialogTitle>
                     <DialogDescription>
-                        This will create Actual records for {clonedBudgets.length} selected budget(s). Each Actual will copy the name, type, amount, and tags from the Budget.
+                        This will create Actual records for {registeredBudgets.length} selected budget(s). Each Actual will copy the name, type, amount, and tags from the Budget.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="py-4">
                     <div className="space-y-2">
-                        {clonedBudgets.map((item, index) => (
+                        {registeredBudgets.map((item, index) => (
                             <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                                 <div>
                                     <div className="font-medium">{item.name}</div>
@@ -974,11 +975,11 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsCloneConfirmOpen(false)}>
+                    <Button variant="outline" onClick={() => setIsRegisterActualConfirmOpen(false)}>
                         Cancel
                     </Button>
-                    <Button onClick={handleCloneConfirm}>
-                        Clone {clonedBudgets.length} budget{clonedBudgets.length !== 1 ? 's' : ''}
+                    <Button onClick={handleRegisterActualConfirm}>
+                        Register Actual {registeredBudgets.length} budget{registeredBudgets.length !== 1 ? 's' : ''}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -1043,7 +1044,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                 onDeleteActual={() => handleDeleteActual(editActualForm.id)}
             />
 
-            {renderCloneConfirmDialog()}
+            {renderRegisterActualConfirmDialog()}
         </div>
     );
 }

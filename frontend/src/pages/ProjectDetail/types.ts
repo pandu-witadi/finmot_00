@@ -27,6 +27,7 @@ export interface Budget {
 export interface Actual {
     id: string;
     name: string;
+    note?: string;
     amount: number;
     budget: string;
     [key: string]: any;
@@ -68,15 +69,16 @@ export interface EditBudgetForm {
 export interface EditActualForm {
     id: string;
     name: string;
+    note?: string;
     amount: number;
     exDate: Date;
-    tags: string[];
+    tags: string;
     assignedTo: string;
     updatedAt: Date;
     updatedBy: string;
 }
 
-// Cloning-related types
+// Register Actual-related types
 export interface BudgetWithName {
     budget: Budget;
     name: string;

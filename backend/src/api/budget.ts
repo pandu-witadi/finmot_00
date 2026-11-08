@@ -9,12 +9,12 @@ import {
     createBudget,
     updateBudget,
     deleteBudget,
-    cloneBudget,
+    registerActual,
     cloneToTransaction,
     CreateBudgetRequest,
     UpdateBudgetRequest,
     GetBudgetsQuery,
-    CloneBudgetRequest,
+    RegisterActualRequest,
     CloneToTransactionRequest
 } from '../controller/budget.js';
 import { verifyToken } from '../utils/jwt.js';
@@ -120,16 +120,16 @@ const budgetRoute = async (app: FastifyInstance): Promise<void> => {
     );
 
     app.post(
-        '/budget/clone',
-        async (request: FastifyRequest<{ Body: CloneBudgetRequest }>, reply: FastifyReply): Promise<void> => {
+        '/budget/registeractual',
+        async (request: FastifyRequest<{ Body: RegisterActualRequest }>, reply: FastifyReply): Promise<void> => {
             try {
                 await verifyAuth(request, reply);
                 const user = (request as any).user;
                 const body = { ...request.body, updatedBy: user.id };
-                const actual = await cloneBudget(body);
+                const actual = await registerActual(body);
                 reply.code(201).send(actual);
             } catch (error: any) {
-                const errorMessage = error?.message || 'Failed to clone budget';
+                const errorMessage = error?.message || 'Failed to register actual';
                 reply.code(500).send({ error: errorMessage });
             }
         }

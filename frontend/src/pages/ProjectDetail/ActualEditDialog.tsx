@@ -8,7 +8,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { formatNumber } from "@/utils/formatters";
+import { formatNumber, parseTags } from "@/utils/formatters";
 import { formatDate, formatDateTime } from "@/utils/dateFormatters";
 import { useState, useEffect } from "react";
 import { userApi } from "@/services/api";
@@ -114,18 +114,26 @@ export function ActualEditDialog({
                                 </div>
                             </div>
                             
-                            {editActualForm.tags && editActualForm.tags.length > 0 && (
-                                <div className="space-y-1">
-                                    <Label className="text-xs text-muted-foreground">Tags</Label>
-                                    <div className="flex flex-wrap gap-1">
-                                        {editActualForm.tags.map((tag, idx) => (
-                                            <span key={idx} className="text-xs px-2 py-1 bg-muted rounded">
-                                                {tag}
-                                            </span>
-                                        ))}
-                                    </div>
+                            <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Note</Label>
+                                <div className="text-sm text-muted-foreground whitespace-pre-wrap">
+                                    {editActualForm.note || '—'}
                                 </div>
-                            )}
+                            </div>
+                            
+                            <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Tags</Label>
+                                {editActualForm.tags && editActualForm.tags.trim().length > 0 ? (
+                                    <div className="flex flex-wrap gap-1">
+                                        {editActualForm.tags.split(',').map((tag, idx) => {
+                                            const trimmedTag = tag.trim();
+                                            return trimmedTag ? <span key={idx} className="text-xs px-2 py-1 bg-muted rounded">{trimmedTag}</span> : null;
+                                        })}
+                                    </div>
+                                ) : (
+                                    <span className="text-xs text-muted-foreground">No tags</span>
+                                )}
+                            </div>
                             
                             <div className="pt-4 border-t space-y-2">
                                 <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -173,11 +181,21 @@ export function ActualEditDialog({
                                 />
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="editActualTags">Tags</Label>
+                                <Label htmlFor="editActualNote">Note</Label>
+                                <textarea
+                                    id="editActualNote"
+                                    value={editActualForm.note || ''}
+                                    onChange={e => setEditActualForm(prev => ({ ...prev, note: e.target.value }))}
+                                    className="flex h-20 w-full rounded-md border border-input bg-background px-3 py-2 resize-none"
+                                    placeholder="Enter note"
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="editActualTags">Tags (comma-separated)</Label>
                                 <Input
                                     id="editActualTags"
-                                    value={editActualForm.tags.join(', ')}
-                                    onChange={e => setEditActualForm(prev => ({ ...prev, tags: e.target.value.split(/\s*,\s*/).map(t => t.trim()).filter(t => t !== '') }))}
+                                    value={editActualForm.tags}
+                                    onChange={e => setEditActualForm(prev => ({ ...prev, tags: e.target.value }))}
                                     placeholder="tag1, tag2"
                                 />
                             </div>

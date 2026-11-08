@@ -1,18 +1,68 @@
-import { useState, useEffect } from 'react';
-import { headerApi, budgetApi, actualApi, projectApi } from '@/services/api';
-import { toast } from 'react-hot-toast';
-import { Header, Budget, Actual, EditHeaderForm, EditBudgetForm, EditActualForm, BudgetWithName, HeaderForm, BudgetForm } from './types';
-import { parseTags } from '@/utils/formatters';
-import { arrayMove } from '@dnd-kit/sortable';
+import { useState, useEffect } from "react";
+import { headerApi, budgetApi, actualApi, userApi, api } from "@/services/api";
+import { toast } from "react-hot-toast";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { UserPlusIcon } from "lucide-react";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableRow, TableHead, TableHeader } from "@/components/ui/table";
+import { DndContext, DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { Budget, BudgetWithName } from "./useBudgets";
+import { EditHeaderForm, EditBudgetForm, EditActualForm, Actual } from "./types";
+import { formatNumber, parseTags } from "@/utils/formatters";
+import { formatDate } from "@/utils/dateFormatters";
 
-// Custom hook for Project Budgets state and logic
-export function useProjectBudgets(projectId: string) {
-    // State
+interface Header {
+    id: string;
+    name: string;
+    type: 'income' | 'expense';
+    tags: string[];
+    active: boolean;
+    arrBudget: string[];
+}
+
+interface Budget {
+    id: string;
+    name: string;
+    note?: string;
+    type: 'income' | 'expense';
+    amount: number;
+    tags: string[];
+    project: string;
+    header: string;
+    active: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+    updatedBy: string;
+}
+
+interface Actual {
+    id: string;
+    name: string;
+    note?: string;
+    amount: number;
+    budget: string;
+    [key: string]: any;
+}
+
+interface User {
+    id: string;
+    name: string;
+    email: string;
+}
+
+const useProjectBudgets = (projectId: string) => {
     const [headers, setHeaders] = useState<Header[]>([]);
     const [budgets, setBudgets] = useState<Budget[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [expandedHeaders, setExpandedHeaders] = useState<Set<string>>(new Set<string>());
-    const [selectedBudgetIds, setSelectedBudgetIds] = useState<Set<string>>(new Set<string>());
     const [actuals, setActuals] = useState<{ [budgetId: string]: Actual[] }>({});
 
     // Dialog states
@@ -21,7 +71,7 @@ export function useProjectBudgets(projectId: string) {
     const [isAddBudgetDialogOpen, setIsAddBudgetDialogOpen] = useState(false);
     const [isEditBudgetDialogOpen, setIsEditBudgetDialogOpen] = useState(false);
     const [isEditActualDialogOpen, setIsEditActualDialogOpen] = useState(false);
-    const [isCloneConfirmOpen, setIsCloneConfirmOpen] = useState(false);
+    const [isRegisterActualConfirmOpen, setIsRegisterActualConfirmOpen] = useState(false);
 
     // Form states
     const [headerForm, setHeaderForm] = useState<HeaderForm>({
@@ -56,15 +106,16 @@ export function useProjectBudgets(projectId: string) {
     const [editActualForm, setEditActualForm] = useState<EditActualForm>({
         id: '',
         name: '',
+        note: '',
         amount: 0,
         exDate: new Date(),
-        tags: [],
+        tags: '',
         assignedTo: '',
         updatedAt: new Date(),
         updatedBy: ''
     });
 
-    const [clonedBudgets, setClonedBudgets] = useState<BudgetWithName[]>([]);
+    const [registeredBudgets, setRegisteredBudgets] = useState<BudgetWithName[]>([]);
     const [selectedHeaderId, setSelectedHeaderId] = useState<string | null>(null);
 
     // Load data from API
@@ -93,21 +144,17 @@ export function useProjectBudgets(projectId: string) {
             setBudgets(sortedBudgets);
 
             const actualsData = Array.isArray(actualsRes.data) ? actualsRes.data : [];
-            const actualsMap: { [budgetId: string]: Actual[] } = {};
+            const actualsByBudget: { [budgetId: string]: Actual[] } = {};
             actualsData.forEach((actual: Actual) => {
-                if (actual.budget) {
-                    if (!actualsMap[actual.budget]) {
-                        actualsMap[actual.budget] = [];
-                    }
-                    actualsMap[actual.budget].push(actual);
+                if (!actualsByBudget[actual.budget]) {
+                    actualsByBudget[actual.budget] = [];
                 }
+                actualsByBudget[actual.budget].push(actual);
             });
-            setActuals(actualsMap);
-        } catch (error: any) {
-            const errorMessage = error?.response?.data?.error || "Failed to load budgets";
-            toast.error(errorMessage);
-        } finally {
-            setIsLoading(false);
+            setActuals(actualsByBudget);
+        } catch (error) {
+            console.error("Failed to load data:", error);
+            toast.error("Failed to load data");
         }
     };
 
@@ -115,25 +162,14 @@ export function useProjectBudgets(projectId: string) {
         loadData();
     }, [projectId]);
 
-    // Expand all headers by default
-    useEffect(() => {
-        if (headers.length > 0) {
-            setExpandedHeaders(new Set(headers.map((h) => h.id)));
-        }
-    }, [headers]);
-
     // Header operations
     const handleAddHeader = async () => {
-        if (!headerForm.name.trim()) {
-            toast.error("Header name is required");
-            return;
-        }
-
         try {
+            const tagArray = parseTags(headerForm.tags);
             await headerApi.create({
                 name: headerForm.name.trim(),
                 type: headerForm.type,
-                tags: parseTags(headerForm.tags),
+                tags: tagArray,
                 project: projectId,
                 active: true
             });
@@ -167,10 +203,7 @@ export function useProjectBudgets(projectId: string) {
 
     const handleDeleteHeader = async (id: string) => {
         const header = headers.find(h => h.id === id);
-        if (!header) {
-            toast.error("Header not found");
-            return;
-        }
+        if (!header) return;
 
         const arrBudget = Array.isArray(header.arrBudget) ? header.arrBudget : [];
         const budgetsUnderHeader = budgets.filter(b => b.header === id);
@@ -230,7 +263,6 @@ export function useProjectBudgets(projectId: string) {
             toast.success("Budget added successfully");
             setIsAddBudgetDialogOpen(false);
             setBudgetForm({ name: '', note: '', type: 'expense', amount: 0, tags: '' });
-            setSelectedHeaderId(null);
             await loadData();
         } catch (error: any) {
             const errorMessage = error?.response?.data?.error || "Failed to add budget";
@@ -259,7 +291,7 @@ export function useProjectBudgets(projectId: string) {
     };
 
     const handleDeleteBudget = async (budgetId: string) => {
-        if (!window.confirm("Delete this budget item?")) {
+        if (!window.confirm("Delete this budget?")) {
             return;
         }
 
@@ -288,13 +320,17 @@ export function useProjectBudgets(projectId: string) {
     // Actual operations
     const handleEditActual = async () => {
         try {
+            const tagArray = parseTags(editActualForm.tags);
             await actualApi.update(editActualForm.id, {
                 name: editActualForm.name.trim(),
-                amount: editActualForm.amount
+                note: editActualForm.note,
+                amount: editActualForm.amount,
+                tags: tagArray,
+                assignedTo: editActualForm.assignedTo
             });
             toast.success("Actual updated successfully");
             setIsEditActualDialogOpen(false);
-            setEditActualForm({ id: '', name: '', amount: 0, exDate: new Date(), tags: [], assignedTo: '', updatedAt: new Date(), updatedBy: '' });
+            setEditActualForm({ id: '', name: '', note: '', amount: 0, exDate: new Date(), tags: '', assignedTo: '', updatedAt: new Date(), updatedBy: '' });
             await loadData();
         } catch (error: any) {
             const errorMessage = error?.response?.data?.error || "Failed to update actual";
@@ -321,205 +357,156 @@ export function useProjectBudgets(projectId: string) {
         setEditActualForm({
             id: actual.id,
             name: actual.name,
+            note: actual.note || '',
             amount: actual.amount,
             exDate: new Date(),
-            tags: [],
-            assignedTo: '',
-            updatedAt: new Date(),
-            updatedBy: ''
+            tags: (actual.tags || []).join(', '),
+            assignedTo: actual.assignedTo || '',
+            updatedAt: actual.updatedAt ? new Date(actual.updatedAt) : new Date(),
+            updatedBy: actual.updatedBy || ''
         });
         setIsEditActualDialogOpen(true);
     };
 
     // Selection and drag/drop
-    const toggleSelectBudget = (budgetId: string) => {
-        const newSet = new Set(selectedBudgetIds);
-        newSet.has(budgetId) ? newSet.delete(budgetId) : newSet.add(budgetId);
-        setSelectedBudgetIds(newSet);
-    };
+    const [selectedBudgetIds, setSelectedBudgetIds] = useState<Set<string>>(new Set<string>());
 
-    const toggleSelectAllBudgets = (budgetsToSelect: { id: string }[]) => {
-        const allSelected = budgetsToSelect.length > 0 && budgetsToSelect.every(b => selectedBudgetIds.has(b.id));
-        const newSet = new Set(selectedBudgetIds);
-        budgetsToSelect.forEach(b => {
-            allSelected ? newSet.delete(b.id) : newSet.add(b.id);
-        });
-        setSelectedBudgetIds(newSet);
-    };
-
-    const handleSaveHeaderPositions = async () => {
-        try {
-            const projectHeaderOrder = headers.map(h => h.id);
-            await projectApi.update(projectId, { arrHeader: projectHeaderOrder });
-            toast.success("Header positions saved successfully");
-            await loadData();
-        } catch (error: any) {
-            console.error("Failed to save header positions:", error);
-            toast.error("Failed to save header positions");
-        }
-    };
-
-    const handleSaveBudgetPositions = async (headerId: string) => {
-        const header = headers.find(h => h.id === headerId);
-        if (!header) {
-            toast.error("Header not found");
-            return;
-        }
-
-        const associatedBudgets = budgets.filter(b => b.header === headerId);
-        if (associatedBudgets.length === 0) {
-            toast.success("No budgets to save");
-            return;
-        }
-
-        if (!window.confirm(`Save positions for ${header.name}? This will update the order of ${associatedBudgets.length} budgets.`)) {
-            return;
-        }
-
-        try {
-            const budgetIds = associatedBudgets.map(b => b.id);
-            await headerApi.update(headerId, { arrBudget: budgetIds });
-            toast.success("Budget positions saved successfully");
-            await loadData();
-        } catch (error: any) {
-            console.error("Failed to save budget positions:", error);
-            toast.error("Failed to save budget positions");
-        }
-    };
-
-    // Clone operations
-    const openCloneConfirm = () => {
-        const budgetsToClone = budgets.filter(b => selectedBudgetIds.has(b.id));
-        const budgetsWithNames = budgetsToClone.map(b => ({
-            budget: b,
-            name: b.name
-        }));
-        setClonedBudgets(budgetsWithNames);
-        setIsCloneConfirmOpen(true);
-    };
-
-    const handleCloneConfirm = async () => {
-        try {
-            const clonePromises = clonedBudgets.map(async (item) => {
-                const budget = budgets.find(b => b.id === item.budget.id);
-                if (!budget) return null;
-
-                await budgetApi.clone({
-                    budgetId: budget.id,
-                    actualName: item.name,
-                });
-
-                return budget;
-            });
-
-            const cloned = await Promise.all(clonePromises);
-            const count = cloned.filter(b => b !== null).length;
-            toast.success(`Successfully cloned ${count} budget${count !== 1 ? 's' : ''}`);
-
-            setIsCloneConfirmOpen(false);
-            setClonedBudgets([]);
-            setSelectedBudgetIds(new Set<string>());
-            await loadData();
-        } catch (error: any) {
-            const errorMessage = error?.response?.data?.error || "Failed to clone budgets";
-            toast.error(errorMessage);
-        }
-    };
-
-    const handleCloneToTransactionForSelected = async () => {
-        const selectedBudgets = budgets.filter(b => selectedBudgetIds.has(b.id));
-        const allActuals: { budgetId: string, actualId: string, actualName: string }[] = [];
-
-        selectedBudgets.forEach(budget => {
-            if (budget.arrActual) {
-                budget.arrActual.forEach(actualId => {
-                    allActuals.push({
-                        budgetId: budget.id,
-                        actualId: actualId,
-                        actualName: `Actual from ${budget.name}`
-                    });
-                });
+    const toggleBudgetSelection = (budgetId: string) => {
+        setSelectedBudgetIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(budgetId)) {
+                newSet.delete(budgetId);
+            } else {
+                newSet.add(budgetId);
             }
+            return newSet;
         });
-
-        if (allActuals.length === 0) {
-            toast.error("No actuals found for selected budgets");
-            return;
-        }
-
-        toast(`Clone to transaction would create transactions for ${allActuals.length} actuals`);
     };
 
-    // Header expansion
-    const toggleHeaderExpansion = (headerId: string) => {
-        const newExpanded = new Set(expandedHeaders);
-        if (newExpanded.has(headerId)) {
-            newExpanded.delete(headerId);
-        } else {
-            newExpanded.add(headerId);
-        }
-        setExpandedHeaders(newExpanded);
-    };
-
-    // Header drag/drop
-    const handleHeaderDragEnd = (event: any) => {
+    const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
 
         if (!over || active.id === over.id) {
             return;
         }
 
-        const activeHeaderIndex = headers.findIndex((h) => h.id === active.id);
-        const overHeaderIndex = headers.findIndex((h) => h.id === over.id);
+        const activeBudget = budgets.find(b => b.id === active.id);
+        const overBudget = budgets.find(b => b.id === over.id);
 
-        if (activeHeaderIndex === -1 || overHeaderIndex === -1) {
+        if (!activeBudget || !overBudget) {
             return;
         }
 
-        setHeaders((prev) => {
-            const newHeaders = arrayMove(prev, activeHeaderIndex, overHeaderIndex);
-            return newHeaders;
+        const activeHeader = headers.find(h => h.id === activeBudget.header);
+        const overHeader = headers.find(h => h.id === overBudget.header);
+
+        if (!activeHeader || !overHeader || activeHeader.id !== overHeader.id) {
+            return;
+        }
+
+        const activeArr = activeHeader.arrBudget || [];
+        const overArr = overHeader.arrBudget || [];
+
+        const activeIndex = activeArr.indexOf(activeBudget.id);
+        const overIndex = overArr.indexOf(overBudget.id);
+
+        if (activeIndex === -1 || overIndex === -1) {
+            return;
+        }
+
+        const newHeaderArr = arrayMove(activeArr, activeIndex, overIndex);
+
+        try {
+            await headerApi.update(activeHeader.id, {
+                arrBudget: newHeaderArr
+            });
+            toast.success("Budget order updated successfully");
+            await loadData();
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.error || "Failed to update budget order";
+            toast.error(errorMessage);
+        }
+    };
+
+    // Register Actual budget operations
+    const handleRegisterActual = async (budget: Budget) => {
+        setRegisteredBudgets([]);
+        setIsRegisterActualConfirmOpen(true);
+
+        const targetHeaders = headers.filter(h => h.type === budget.type && h.id !== budget.header);
+
+        const registerActualPromises = targetHeaders.map(async (header) => {
+            const existingBudgets = budgets.filter(b => b.header === header.id);
+            const lastArrBudget = header.arrBudget || [];
+            const existingCount = existingBudgets.length;
+
+            const newBudgetName = `${budget.name} (Copy ${existingCount + 1})`;
+
+            try {
+                const newBudget = await budgetApi.create({
+                    name: newBudgetName,
+                    note: budget.note,
+                    type: budget.type,
+                    amount: budget.amount,
+                    tags: budget.tags,
+                    project: projectId,
+                    header: header.id,
+                    active: true
+                });
+
+                const newHeaderArr = [...lastArrBudget, newBudget.id];
+                await headerApi.update(header.id, {
+                    arrBudget: newHeaderArr
+                });
+
+                return newBudget;
+            } catch (error: any) {
+                const errorMessage = error?.response?.data?.error || "Failed to register actual";
+                toast.error(errorMessage);
+                return null;
+            }
         });
+
+        const registers = await Promise.all(registerActualPromises);
+        setRegisteredBudgets(registers.filter((b): b is BudgetWithName => b !== null));
     };
 
-    // Calculation helpers
-    const getHeaderTotal = (header: Header) => {
-        const headerBudgets = budgets.filter(b => b.header === header.id);
-        return headerBudgets.reduce((sum, b) => sum + (b.type === 'income' ? b.amount : -b.amount), 0);
-    };
-
-    const getAssociatedBudgets = (headerId: string) => {
-        return budgets.filter(b => b.header === headerId);
+    // Get budget count for a header
+    const getBudgetCount = (headerId: string) => {
+        return budgets.filter(b => b.header === headerId).length;
     };
 
     return {
-        // State
         headers,
         budgets,
-        isLoading,
-        expandedHeaders,
-        selectedBudgetIds,
         actuals,
-
-        // Dialog states
         isAddHeaderDialogOpen,
+        setIsAddHeaderDialogOpen,
         isEditHeaderDialogOpen,
+        setIsEditHeaderDialogOpen,
         isAddBudgetDialogOpen,
+        setIsAddBudgetDialogOpen,
         isEditBudgetDialogOpen,
+        setIsEditBudgetDialogOpen,
         isEditActualDialogOpen,
-        isCloneConfirmOpen,
-
-        // Form states
+        setIsEditActualDialogOpen,
+        isRegisterActualConfirmOpen,
+        setIsRegisterActualConfirmOpen,
         headerForm,
+        setHeaderForm,
         editHeaderForm,
+        setEditHeaderForm,
         editBudgetForm,
+        setEditBudgetForm,
         budgetForm,
+        setBudgetForm,
         editActualForm,
-        clonedBudgets,
+        setEditActualForm,
+        registeredBudgets,
         selectedHeaderId,
-
-        // Actions
-        loadData,
+        setSelectedHeaderId,
+        selectedBudgetIds,
+        toggleBudgetSelection,
         handleAddHeader,
         handleEditHeader,
         handleDeleteHeader,
@@ -531,32 +518,32 @@ export function useProjectBudgets(projectId: string) {
         handleEditActual,
         handleDeleteActual,
         openEditActual,
-        toggleSelectBudget,
-        toggleSelectAllBudgets,
-        handleSaveHeaderPositions,
-        handleSaveBudgetPositions,
-        openCloneConfirm,
-        handleCloneConfirm,
-        handleCloneToTransactionForSelected,
-        toggleHeaderExpansion,
-        handleHeaderDragEnd,
-        getHeaderTotal,
-        getAssociatedBudgets,
-
-        // Setters
-        setHeaderForm,
-        setEditHeaderForm,
-        setEditBudgetForm,
-        setBudgetForm,
-        setEditActualForm,
-        setIsAddHeaderDialogOpen,
-        setIsEditHeaderDialogOpen,
-        setIsAddBudgetDialogOpen,
-        setIsEditBudgetDialogOpen,
-        setIsEditActualDialogOpen,
-        setIsCloneConfirmOpen,
-        setSelectedHeaderId,
-        setExpandedHeaders,
-        setSelectedBudgetIds
+        handleDragEnd,
+        handleRegisterActual,
+        getBudgetCount,
+        loadData
     };
+};
+
+export default useProjectBudgets;
+
+interface HeaderForm {
+    name: string;
+    type: 'income' | 'expense';
+    tags: string;
+}
+
+interface EditHeaderForm {
+    id: string;
+    name: string;
+    type: 'income' | 'expense';
+    tags: string;
+}
+
+interface BudgetForm {
+    name: string;
+    note?: string;
+    type: 'income' | 'expense';
+    amount: number;
+    tags: string;
 }

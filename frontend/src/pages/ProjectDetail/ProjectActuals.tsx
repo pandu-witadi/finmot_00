@@ -19,7 +19,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Actual } from "./useActuals";
 import { ActualEditDialog } from "./ActualEditDialog";
 import { EditActualForm } from "./types";
-import { formatNumber, getTypeLabel } from "@/utils/formatters";
+import { formatNumber, getTypeLabel, parseTags } from "@/utils/formatters";
 import { formatDate } from "@/utils/dateFormatters";
 
 interface ProjectActualsProps {
@@ -72,9 +72,10 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
     const [editActualForm, setEditActualForm] = useState<EditActualForm>({
         id: '',
         name: '',
+        note: '',
         amount: 0,
         exDate: new Date(),
-        tags: [],
+        tags: '',
         assignedTo: '',
         updatedAt: new Date(),
         updatedBy: ''
@@ -253,9 +254,10 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
         setEditActualForm({
             id: actual.id,
             name: actual.name,
+            note: actual.note || '',
             amount: actual.amount,
             exDate: actual.exDate || new Date(),
-            tags: actual.tags || [],
+            tags: (actual.tags || []).join(', '),
             assignedTo: actual.assignedTo || '',
             updatedAt: actual.updatedAt,
             updatedBy: actual.updatedBy
@@ -298,7 +300,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
         }
     };
 
-    const handleCloneToTransaction = async (actualId: string) => {
+    const handleRegisterToTransaction = async (actualId: string) => {
         const actual = actuals.find(a => a.id === actualId);
         if (!actual) return;
 
@@ -350,16 +352,18 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
 
     const handleEditActual = async () => {
         try {
+            const tagArray = parseTags(editActualForm.tags);
             await actualApi.update(editActualForm.id, {
                 name: editActualForm.name.trim(),
+                note: editActualForm.note,
                 amount: editActualForm.amount,
                 exDate: editActualForm.exDate,
-                tags: editActualForm.tags,
+                tags: tagArray,
                 assignedTo: editActualForm.assignedTo
             });
             toast.success("Actual updated successfully");
             setIsEditActualDialogOpen(false);
-            setEditActualForm({ id: '', name: '', amount: 0, exDate: new Date(), tags: [], assignedTo: '', updatedAt: new Date(), updatedBy: '' });
+            setEditActualForm({ id: '', name: '', note: '', amount: 0, exDate: new Date(), tags: '', assignedTo: '', updatedAt: new Date(), updatedBy: '' });
             await loadData();
         } catch (error: any) {
             const errorMessage = error?.response?.data?.error || "Failed to update actual";
@@ -437,8 +441,8 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                                     <DropdownMenuItem onClick={handleDeleteSelected}>
                                         Delete
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleCloneToTransaction(Array.from(selectedActualIds)[0])} disabled={selectedActualIds.size !== 1}>
-                                        Clone to Transaction
+                                    <DropdownMenuItem onClick={() => handleRegisterToTransaction(Array.from(selectedActualIds)[0])} disabled={selectedActualIds.size !== 1}>
+                                        Register to Transaction
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => {
                                         setIsAssignToMenuOpen(true);

@@ -345,27 +345,27 @@ export function ActualEditDialog({ isOpen, onOpenChange, editActualForm, setEdit
     );
 }
 
-// Clone Confirm Dialog
-interface CloneConfirmDialogProps {
+// Register Actual Confirm Dialog
+interface RegisterActualConfirmDialogProps {
     isOpen: boolean;
     onOpenChange: (isOpen: boolean) => void;
-    clonedBudgets: { budget: Budget; name: string }[];
+    registeredBudgets: { budget: Budget; name: string }[];
     onConfirm: () => void;
 }
 
-export function CloneConfirmDialog({ isOpen, onOpenChange, clonedBudgets, onConfirm }: CloneConfirmDialogProps) {
+export function RegisterActualConfirmDialog({ isOpen, onOpenChange, registeredBudgets, onConfirm }: RegisterActualConfirmDialogProps) {
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Clone Budget to Actual</DialogTitle>
+                    <DialogTitle>Register Budget to Actual</DialogTitle>
                     <DialogDescription>
-                        This will create Actual records for {clonedBudgets.length} selected budget(s). Each Actual will copy the name, type, amount, and tags from the Budget.
+                        This will create Actual records for {registeredBudgets.length} selected budget(s). Each Actual will copy the name, type, amount, and tags from the Budget.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="py-4">
                     <div className="space-y-2">
-                        {clonedBudgets.map((item, index) => (
+                        {registeredBudgets.map((item, index) => (
                             <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                                 <div>
                                     <div className="font-medium">{item.name}</div>
@@ -383,7 +383,7 @@ export function CloneConfirmDialog({ isOpen, onOpenChange, clonedBudgets, onConf
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
                     <Button onClick={onConfirm}>
-                        Clone {clonedBudgets.length} budget{clonedBudgets.length !== 1 ? 's' : ''}
+                        Register Actual {registeredBudgets.length} budget{registeredBudgets.length !== 1 ? 's' : ''}
                     </Button>
                 </DialogFooter>
             </DialogContent>

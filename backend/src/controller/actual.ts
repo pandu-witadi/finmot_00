@@ -6,6 +6,7 @@ import mongoose from 'mongoose';
 export interface ActualResponse {
     id: string;
     name: string;
+    note?: string;
     tags: string[];
     active: boolean;
     type: 'income' | 'expense';
@@ -22,6 +23,7 @@ export interface ActualResponse {
 
 export interface CreateActualRequest {
     name: string;
+    note?: string;
     tags?: string[];
     active?: boolean;
     type: 'income' | 'expense';
@@ -35,6 +37,7 @@ export interface CreateActualRequest {
 
 export interface UpdateActualRequest {
     name?: string;
+    note?: string;
     tags?: string[];
     active?: boolean;
     type?: 'income' | 'expense';
@@ -72,6 +75,7 @@ function actualToResponse(actual: any): ActualResponse {
     return {
         id: actual._id.toString(),
         name: actual.name,
+        note: actual.note,
         tags: actual.tags,
         active: actual.active,
         type: actual.type,
@@ -150,6 +154,7 @@ export async function getAllActuals(query?: GetActualsQuery): Promise<ActualResp
 export async function createActual(body: CreateActualRequest): Promise<ActualResponse> {
     const actual = new Actual({
         name: body.name.trim(),
+        note: body.note,
         tags: body.tags ?? [],
         active: body.active ?? true,
         type: body.type,
@@ -212,6 +217,10 @@ export async function updateActual(id: string, body: UpdateActualRequest): Promi
 
     if (body.updatedBy !== undefined) {
         updateFields.updatedBy = new mongoose.Types.ObjectId(body.updatedBy);
+    }
+
+    if (body.note !== undefined) {
+        updateFields.note = body.note;
     }
 
     const actual = await Actual.findByIdAndUpdate(

@@ -2,39 +2,31 @@ import { Budget } from '../model/budget.js';
 import { Header } from '../model/header.js';
 import { Project } from '../model/project.js';
 import { Actual, ActualDoc } from '../model/actual.js';
+import { ActualResponse } from '../controller/actual.js';
 import { Transaction, TransactionDoc } from '../model/transaction.js';
 import mongoose from 'mongoose';
 
-interface ActualResponseInternal {
-    id: string;
-    name: string;
-    tags: string[];
-    active: boolean;
-    type: 'income' | 'expense';
-    amount: number;
-    project: string;
-    budget: string;
-    trx: string;
-    updatedBy: string;
-    createdAt: Date;
-    updatedAt: Date;
-}
 
-function actualToResponse(actual: ActualDoc | ActualResponseInternal): ActualResponseInternal {
-    return {
-        id: actual._id.toString(),
+
+function actualToResponse(actual: ActualDoc | ActualResponse): ActualResponse {
+    const result: ActualResponse = {
+        id: (actual as any)._id.toString(),
         name: actual.name,
+        note: actual.note,
         tags: actual.tags,
         active: actual.active,
         type: actual.type,
         amount: actual.amount,
-        project: actual.project.toString(),
-        budget: actual.budget.toString(),
-        trx: actual.trx.toString(),
-        updatedBy: actual.updatedBy.toString(),
-        createdAt: actual.createdAt,
-        updatedAt: actual.updatedAt || actual.createdAt,
+        project: (actual as any).project.toString(),
+        budget: (actual as any).budget.toString(),
+        trx: (actual as any).trx.toString(),
+        exDate: (actual as any).exDate,
+        assignedTo: (actual as any).assignedTo ? (actual as any).assignedTo.toString() : "000000000000000000000000",
+        updatedAt: (actual as any).updatedAt,
+        updatedBy: (actual as any).updatedBy.toString(),
+        createdAt: (actual as any).createdAt,
     };
+    return result;
 }
 
 export interface BudgetResponse {
@@ -54,7 +46,7 @@ export interface BudgetResponse {
     updatedAt: Date;
 }
 
-export interface CloneBudgetRequest {
+export interface RegisterActualRequest {
     budgetId: string;
     actualName: string;
     updatedBy: string;
@@ -309,7 +301,7 @@ export async function deleteBudget(id: string): Promise<boolean> {
     return result !== null;
 }
 
-export async function cloneBudget(body: CloneBudgetRequest): Promise<ActualResponse> {
+export async function registerActual(body: RegisterActualRequest): Promise<ActualResponse> {
     const budget = await Budget.findById(body.budgetId);
     if (!budget) {
         throw new Error('Budget not found');
@@ -317,6 +309,7 @@ export async function cloneBudget(body: CloneBudgetRequest): Promise<ActualRespo
 
     const actual = new Actual({
         name: body.actualName.trim() || budget.name,
+        note: budget.note || '',
         tags: [...budget.tags],
         active: budget.active,
         type: budget.type,
