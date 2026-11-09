@@ -58,6 +58,12 @@ export interface CloneToTransactionRequest {
     updatedBy: string;
 }
 
+export interface RegisterToTransactionRequest {
+    actualId: string;
+    transactionId: string;
+    updatedBy: string;
+}
+
 export interface CreateBudgetRequest {
     name: string;
     note?: string;
@@ -333,6 +339,56 @@ export async function registerActual(body: RegisterActualRequest): Promise<Actua
     });
 
     return actualToResponse(actual);
+}
+
+export async function registerToTransaction(body: RegisterToTransactionRequest): Promise<{actual: ActualResponse, transaction: any}> {
+    const actual = await Actual.findById(body.actualId);
+    if (!actual) {
+        throw new Error('Actual not found');
+    }
+
+    // Find the existing transaction
+    const transaction = await Transaction.findById(body.transactionId);
+    if (!transaction) {
+        throw new Error('Transaction not found');
+    }
+
+    // Link actual to transaction
+    actual.trx = new mongoose.Types.ObjectId(body.transactionId);
+    await actual.save();
+
+    // Add actual ID to transaction's arrActual if not already present
+    if (!transaction.arrActual.includes(actual._id)) {
+        await Transaction.findByIdAndUpdate(body.transactionId, {
+            $push: { arrActual: actual._id }
+        });
+    }
+
+    // Add transaction to project's arrTransaction if not already present
+    const project = await Project.findById(actual.project);
+    if (project && !project.arrTransaction.includes(body.transactionId)) {
+        await Project.findByIdAndUpdate(actual.project, {
+            $push: { arrTransaction: body.transactionId }
+        });
+    }
+
+    return {
+        actual: actualToResponse(actual),
+        transaction: {
+            id: transaction._id.toString(),
+            name: transaction.name,
+            tags: transaction.tags,
+            active: transaction.active,
+            type: transaction.type,
+            amount: transaction.amount,
+            project: transaction.project.toString(),
+            arrActual: transaction.arrActual.map(id => id.toString()),
+            exDate: transaction.exDate,
+            assignedTo: transaction.assignedTo ? transaction.assignedTo.toString() : "000000000000000000000000",
+            updatedBy: transaction.updatedBy.toString(),
+            createdAt: transaction.createdAt,
+        },
+    };
 }
 
 export async function cloneToTransaction(body: CloneToTransactionRequest): Promise<{actual: ActualResponse, transaction: any}> {

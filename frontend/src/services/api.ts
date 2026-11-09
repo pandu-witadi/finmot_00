@@ -77,6 +77,7 @@ export const budgetApi = {
     update: (id: string, data: any) => api.put(`/budget/${id}`, data),
     delete: (id: string) => api.delete(`/budget/${id}`),
     registerActual: (data: any) => api.post(`/budget/registeractual`, data),
+    registerToTransaction: (data: any) => api.post(`/budget/registerToTransaction`, data),
     cloneToTransaction: (data: any) => api.post(`/budget/clonetotransaction`, data),
     updateBudgetActualOrder: (budgetId: string, actualIds: string[]) => api.put(`/budget/${budgetId}`, { arrActual: actualIds }),
 };

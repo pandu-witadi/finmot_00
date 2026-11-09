@@ -10,11 +10,13 @@ import {
     updateBudget,
     deleteBudget,
     registerActual,
+    registerToTransaction,
     cloneToTransaction,
     CreateBudgetRequest,
     UpdateBudgetRequest,
     GetBudgetsQuery,
     RegisterActualRequest,
+    RegisterToTransactionRequest,
     CloneToTransactionRequest
 } from '../controller/budget.js';
 import { verifyToken } from '../utils/jwt.js';
@@ -130,6 +132,22 @@ const budgetRoute = async (app: FastifyInstance): Promise<void> => {
                 reply.code(201).send(actual);
             } catch (error: any) {
                 const errorMessage = error?.message || 'Failed to register actual';
+                reply.code(500).send({ error: errorMessage });
+            }
+        }
+    );
+
+    app.post(
+        '/budget/registerToTransaction',
+        async (request: FastifyRequest<{ Body: RegisterToTransactionRequest }>, reply: FastifyReply): Promise<void> => {
+            try {
+                await verifyAuth(request, reply);
+                const user = (request as any).user;
+                const body = { ...request.body, updatedBy: user.id };
+                const result = await registerToTransaction(body);
+                reply.code(201).send(result);
+            } catch (error: any) {
+                const errorMessage = error?.message || 'Failed to register to transaction';
                 reply.code(500).send({ error: errorMessage });
             }
         }

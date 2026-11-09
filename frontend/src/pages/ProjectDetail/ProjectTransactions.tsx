@@ -23,6 +23,7 @@ interface TransactionForm {
     amount: number;
     tags: string;
     active: boolean;
+    exDate: Date;
 }
 
 interface ProjectTransactionsProps {
@@ -39,6 +40,7 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
         amount: 0,
         tags: '',
         active: true,
+        exDate: new Date(),
     });
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedTransactionIds, setSelectedTransactionIds] = useState<Set<string>>(new Set<string>());
@@ -84,6 +86,7 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
                 tags: form.tags ? form.tags.split(/\s*,\s*/).map(t => t.trim()).filter(t => t !== '') : [],
                 active: form.active,
                 project: projectId,
+                exDate: form.exDate,
             });
             setIsAddDialogOpen(false);
             setForm({
@@ -92,6 +95,7 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
                 amount: 0,
                 tags: '',
                 active: true,
+                exDate: new Date(),
             });
         } catch (error) {
             console.error("Failed to add transaction:", error);
@@ -547,6 +551,16 @@ function renderAddTransactionDialog({ form, setForm, handleAddTransaction, setIs
                             className="h-4 w-4 accent-primary"
                         />
                         <label htmlFor="active" className="text-sm font-medium">Active</label>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Date *</label>
+                        <Input
+                            type="date"
+                            value={form.exDate.toISOString().split('T')[0]}
+                            onChange={(e) => setForm({ ...form, exDate: new Date(e.target.value) })}
+                            className="h-9"
+                        />
                     </div>
                 </div>
                 

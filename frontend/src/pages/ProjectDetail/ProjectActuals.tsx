@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { headerApi, budgetApi, actualApi, userApi, api } from "@/services/api";
+import { headerApi, budgetApi, actualApi, userApi, api, transactionApi } from "@/services/api";
 import { toast } from "react-hot-toast";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Actual } from "./useActuals";
 import { ActualEditDialog } from "./ActualEditDialog";
 import { EditActualForm } from "./types";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { formatNumber, getTypeLabel, parseTags } from "@/utils/formatters";
 import { formatDate } from "@/utils/dateFormatters";
 
@@ -88,14 +89,21 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
     const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set<string>());
     const [projectData, setProjectData] = useState<{ arrActual: string[] } | null>(null);
     const [searchNameTerm, setSearchNameTerm] = useState("");
+    const [isRegisterToTransactionModalOpen, setIsRegisterToTransactionModalOpen] = useState(false);
+    const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+    const [allProjects, setAllProjects] = useState<{ id: string; name: string }[]>([]);
+    const [transactionsForSelectedProject, setTransactionsForSelectedProject] = useState<{ id: string; name: string }[]>([]);
+    const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
+    const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
 
     const loadData = async () => {
         try {
-            const [headersRes, budgetsRes, actualsRes, transactionsRes] = await Promise.all([
+            const [headersRes, budgetsRes, actualsRes, transactionsRes, projectsRes] = await Promise.all([
                 headerApi.getAllByProject(projectId),
                 budgetApi.getAllByProject(projectId),
                 actualApi.getAllByProject(projectId),
-                api.get('/transaction')
+                api.get('/transaction'),
+                api.get('/project')
             ]);
 
             // Load project data for arrActual order
@@ -109,6 +117,11 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                 console.debug("Failed to load project data:", err);
             }
             setProjectData(projectDataRes);
+
+            // Load all projects for the modal
+            const projectsData = Array.isArray(projectsRes.data) ? projectsRes.data : [];
+            const projectsList = projectsData.map((p: any) => ({ id: p._id || p.id, name: p.name }));
+            setAllProjects(projectsList);
 
             const headersData = Array.isArray(headersRes.data) ? headersRes.data : [];
             const budgetsData = Array.isArray(budgetsRes.data) ? budgetsRes.data : [];
@@ -300,24 +313,62 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
         }
     };
 
-    const handleRegisterToTransaction = async (actualId: string) => {
-        const actual = actuals.find(a => a.id === actualId);
-        if (!actual) return;
+    const handleOpenRegisterToTransaction = async (actualId: string) => {
+        setIsRegisterToTransactionModalOpen(true);
+        setSelectedProjectId(null);
+        setTransactionsForSelectedProject([]);
+        setSelectedTransactionId(null);
+        // Pre-select current project
+        setSelectedProjectId(projectId);
+        if (projectId) {
+            await loadTransactionsForProject(projectId);
+        }
+    };
 
-        const trxName = prompt("Enter transaction name:", actual.name);
-        if (!trxName || !trxName.trim()) {
+    const loadTransactionsForProject = async (projectId: string) => {
+        setIsLoadingTransactions(true);
+        try {
+            // Get all transactions for the project
+            const transactionsRes = await transactionApi.getAll({ project: projectId });
+            const allTransactions = Array.isArray(transactionsRes.data) ? transactionsRes.data : [];
+            
+            const transactionsList = allTransactions.map((t: any) => ({ id: t._id || t.id, name: t.name }));
+            
+            setTransactionsForSelectedProject(transactionsList);
+        } catch (error: any) {
+            toast.error("Failed to load transactions");
+        } finally {
+            setIsLoadingTransactions(false);
+        }
+    };
+
+    const handleProjectSelect = (projectId: string) => {
+        setSelectedProjectId(projectId);
+        setTransactionsForSelectedProject([]);
+        setSelectedTransactionId(null);
+        loadTransactionsForProject(projectId);
+    };
+
+    const handleRegisterToTransaction = async (actualId: string) => {
+        if (!selectedTransactionId) {
+            toast.error("Please select a transaction");
             return;
         }
 
         try {
-            await budgetApi.cloneToTransaction({
+            await budgetApi.registerToTransaction({
                 actualId: actualId,
-                trxName: trxName.trim(),
+                transactionId: selectedTransactionId,
             });
-            toast.success("Transaction created successfully");
+
+            toast.success("Actual registered to transaction successfully");
+            setIsRegisterToTransactionModalOpen(false);
+            setSelectedProjectId(null);
+            setTransactionsForSelectedProject([]);
+            setSelectedTransactionId(null);
             await loadData();
         } catch (error: any) {
-            const errorMessage = error?.response?.data?.error || "Failed to create transaction";
+            const errorMessage = error?.response?.data?.error || "Failed to register actual to transaction";
             toast.error(errorMessage);
         }
     };
@@ -441,7 +492,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                                     <DropdownMenuItem onClick={handleDeleteSelected}>
                                         Delete
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleRegisterToTransaction(Array.from(selectedActualIds)[0])} disabled={selectedActualIds.size !== 1}>
+                                    <DropdownMenuItem onClick={() => handleOpenRegisterToTransaction(Array.from(selectedActualIds)[0])} disabled={selectedActualIds.size !== 1}>
                                         Register to Transaction
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => {
@@ -590,6 +641,89 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                         onEditActual={handleEditActual}
                         onDeleteActual={() => handleDeleteActual(editActualForm.id)}
                     />
+
+                    {/* Register to Transaction Modal */}
+                    <Dialog open={isRegisterToTransactionModalOpen} onOpenChange={setIsRegisterToTransactionModalOpen}>
+                        <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
+                            <DialogHeader>
+                                <DialogTitle>Register to Transaction</DialogTitle>
+                            </DialogHeader>
+                            
+                            <div className="flex-1 overflow-hidden flex flex-col">
+                                <div className="flex gap-4 h-full">
+                                    {/* Projects Column */}
+                                    <div className="flex-1 border-r border-border">
+                                        <div className="p-3 border-b">
+                                            <h4 className="text-sm font-semibold">Projects</h4>
+                                        </div>
+                                        <div className="flex-1 overflow-auto p-2 space-y-1">
+                                            {allProjects.map(project => (
+                                                <div
+                                                    key={project.id}
+                                                    onClick={() => handleProjectSelect(project.id)}
+                                                    className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-accent ${selectedProjectId === project.id ? 'bg-accent font-medium' : ''}`}
+                                                >
+                                                    {project.name}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Transactions Column */}
+                                    <div className="flex-1">
+                                        <div className="p-3 border-b">
+                                            <h4 className="text-sm font-semibold">Transactions</h4>
+                                        </div>
+                                        <div className="flex-1 overflow-auto p-2 space-y-1">
+                                            {isLoadingTransactions ? (
+                                                <div className="flex items-center justify-center h-32">
+                                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                                                </div>
+                                            ) : transactionsForSelectedProject.length > 0 ? (
+                                                transactionsForSelectedProject.map(transaction => (
+                                                    <div
+                                                        key={transaction.id}
+                                                        onClick={() => setSelectedTransactionId(transaction.id)}
+                                                        className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-accent ${selectedTransactionId === transaction.id ? 'bg-accent font-medium' : ''}`}
+                                                    >
+                                                        {transaction.name}
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
+                                                    No transactions found
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <DialogFooter>
+                                <Button 
+                                    variant="outline" 
+                                    onClick={() => {
+                                        setIsRegisterToTransactionModalOpen(false);
+                                        setSelectedProjectId(null);
+                                        setTransactionsForSelectedProject([]);
+                                        setSelectedTransactionId(null);
+                                    }}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button 
+                                    onClick={() => {
+                                        if (selectedTransactionId) {
+                                            handleRegisterToTransaction(Array.from(selectedActualIds)[0]);
+                                        }
+                                    }}
+                                    disabled={!selectedTransactionId}
+                                >
+                                    Register
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
 
                     {isAssignToMenuOpen && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
