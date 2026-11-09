@@ -24,6 +24,7 @@ const userSchema = z.object({
     name: z.string().optional(),
     fullname: z.string().optional(),
     role: z.enum(["user", "admin", "finance", "vendor", "guest", "government"]),
+    type: z.enum(["individual", "corporate", "government", "other"]),
 });
 
 type UserForm = z.infer<typeof userSchema>;
@@ -36,6 +37,7 @@ export function UserAdd() {
         name: "",
         fullname: "",
         role: "user",
+        type: "individual",
     });
     const [errors, setErrors] = useState<Partial<UserForm>>({});
     const [isLoading, setIsLoading] = useState(false);
@@ -64,6 +66,7 @@ export function UserAdd() {
                 name: formData.name || "",
                 fullname: formData.fullname || "",
                 role: formData.role,
+                type: formData.type,
             };
 
             await userApi.create(submitData);
@@ -187,6 +190,33 @@ export function UserAdd() {
                             {errors.fullname && (
                                 <p className="text-sm text-red-500">
                                     {errors.fullname}
+                                </p>
+                            )}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="type">Type</Label>
+                            <select
+                                id="type"
+                                name="type"
+                                value={formData.type}
+                                onChange={(e) => {
+                                    const value = e.target.value as UserForm["type"];
+                                    setFormData(prev => ({ ...prev, type: value }));
+                                    if (errors.type) {
+                                        setErrors(prev => ({ ...prev, type: undefined }));
+                                    }
+                                }}
+                                className={`h-8 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus:border-ring focus:ring-3 focus:ring-ring/50 outline-none ${errors.type ? "border-red-500" : ""}`}
+                            >
+                                <option value="individual">Individual</option>
+                                <option value="corporate">Corporate</option>
+                                <option value="government">Government</option>
+                                <option value="other">Other</option>
+                            </select>
+                            {errors.type && (
+                                <p className="text-sm text-red-500">
+                                    {errors.type}
                                 </p>
                             )}
                         </div>

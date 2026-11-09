@@ -6,6 +6,7 @@ export interface UserDoc extends Document {
     name: string;
     fullname?: string;
     role: "user" | "admin" | "finance" | "vendor" | "guest" | "government";
+    type: "individual" | "corporate" | "government" | "other";
     bankInfo?: Array<{
         bank: string;
         accountNo: string;
@@ -84,6 +85,11 @@ const userSchema = new Schema<UserDoc>({
         type: String,
         enum: ["user", "admin", "finance", "vendor", "guest", "government"],
         default: "user",
+    },
+    type: {
+        type: String,
+        enum: ["individual", "corporate", "government", "other"],
+        default: "individual",
     },
     createdAt: {
         type: Date,

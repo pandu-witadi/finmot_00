@@ -23,6 +23,7 @@ export function UserDetail() {
         name: "",
         fullname: "",
         role: "user",
+        type: "individual",
         bankInfo: [],
     });
     const [errors, setErrors] = useState<Partial<UserForm>>({});
@@ -69,6 +70,7 @@ export function UserDetail() {
                     name: user.name || "",
                     fullname: user.fullname || "",
                     role: user.role || "user",
+                    type: user.type || "individual",
                     bankInfo: user.bankInfo || [],
                     deposit: user.deposit,
                 });
@@ -100,8 +102,8 @@ export function UserDetail() {
         }
 
         try {
-            const { email, password, name, role } = formData;
-            userSchema.parse({ email, password, name, role });
+            const { email, password, name, role, type } = formData;
+            userSchema.parse({ email, password, name, role, type });
             
             setErrors({});
             setIsLoading(true);
@@ -112,6 +114,7 @@ export function UserDetail() {
                 name: formData.name && formData.name.trim() !== "" ? formData.name : undefined,
                 fullname: formData.fullname && formData.fullname.trim() !== "" ? formData.fullname : undefined,
                 role: formData.role,
+                type: formData.type,
             };
 
             await userApi.updateMainInfo(id, submitData);

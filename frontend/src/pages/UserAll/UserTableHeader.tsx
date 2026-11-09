@@ -22,6 +22,7 @@ export function UserTableHeader({ isAllSelected, onToggleSelectAll }: UserTableH
                 <TableHead>Name</TableHead>
                 <TableHead>Fullname</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead className="w-24">Type</TableHead>
                 <TableHead>Created At</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
             </TableRow>

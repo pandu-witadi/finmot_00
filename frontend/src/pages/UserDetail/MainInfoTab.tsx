@@ -140,6 +140,31 @@ export function MainInfoTab({
                 )}
             </div>
 
+            <div className="space-y-2">
+                <Label htmlFor="type">Type</Label>
+                <select
+                    id="type"
+                    name="type"
+                    value={formData.type}
+                    onChange={(e) => {
+                        const value = e.target.value as UserForm["type"];
+                        setFormData(prev => ({ ...prev, type: value }));
+                        if (errors.type) {
+                            setErrors(prev => ({ ...prev, type: undefined }));
+                        }
+                    }}
+                    className={`h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus:border-ring focus:ring-3 focus:ring-ring/50 outline-none ${errors.type ? "border-red-500" : ""}`}
+                >
+                    <option value="individual">Individual</option>
+                    <option value="corporate">Corporate</option>
+                    <option value="government">Government</option>
+                    <option value="other">Other</option>
+                </select>
+                {errors.type && (
+                    <p className="text-sm text-red-500">{errors.type}</p>
+                )}
+            </div>
+
             <div className="pt-6">
                 <Button
                     type="button"

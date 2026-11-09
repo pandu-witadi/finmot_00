@@ -9,6 +9,7 @@ interface User {
     name: string | null
     fullname: string | null
     role: string
+    type: string
     createdAt: string
 }
 

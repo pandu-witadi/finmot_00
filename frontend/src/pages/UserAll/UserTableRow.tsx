@@ -10,6 +10,7 @@ interface User {
     name: string | null
     fullname: string | null
     role: string
+    type: string
     createdAt: string
 }
 
@@ -44,6 +45,11 @@ export function UserTableRow({ user, index, isSelected, onSelect, onRowClick }: 
             <TableCell>
                 <span className="inline-flex items-center rounded-full bg-muted px-2 py-1 text-xs font-medium">
                     {user.role}
+                </span>
+            </TableCell>
+            <TableCell>
+                <span className="inline-flex items-center rounded-full bg-muted px-2 py-1 text-xs font-medium">
+                    {user.type || "individual"}
                 </span>
             </TableCell>
             <TableCell>

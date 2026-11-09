@@ -329,7 +329,7 @@ function renderTable({ sortedTransactions, handleDelete, getUserById, selectedTr
         <Table>
             <TableHeader>
                 <TableRow>
-                    <TableHead className="w-[5%]">
+                    <TableHead className="w-[5%] bg-cyan-50">
                         <input
                             type="checkbox"
                             className="h-4 w-4 accent-primary"
@@ -343,13 +343,13 @@ function renderTable({ sortedTransactions, handleDelete, getUserById, selectedTr
                             }}
                         />
                     </TableHead>
-                    <TableHead className="w-[40%]">Name</TableHead>
-                    <TableHead className="w-[8%] text-center">t</TableHead>
-                    <TableHead className="text-right w-[12%]">Amount</TableHead>
-                    <TableHead className="w-[15%]">asgTo</TableHead>
-                    <TableHead className="w-[25%]">Tags</TableHead>
-                    <TableHead className="w-[10%]">exDate</TableHead>
-                    <TableHead className="w-[10%] text-right">Actions</TableHead>
+                    <TableHead className="w-[40%] bg-cyan-50">Name</TableHead>
+                    <TableHead className="w-[8%] text-center bg-cyan-50">t</TableHead>
+                    <TableHead className="text-right w-[12%] bg-cyan-50">Amount</TableHead>
+                    <TableHead className="w-[15%] bg-cyan-50">asgTo</TableHead>
+                    <TableHead className="w-[25%] bg-cyan-50">Tags</TableHead>
+                    <TableHead className="w-[10%] bg-cyan-50">exDate</TableHead>
+                    <TableHead className="w-[10%] text-right bg-cyan-50">Actions</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>

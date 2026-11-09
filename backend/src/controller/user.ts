@@ -8,6 +8,7 @@ export interface GetUserResponse {
     name: string;
     fullname?: string;
     role: string;
+    type: string;
     bankInfo?: Array<{
         bank: string;
         accountNo: string;
@@ -31,6 +32,7 @@ export interface CreateUserRequest {
     name?: string;
     fullname?: string;
     role?: string;
+    type?: string;
     bankInfo?: Array<{
         bank: string;
         accountNo: string;
@@ -53,6 +55,7 @@ export interface UpdateUserRequest {
     name?: string;
     fullname?: string;
     role?: string;
+    type?: string;
     bankInfo?: Array<{
         bank: string;
         accountNo: string;
@@ -76,6 +79,7 @@ function userToResponse(user: any): GetUserResponse {
         name: user.name,
         fullname: user.fullname,
         role: user.role,
+        type: user.type || "individual",
         bankInfo: user.bankInfo,
         deposit: user.deposit,
         createdAt: user.createdAt,
@@ -108,6 +112,7 @@ export async function createUser(body: CreateUserRequest): Promise<GetUserRespon
         name: body.name?.trim() || '',
         fullname: body.fullname?.trim() || '',
         role: body.role || 'user',
+        type: body.type || 'individual',
         bankInfo: body.bankInfo,
         deposit: {
             total: depositTotal,
@@ -142,6 +147,10 @@ export async function updateUser(id: string, body: UpdateUserRequest): Promise<G
     
     if (body.role !== undefined) {
         updateFields.role = body.role;
+    }
+    
+    if (body.type !== undefined) {
+        updateFields.type = body.type;
     }
     
     if (body.bankInfo !== undefined) {
@@ -181,6 +190,7 @@ export interface UpdateUserMainInfoRequest {
     name?: string;
     fullname?: string;
     role?: string;
+    type?: string;
 }
 
 export async function updateUserMainInfo(
@@ -207,6 +217,10 @@ export async function updateUserMainInfo(
     
     if (body.role !== undefined) {
         updateFields.role = body.role;
+    }
+    
+    if (body.type !== undefined) {
+        updateFields.type = body.type;
     }
 
     const user = await User.findByIdAndUpdate(

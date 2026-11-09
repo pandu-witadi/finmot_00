@@ -59,7 +59,7 @@ function ActualSortableRow({ id, children, disabled }: { id: string; children: R
     };
 
     return (
-        <tr ref={setNodeRef} style={style} {...attributes} {...listeners} className={disabled ? '' : 'cursor-move'}>
+        <tr ref={setNodeRef} style={style} {...attributes} {...listeners} className={disabled ? '' : 'cursor-move hover:bg-muted/50'}>
             {children}
         </tr>
     );
@@ -490,7 +490,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="w-[5%]">
+                                        <TableHead className="w-[5%] bg-cyan-50">
                                             <input
                                                 type="checkbox"
                                                 className="h-4 w-4 accent-primary"
@@ -498,14 +498,14 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                                                 onChange={toggleSelectAll}
                                             />
                                         </TableHead>
-                                        <TableHead className="w-[25%]">Name</TableHead>
-                                        <TableHead className="w-[7%] text-center">t</TableHead>
-                                        <TableHead className="w-[15%]">Header</TableHead>
-                                        <TableHead className="w-[15%] text-right">Amount</TableHead>
-                                        <TableHead className="w-[10%]">exDate</TableHead>
-                                        <TableHead className="w-[8%]">asgTo</TableHead>
-                                        <TableHead className="w-[22%] border-l-2 border-border">trxName</TableHead>
-                                        <TableHead className="w-[8%] text-right">trxAmount</TableHead>
+                                        <TableHead className="w-[25%] bg-cyan-50">Name</TableHead>
+                                        <TableHead className="w-[7%] text-center bg-cyan-50">t</TableHead>
+                                        <TableHead className="w-[15%] bg-cyan-50">Header</TableHead>
+                                        <TableHead className="w-[15%] text-right bg-cyan-50">Amount</TableHead>
+                                        <TableHead className="w-[10%] bg-cyan-50">exDate</TableHead>
+                                        <TableHead className="w-[8%] bg-cyan-50">asgTo</TableHead>
+                                        <TableHead className="w-[22%] border-l-2 border-border bg-cyan-50">trxName</TableHead>
+                                        <TableHead className="w-[8%] text-right bg-cyan-50">trxAmount</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>

@@ -170,7 +170,7 @@ export function HeaderRow({
                     <Table className="table-fixed">
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="w-10 px-2 text-left">
+                                <TableHead className="w-10 px-2 text-left bg-cyan-50">
                                     <input
                                         type="checkbox"
                                         className="h-4 w-4 accent-primary"
@@ -182,11 +182,11 @@ export function HeaderRow({
                                         onChange={() => {}}
                                     />
                                 </TableHead>
-                                <TableHead className="w-[50%] px-2 text-left">Name</TableHead>
-                                <TableHead className="w-[12.5%] px-2 text-center">t</TableHead>
-                                <TableHead className="text-right w-[12.5%] border-r border-green-300">Amount</TableHead>
-                                <TableHead className="text-left w-[40%]">actName</TableHead>
-                                <TableHead className="text-right w-[20%]">actAmount</TableHead>
+                                <TableHead className="w-[50%] px-2 text-left bg-cyan-50">Name</TableHead>
+                                <TableHead className="w-[12.5%] px-2 text-center bg-cyan-50">t</TableHead>
+                                <TableHead className="text-right w-[12.5%] border-r border-green-300 bg-cyan-50">Amount</TableHead>
+                                <TableHead className="text-left w-[40%] bg-cyan-50">actName</TableHead>
+                                <TableHead className="text-right w-[20%] bg-cyan-50">actAmount</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>

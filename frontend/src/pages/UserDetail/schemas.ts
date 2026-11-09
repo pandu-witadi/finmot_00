@@ -25,6 +25,7 @@ const userSchema = z.object({
     name: z.string().optional(),
     fullname: z.string().optional(),
     role: z.enum(["user", "admin", "finance", "vendor", "guest", "government"]),
+    type: z.enum(["individual", "corporate", "government", "other"]).optional(),
     bankInfo: z.array(bankInfoSchema).optional(),
     deposit: z.object({
         total: z.number().optional(),
