@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTransactions } from "./useTransactions";
+import { useActuals } from "./useActuals";
 import { formatNumber, getTypeLabel } from "@/utils/formatters";
 import { formatDate } from "@/utils/dateFormatters";
 import { userApi } from "@/services/api";
@@ -14,8 +15,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { toast } from "react-hot-toast";
-import { TrashIcon, PlusIcon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 import { TransactionDetailDialog } from "./TransactionDetailDialog";
+import { Actual } from "./useActuals";
 
 interface TransactionForm {
     name: string;
@@ -57,6 +59,8 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
         updateTransaction,
         deleteTransaction,
     } = useTransactions(projectId);
+
+    const { actuals } = useActuals(projectId);
 
     useEffect(() => {
         const loadUsers = async () => {
@@ -102,10 +106,6 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
         }
     };
 
-    const handleDelete = async (id: string) => {
-        await deleteTransaction(id);
-    };
-
     const handleDeleteSelected = async () => {
         if (selectedTransactionIds.size === 0) {
             toast.error("No transactions selected");
@@ -149,6 +149,13 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
         return user ? user.name : "Unknown";
     };
 
+    // Map transaction IDs to their actuals
+    // Transaction.arrActual contains actual IDs
+    const actualsMap: {[actualId: string]: Actual} = {};
+    actuals.forEach(actual => {
+        actualsMap[actual.id] = actual;
+    });
+
     const sortedTransactions = [...filteredTransactions].sort((a, b) => {
         let cmp = 0;
         if (sort.field === 'name') {
@@ -159,6 +166,32 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
             cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
         }
         return sort.order === 'asc' ? cmp : -cmp;
+    });
+
+    // Create a map of transaction ID -> array of actuals
+    const transactionActualsMap: {[transactionId: string]: Actual[]} = {};
+    sortedTransactions.forEach(transaction => {
+        // Deduplicate actual IDs first
+        const uniqueActualIds = Array.from(new Set(transaction.arrActual || []));
+        const transactionActuals = uniqueActualIds.map(actualId => actualsMap[actualId]).filter(a => a !== undefined) as Actual[];
+        if (transactionActuals.length > 0) {
+            transactionActualsMap[transaction.id] = transactionActuals;
+        }
+    });
+
+    // Flatten transactions with their actuals for display
+    // Each transaction becomes one or more rows depending on actuals count
+    type Row = { type: 'transaction'; transaction: any; actual: Actual | null; index: number };
+    const flattenedRows: Row[] = [];
+    sortedTransactions.forEach(transaction => {
+        const transactionActuals = transactionActualsMap[transaction.id] || [];
+        if (transactionActuals.length === 0) {
+            flattenedRows.push({ type: 'transaction' as const, transaction, actual: null, index: 0 });
+        } else {
+            transactionActuals.forEach((actual, index) => {
+                flattenedRows.push({ type: 'transaction' as const, transaction, actual, index });
+            });
+        }
     });
 
     const totalIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
@@ -199,7 +232,7 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
                     </div>
                 </CardHeader>
                 <CardContent>
-                    {renderTable({ sortedTransactions, handleDelete, getUserById, selectedTransactionIds, setSelectedTransactionIds, onTransactionClick: handleTransactionClick })}
+                    {renderTable({ flattenedRows, transactionActualsMap, getUserById, selectedTransactionIds, setSelectedTransactionIds, onTransactionClick: handleTransactionClick })}
                 </CardContent>
             </Card>
             {isAddDialogOpen && renderAddTransactionDialog({ form, setForm, handleAddTransaction, setIsAddDialogOpen })}
@@ -318,16 +351,16 @@ function renderTableHeader({ searchTerm, setSearchTerm, filter, setFilter, sort,
 }
 
 interface TableProps {
-    sortedTransactions: any[];
-    handleDelete: (id: string) => void;
+    flattenedRows: any[];
+    transactionActualsMap: {[transactionId: string]: Actual[]};
     getUserById: (userId: string) => string;
     selectedTransactionIds: Set<string>;
     setSelectedTransactionIds: React.Dispatch<React.SetStateAction<Set<string>>>;
     onTransactionClick: (id: string) => void;
 }
 
-function renderTable({ sortedTransactions, handleDelete, getUserById, selectedTransactionIds, setSelectedTransactionIds, onTransactionClick }: TableProps) {
-    const allSelected = sortedTransactions.length > 0 && sortedTransactions.every(t => selectedTransactionIds.has(t.id));
+function renderTable({ flattenedRows, transactionActualsMap, getUserById, selectedTransactionIds, setSelectedTransactionIds, onTransactionClick }: TableProps) {
+    const allSelected = flattenedRows.length > 0 && flattenedRows.every(r => selectedTransactionIds.has(r.transaction.id));
 
     return (
         <Table>
@@ -338,51 +371,55 @@ function renderTable({ sortedTransactions, handleDelete, getUserById, selectedTr
                             type="checkbox"
                             className="h-4 w-4 accent-primary"
                             checked={allSelected}
-                            onChange={() => {
+                            onChange={(e) => {
+                                e.stopPropagation();
                                 if (allSelected) {
                                     setSelectedTransactionIds(new Set<string>());
                                 } else {
-                                    setSelectedTransactionIds(new Set(sortedTransactions.map(t => t.id)));
+                                    setSelectedTransactionIds(new Set(flattenedRows.map(r => r.transaction.id)));
                                 }
                             }}
                         />
                     </TableHead>
-                    <TableHead className="w-[40%] bg-cyan-50">Name</TableHead>
-                    <TableHead className="w-[8%] text-center bg-cyan-50">t</TableHead>
-                    <TableHead className="text-right w-[12%] bg-cyan-50">Amount</TableHead>
-                    <TableHead className="w-[15%] bg-cyan-50">asgTo</TableHead>
+                    <TableHead className="w-[30%] bg-cyan-50">Name</TableHead>
                     <TableHead className="w-[25%] bg-cyan-50">Tags</TableHead>
+                    <TableHead className="w-[8%] text-center bg-cyan-50">t</TableHead>
+                    <TableHead className="text-right w-[10%] bg-cyan-50">Amount</TableHead>
+                    <TableHead className="w-[15%] bg-cyan-50">asgTo</TableHead>
                     <TableHead className="w-[10%] bg-cyan-50">exDate</TableHead>
-                    <TableHead className="w-[10%] text-right bg-cyan-50">Actions</TableHead>
+                    <TableHead className="w-[35%] bg-cyan-50">actName</TableHead>
+                    <TableHead className="w-[15%] text-right bg-cyan-50">actAmount</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {sortedTransactions.length === 0 ? (
+                {flattenedRows.length === 0 ? (
                     <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                             No transactions found
                         </TableCell>
                     </TableRow>
                 ) : (
-                    sortedTransactions.map((transaction) => (
+                    flattenedRows.map((row) => (
                         <TransactionRow 
-                            key={transaction.id} 
-                            transaction={transaction} 
-                            onDelete={handleDelete} 
+                            key={row.actual ? `${row.transaction.id}-actual-${row.index}` : row.transaction.id} 
+                            transaction={row.transaction} 
+                            actual={row.actual}
+                            index={row.index}
+                            transactionActualsMap={transactionActualsMap}
                             getUserById={getUserById}
-                            isSelected={selectedTransactionIds.has(transaction.id)}
+                            isSelected={selectedTransactionIds.has(row.transaction.id)}
                             onToggle={() => {
                                 const newSet = new Set(selectedTransactionIds);
-                                if (newSet.has(transaction.id)) {
-                                    newSet.delete(transaction.id);
+                                if (newSet.has(row.transaction.id)) {
+                                    newSet.delete(row.transaction.id);
                                 } else {
-                                    newSet.add(transaction.id);
+                                    newSet.add(row.transaction.id);
                                 }
                                 setSelectedTransactionIds(newSet);
                             }}
                             onNameClick={(e) => {
                                 e.stopPropagation();
-                                onTransactionClick(transaction.id);
+                                onTransactionClick(row.transaction.id);
                             }}
                         />
                     ))
@@ -394,77 +431,120 @@ function renderTable({ sortedTransactions, handleDelete, getUserById, selectedTr
 
 interface TransactionRowProps {
     transaction: any;
-    onDelete: (id: string) => void;
+    actual: Actual | null;
+    index: number;
+    transactionActualsMap: {[transactionId: string]: Actual[]};
     getUserById: (userId: string) => string;
     isSelected: boolean;
     onToggle: () => void;
     onNameClick: (e: React.MouseEvent) => void;
 }
 
-function TransactionRow({ transaction, onDelete, getUserById, isSelected, onToggle, onNameClick }: TransactionRowProps) {
-    return (
-        <TableRow key={transaction.id} className="cursor-pointer" onClick={onNameClick}>
-            <TableCell className="px-2">
+function TransactionRow({ transaction, actual, index, transactionActualsMap, getUserById, isSelected, onToggle, onNameClick }: TransactionRowProps) {
+    const transactionActuals = transactionActualsMap[transaction.id] || [];
+    const hasActuals = transactionActuals.length > 0;
+    
+    const sharedCells = (
+        <>
+            <TableCell className="px-2 text-left" rowSpan={hasActuals ? transactionActuals.length : 1}>
                 <input
                     type="checkbox"
                     className="h-4 w-4 accent-primary"
                     checked={isSelected}
-                    onChange={onToggle}
-                    onPointerDown={(e) => {
+                    onChange={(e) => {
                         e.stopPropagation();
+                        onToggle();
                     }}
                 />
             </TableCell>
-            <TableCell className="font-medium text-primary hover:underline">
-                {transaction.name}
+            <TableCell className="w-[30%] px-2 text-left border-b border-gray-200" rowSpan={hasActuals ? transactionActuals.length : 1}>
+                <div className="flex items-center gap-2">
+                    <span
+                        className="cursor-pointer hover:underline font-medium"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onNameClick(e);
+                        }}
+                        onPointerDown={(e) => {
+                            e.stopPropagation();
+                        }}
+                    >
+                        {transaction.name}
+                    </span>
+                </div>
             </TableCell>
-            <TableCell className="text-center">
+            <TableCell className="w-[25%] px-2 text-left border-b border-gray-200" rowSpan={hasActuals ? transactionActuals.length : 1}>
+                {transaction.tags.length > 0 ? (
+                    <div className="flex flex-col gap-0.5">
+                        {transaction.tags.map((tag: string, idx: number) => (
+                            <span key={idx} className="text-xs">
+                                {tag}
+                            </span>
+                        ))}
+                    </div>
+                ) : (
+                    <span className="text-sm text-muted-foreground">—</span>
+                )}
+            </TableCell>
+            <TableCell className="w-[8%] px-2 text-center border-b border-gray-200" rowSpan={hasActuals ? transactionActuals.length : 1}>
                 <span className={`text-xs px-2 py-0.5 rounded ${
-                    transaction.type === 'income' 
-                        ? 'bg-green-100 text-green-700' 
-                        : 'bg-red-100 text-red-700'
+                    transaction.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                 }`}>
                     {getTypeLabel(transaction.type)}
                 </span>
             </TableCell>
-            <TableCell className="text-right">
-                <span className={`font-medium ${
-                    transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
-                }`}>
+            <TableCell className="w-[10%] text-right border-b border-gray-200 border-r border-magenta-300" rowSpan={hasActuals ? transactionActuals.length : 1}>
+                <span className="text-sm">
                     {formatNumber(transaction.amount)}
                 </span>
             </TableCell>
-            <TableCell className="text-sm text-muted-foreground">
+            <TableCell className="w-[15%] px-2 text-left border-b border-gray-200" rowSpan={hasActuals ? transactionActuals.length : 1}>
                 {getUserById(transaction.assignedTo)}
             </TableCell>
-            <TableCell>
-                <div className="flex flex-wrap gap-1">
-                    {transaction.tags.length > 0 ? (
-                        transaction.tags.map((tag: string, idx: number) => (
-                            <span key={idx} className="text-xs px-2 py-1 bg-muted rounded-md">
-                                {tag}
-                            </span>
-                        ))
-                    ) : (
-                        <span className="text-sm text-muted-foreground">—</span>
-                    )}
-                </div>
-            </TableCell>
-            <TableCell className="text-sm text-muted-foreground">
+            <TableCell className="w-[10%] px-2 text-left border-b border-gray-200" rowSpan={hasActuals ? transactionActuals.length : 1}>
                 {transaction.exDate ? <span className="text-xs">{formatDate(transaction.exDate)}</span> : '—'}
             </TableCell>
-            <TableCell className="text-right">
-                <Button
-                    variant="ghost"
-                    size="sm"
+        </>
+    );
+
+    if (!hasActuals || !actual) {
+        return (
+            <TableRow key={transaction.id} className="cursor-pointer" onClick={(e) => onNameClick(e)}>
+                {sharedCells}
+                <TableCell className="w-[35%] text-left border-b border-gray-200">
+                    <span className="text-sm text-muted-foreground">—</span>
+                </TableCell>
+                <TableCell className="w-[15%] text-right border-b border-gray-200">
+                    <span className="text-sm text-muted-foreground">—</span>
+                </TableCell>
+            </TableRow>
+        );
+    }
+
+    const lastRowClass = index === transactionActuals.length - 1 ? "border-b border-gray-200" : "";
+
+    return (
+        <TableRow key={transaction.id} className="cursor-pointer" onClick={(e) => onNameClick(e)}>
+            {index === 0 && sharedCells}
+            <TableCell className={`w-[35%] text-left ${lastRowClass}`}>
+                <span 
+                    className="text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground hover:underline cursor-pointer" 
+                    title={actual.name}
                     onClick={(e) => {
                         e.stopPropagation();
-                        onDelete(transaction.id);
+                        // TODO: Open actual edit dialog
                     }}
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    onPointerDown={(e) => {
+                        e.stopPropagation();
+                    }}
                 >
-                    <TrashIcon className="w-4 h-4" />
-                </Button>
+                    {actual.name}
+                </span>
+            </TableCell>
+            <TableCell className={`w-[15%] text-right ${lastRowClass}`}>
+                <span className="text-sm text-muted-foreground">
+                    {formatNumber(actual.amount)}
+                </span>
             </TableCell>
         </TableRow>
     );
