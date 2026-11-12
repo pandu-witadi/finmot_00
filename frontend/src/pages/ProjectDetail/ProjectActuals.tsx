@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { headerApi, budgetApi, actualApi, userApi, api, transactionApi } from "@/services/api";
 import { toast } from "react-hot-toast";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
@@ -34,6 +35,7 @@ interface TransactionInfo {
     name: string;
     amount: number;
     projectName: string;
+    project: string;
 }
 
 interface ActualWithBudgetInfo extends Actual {
@@ -156,7 +158,8 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
                     id: transaction.id,
                     name: transaction.name,
                     amount: transaction.amount,
-                    projectName: projectsMap.get(transaction.project) || ''
+                    projectName: projectsMap.get(transaction.project) || '',
+                    project: transaction.project
                 } : undefined;
                 
                 return {
@@ -639,7 +642,13 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
                                                 {actual.transaction ? (
                                                     <div className="flex flex-col">
                                                         <span className="font-medium text-primary">{actual.transaction.name}</span>
-                                                        <span className="text-xs italic text-muted-foreground">{actual.transaction.projectName}</span>
+                                                        <Link 
+                                                            to={`/projects/${actual.transaction.project}?tab=actuals`}
+                                                            className="text-xs italic text-muted-foreground hover:underline"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            {actual.transaction.projectName}
+                                                        </Link>
                                                     </div>
                                                 ) : (
                                                     <span className="text-muted-foreground">—</span>

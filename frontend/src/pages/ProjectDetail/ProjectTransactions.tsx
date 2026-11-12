@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { useTransactions } from "./useTransactions";
-import { useActuals } from "./useActuals";
+import { actualApi } from "@/services/api";
 import { formatNumber, getTypeLabel } from "@/utils/formatters";
 import { formatDate } from "@/utils/dateFormatters";
-import { userApi } from "@/services/api";
+import { userApi, api } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableRow, TableHead, TableHeader } from "@/components/ui/table";
@@ -48,6 +49,7 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedTransactionIds, setSelectedTransactionIds] = useState<Set<string>>(new Set<string>());
     const [users, setUsers] = useState<{id: string, name: string, email: string}[]>([]);
+    const [allProjects, setAllProjects] = useState<{ id: string; name: string }[]>([]);
 
     const {
         transactions,
@@ -61,7 +63,7 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
         deleteTransaction,
     } = useTransactions(projectId);
 
-    const { actuals } = useActuals(projectId);
+    const [allActuals, setAllActuals] = useState<Actual[]>([]);
 
     useEffect(() => {
         const loadUsers = async () => {
@@ -74,7 +76,29 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
                 console.debug("Failed to load users for transactions:", error);
             }
         };
+        const loadProjects = async () => {
+            try {
+                const res = await api.get('/project');
+                const projectsData = Array.isArray(res.data) ? res.data : [];
+                const projectsList = projectsData.map((p: any) => ({ id: p._id || p.id, name: p.name }));
+                setAllProjects(projectsList);
+            } catch (error: any) {
+                console.debug("Failed to load projects for transactions:", error);
+            }
+        };
+        const loadAllActuals = async () => {
+            try {
+                const allActualsRes = await api.get('/actual');
+                if (Array.isArray(allActualsRes.data)) {
+                    setAllActuals(allActualsRes.data);
+                }
+            } catch (error: any) {
+                console.debug("Failed to load all actuals for transactions:", error);
+            }
+        };
         loadUsers();
+        loadProjects();
+        loadAllActuals();
     }, []);
 
     const handleAddTransaction = async () => {
@@ -153,8 +177,18 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
     // Map transaction IDs to their actuals
     // Transaction.arrActual contains actual IDs
     const actualsMap: {[actualId: string]: Actual} = {};
-    actuals.forEach(actual => {
+    allActuals.forEach(actual => {
         actualsMap[actual.id] = actual;
+    });
+
+    // Create projects map for lookup
+    const projectsMap = new Map(allProjects.map((p: any) => [p.id, p.name]));
+
+    // Map actuals with their project names
+    const actualsWithProject: {[actualId: string]: {actual: Actual, projectName: string}} = {};
+    allActuals.forEach(actual => {
+        const projectName = projectsMap.get(actual.project) || '';
+        actualsWithProject[actual.id] = { actual, projectName };
     });
 
     const sortedTransactions = [...filteredTransactions].sort((a, b) => {
@@ -169,12 +203,12 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
         return sort.order === 'asc' ? cmp : -cmp;
     });
 
-    // Create a map of transaction ID -> array of actuals
-    const transactionActualsMap: {[transactionId: string]: Actual[]} = {};
+    // Create a map of transaction ID -> array of actuals with project names
+    const transactionActualsMap: {[transactionId: string]: {actual: Actual, projectName: string}[]} = {};
     sortedTransactions.forEach(transaction => {
         // Deduplicate actual IDs first
         const uniqueActualIds = Array.from(new Set(transaction.arrActual || []));
-        const transactionActuals = uniqueActualIds.map(actualId => actualsMap[actualId]).filter(a => a !== undefined) as Actual[];
+        const transactionActuals = uniqueActualIds.map(actualId => actualsWithProject[actualId]).filter(a => a !== undefined) as {actual: Actual, projectName: string}[];
         if (transactionActuals.length > 0) {
             transactionActualsMap[transaction.id] = transactionActuals;
         }
@@ -182,15 +216,15 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
 
     // Flatten transactions with their actuals for display
     // Each transaction becomes one or more rows depending on actuals count
-    type Row = { type: 'transaction'; transaction: any; actual: Actual | null; index: number };
+    type Row = { type: 'transaction'; transaction: any; actual: {actual: Actual, projectName: string} | null; index: number };
     const flattenedRows: Row[] = [];
     sortedTransactions.forEach(transaction => {
         const transactionActuals = transactionActualsMap[transaction.id] || [];
         if (transactionActuals.length === 0) {
             flattenedRows.push({ type: 'transaction' as const, transaction, actual: null, index: 0 });
         } else {
-            transactionActuals.forEach((actual, index) => {
-                flattenedRows.push({ type: 'transaction' as const, transaction, actual, index });
+            transactionActuals.forEach((actualWithProject, index) => {
+                flattenedRows.push({ type: 'transaction' as const, transaction, actual: actualWithProject, index });
             });
         }
     });
@@ -353,7 +387,7 @@ function renderTableHeader({ searchTerm, setSearchTerm, filter, setFilter, sort,
 
 interface TableProps {
     flattenedRows: any[];
-    transactionActualsMap: {[transactionId: string]: Actual[]};
+    transactionActualsMap: {[transactionId: string]: {actual: Actual, projectName: string}[]};
     getUserById: (userId: string) => string;
     projectName: string;
     selectedTransactionIds: Set<string>;
@@ -433,17 +467,16 @@ function renderTable({ flattenedRows, transactionActualsMap, getUserById, projec
 
 interface TransactionRowProps {
     transaction: any;
-    actual: Actual | null;
+    actual: {actual: Actual, projectName: string} | null;
     index: number;
-    transactionActualsMap: {[transactionId: string]: Actual[]};
+    transactionActualsMap: {[transactionId: string]: {actual: Actual, projectName: string}[]};
     getUserById: (userId: string) => string;
-    projectName: string;
     isSelected: boolean;
     onToggle: () => void;
     onNameClick: (e: React.MouseEvent) => void;
 }
 
-function TransactionRow({ transaction, actual, index, transactionActualsMap, getUserById, projectName, isSelected, onToggle, onNameClick }: TransactionRowProps) {
+function TransactionRow({ transaction, actual, index, transactionActualsMap, getUserById, isSelected, onToggle, onNameClick }: TransactionRowProps) {
     const transactionActuals = transactionActualsMap[transaction.id] || [];
     const hasActuals = transactionActuals.length > 0;
     
@@ -530,10 +563,10 @@ function TransactionRow({ transaction, actual, index, transactionActualsMap, get
         <TableRow key={transaction.id} className="cursor-pointer" onClick={(e) => onNameClick(e)}>
             {index === 0 && sharedCells}
                 <TableCell className={`w-[22%] text-left ${lastRowClass} border-l-2 border-border`}>
-                    <div className="space-y-1">
+                    <div className="flex flex-col">
                         <span 
-                            className="text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground hover:underline cursor-pointer" 
-                            title={actual.name}
+                            className="font-medium text-primary cursor-pointer"
+                            title={actual?.actual.name}
                             onClick={(e) => {
                                 e.stopPropagation();
                                 // TODO: Open actual edit dialog
@@ -542,16 +575,26 @@ function TransactionRow({ transaction, actual, index, transactionActualsMap, get
                                 e.stopPropagation();
                             }}
                         >
-                            {actual.name}
+                            {actual?.actual.name}
                         </span>
-                        <span className="text-xs italic text-muted-foreground">
-                            {projectName}
-                        </span>
+                        {actual?.projectName && actual?.actual.project ? (
+                            <Link 
+                                to={`/projects/${actual.actual.project}?tab=actuals`}
+                                className="text-xs italic text-muted-foreground hover:underline"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                {actual.projectName}
+                            </Link>
+                        ) : (
+                            <span className="text-xs italic text-muted-foreground">
+                                {actual?.projectName || ''}
+                            </span>
+                        )}
                     </div>
                 </TableCell>
                 <TableCell className={`w-[9%] text-right ${lastRowClass}`}>
                     <span className="text-xs text-muted-foreground">
-                        {formatNumber(actual.amount)}
+                        {actual ? formatNumber(actual.actual.amount) : '-'}
                     </span>
                 </TableCell>
             </TableRow>

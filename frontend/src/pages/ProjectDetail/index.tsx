@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { projectApi } from "@/services/api";
@@ -11,7 +11,8 @@ import { ProjectTransactions } from "./ProjectTransactions";
 export function ProjectDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState("detail");
+    const [searchParams, setSearchParams] = useSearchParams();
+    const activeTabParam = searchParams.get("tab") || "detail";
     const [project, setProject] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -61,7 +62,11 @@ export function ProjectDetail() {
                     </p>
                 </div>
 
-                <Tabs defaultValue="detail" value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <Tabs defaultValue="detail" value={activeTabParam} onValueChange={(value) => {
+                    const params = new URLSearchParams(searchParams);
+                    params.set("tab", value);
+                    setSearchParams(params);
+                }} className="w-full">
                     <TabsList className="w-full">
                         <TabsTrigger value="detail" className="flex-1 text-base">
                             Details
@@ -86,7 +91,7 @@ export function ProjectDetail() {
                     </TabsContent>
 
                     <TabsContent value="actuals" className="mt-6">
-                        <ProjectActuals active={activeTab === "actuals"} key={activeTab} projectId={id!} projectName={project.name} />
+                        <ProjectActuals active={activeTabParam === "actuals"} key={activeTabParam} projectId={id!} projectName={project.name} />
                     </TabsContent>
 
                     <TabsContent value="transactions" className="mt-6">
