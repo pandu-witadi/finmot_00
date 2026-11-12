@@ -30,9 +30,10 @@ interface TransactionForm {
 
 interface ProjectTransactionsProps {
     projectId: string;
+    projectName: string;
 }
 
-export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
+export function ProjectTransactions({ projectId, projectName }: ProjectTransactionsProps) {
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
     const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
@@ -232,7 +233,7 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
                     </div>
                 </CardHeader>
                 <CardContent>
-                    {renderTable({ flattenedRows, transactionActualsMap, getUserById, selectedTransactionIds, setSelectedTransactionIds, onTransactionClick: handleTransactionClick })}
+                    {renderTable({ flattenedRows, transactionActualsMap, getUserById, projectName, selectedTransactionIds, setSelectedTransactionIds, onTransactionClick: handleTransactionClick })}
                 </CardContent>
             </Card>
             {isAddDialogOpen && renderAddTransactionDialog({ form, setForm, handleAddTransaction, setIsAddDialogOpen })}
@@ -354,12 +355,13 @@ interface TableProps {
     flattenedRows: any[];
     transactionActualsMap: {[transactionId: string]: Actual[]};
     getUserById: (userId: string) => string;
+    projectName: string;
     selectedTransactionIds: Set<string>;
     setSelectedTransactionIds: React.Dispatch<React.SetStateAction<Set<string>>>;
     onTransactionClick: (id: string) => void;
 }
 
-function renderTable({ flattenedRows, transactionActualsMap, getUserById, selectedTransactionIds, setSelectedTransactionIds, onTransactionClick }: TableProps) {
+function renderTable({ flattenedRows, transactionActualsMap, getUserById, projectName, selectedTransactionIds, setSelectedTransactionIds, onTransactionClick }: TableProps) {
     const allSelected = flattenedRows.length > 0 && flattenedRows.every(r => selectedTransactionIds.has(r.transaction.id));
 
     return (
@@ -381,14 +383,14 @@ function renderTable({ flattenedRows, transactionActualsMap, getUserById, select
                             }}
                         />
                     </TableHead>
-                    <TableHead className="w-[30%] bg-cyan-50">Name</TableHead>
-                    <TableHead className="w-[25%] bg-cyan-50">Tags</TableHead>
-                    <TableHead className="w-[8%] text-center bg-cyan-50">t</TableHead>
-                    <TableHead className="text-right w-[10%] bg-cyan-50">Amount</TableHead>
-                    <TableHead className="w-[15%] bg-cyan-50">asgTo</TableHead>
-                    <TableHead className="w-[10%] bg-cyan-50">exDate</TableHead>
-                    <TableHead className="w-[35%] bg-cyan-50">actName</TableHead>
-                    <TableHead className="w-[15%] text-right bg-cyan-50">actAmount</TableHead>
+                    <TableHead className="w-[22%] bg-cyan-50">Name</TableHead>
+                    <TableHead className="w-[8%] bg-cyan-50">Tags</TableHead>
+                    <TableHead className="w-[4%] text-center bg-cyan-50">t</TableHead>
+                    <TableHead className="text-right w-[7%] bg-cyan-50">Amount</TableHead>
+                    <TableHead className="w-[6%] text-right bg-cyan-50">exDate</TableHead>
+                    <TableHead className="w-[7%] bg-cyan-50">asgTo</TableHead>
+                    <TableHead className="w-[22%] border-l-2 border-border bg-cyan-50">actName</TableHead>
+                    <TableHead className="w-[9%] text-right bg-cyan-50">actAmount</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
@@ -435,18 +437,19 @@ interface TransactionRowProps {
     index: number;
     transactionActualsMap: {[transactionId: string]: Actual[]};
     getUserById: (userId: string) => string;
+    projectName: string;
     isSelected: boolean;
     onToggle: () => void;
     onNameClick: (e: React.MouseEvent) => void;
 }
 
-function TransactionRow({ transaction, actual, index, transactionActualsMap, getUserById, isSelected, onToggle, onNameClick }: TransactionRowProps) {
+function TransactionRow({ transaction, actual, index, transactionActualsMap, getUserById, projectName, isSelected, onToggle, onNameClick }: TransactionRowProps) {
     const transactionActuals = transactionActualsMap[transaction.id] || [];
     const hasActuals = transactionActuals.length > 0;
     
     const sharedCells = (
         <>
-            <TableCell className="px-2 text-left" rowSpan={hasActuals ? transactionActuals.length : 1}>
+            <TableCell className="w-[5%] px-2 text-left" rowSpan={hasActuals ? transactionActuals.length : 1}>
                 <input
                     type="checkbox"
                     className="h-4 w-4 accent-primary"
@@ -457,7 +460,7 @@ function TransactionRow({ transaction, actual, index, transactionActualsMap, get
                     }}
                 />
             </TableCell>
-            <TableCell className="w-[30%] px-2 text-left border-b border-gray-200" rowSpan={hasActuals ? transactionActuals.length : 1}>
+            <TableCell className="w-[22%] px-2 text-left border-b border-gray-200" rowSpan={hasActuals ? transactionActuals.length : 1}>
                 <div className="flex items-center gap-2">
                     <span
                         className="cursor-pointer hover:underline font-medium"
@@ -473,7 +476,7 @@ function TransactionRow({ transaction, actual, index, transactionActualsMap, get
                     </span>
                 </div>
             </TableCell>
-            <TableCell className="w-[25%] px-2 text-left border-b border-gray-200" rowSpan={hasActuals ? transactionActuals.length : 1}>
+            <TableCell className="w-[8%] px-2 text-left border-b border-gray-200" rowSpan={hasActuals ? transactionActuals.length : 1}>
                 {transaction.tags.length > 0 ? (
                     <div className="flex flex-col gap-0.5">
                         {transaction.tags.map((tag: string, idx: number) => (
@@ -486,23 +489,23 @@ function TransactionRow({ transaction, actual, index, transactionActualsMap, get
                     <span className="text-sm text-muted-foreground">—</span>
                 )}
             </TableCell>
-            <TableCell className="w-[8%] px-2 text-center border-b border-gray-200" rowSpan={hasActuals ? transactionActuals.length : 1}>
+            <TableCell className="w-[4%] px-2 text-center border-b border-gray-200" rowSpan={hasActuals ? transactionActuals.length : 1}>
                 <span className={`text-xs px-2 py-0.5 rounded ${
                     transaction.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                 }`}>
                     {getTypeLabel(transaction.type)}
                 </span>
             </TableCell>
-            <TableCell className="w-[10%] text-right border-b border-gray-200 border-r border-magenta-300" rowSpan={hasActuals ? transactionActuals.length : 1}>
-                <span className="text-sm">
+            <TableCell className="w-[7%] text-right border-b border-gray-200" rowSpan={hasActuals ? transactionActuals.length : 1}>
+                <span className="text-xs">
                     {formatNumber(transaction.amount)}
                 </span>
             </TableCell>
-            <TableCell className="w-[15%] px-2 text-left border-b border-gray-200" rowSpan={hasActuals ? transactionActuals.length : 1}>
-                {getUserById(transaction.assignedTo)}
-            </TableCell>
-            <TableCell className="w-[10%] px-2 text-left border-b border-gray-200" rowSpan={hasActuals ? transactionActuals.length : 1}>
+            <TableCell className="w-[6%] px-2 text-right border-b border-gray-200" rowSpan={hasActuals ? transactionActuals.length : 1}>
                 {transaction.exDate ? <span className="text-xs">{formatDate(transaction.exDate)}</span> : '—'}
+            </TableCell>
+            <TableCell className="w-[7%] px-2 text-left border-b border-gray-200" rowSpan={hasActuals ? transactionActuals.length : 1}>
+                {getUserById(transaction.assignedTo)}
             </TableCell>
         </>
     );
@@ -511,10 +514,10 @@ function TransactionRow({ transaction, actual, index, transactionActualsMap, get
         return (
             <TableRow key={transaction.id} className="cursor-pointer" onClick={(e) => onNameClick(e)}>
                 {sharedCells}
-                <TableCell className="w-[35%] text-left border-b border-gray-200">
+                <TableCell className="w-[22%] border-l-2 border-border text-left border-b border-gray-200">
                     <span className="text-sm text-muted-foreground">—</span>
                 </TableCell>
-                <TableCell className="w-[15%] text-right border-b border-gray-200">
+                <TableCell className="w-[9%] text-right border-b border-gray-200">
                     <span className="text-sm text-muted-foreground">—</span>
                 </TableCell>
             </TableRow>
@@ -526,28 +529,33 @@ function TransactionRow({ transaction, actual, index, transactionActualsMap, get
     return (
         <TableRow key={transaction.id} className="cursor-pointer" onClick={(e) => onNameClick(e)}>
             {index === 0 && sharedCells}
-            <TableCell className={`w-[35%] text-left ${lastRowClass}`}>
-                <span 
-                    className="text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground hover:underline cursor-pointer" 
-                    title={actual.name}
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        // TODO: Open actual edit dialog
-                    }}
-                    onPointerDown={(e) => {
-                        e.stopPropagation();
-                    }}
-                >
-                    {actual.name}
-                </span>
-            </TableCell>
-            <TableCell className={`w-[15%] text-right ${lastRowClass}`}>
-                <span className="text-sm text-muted-foreground">
-                    {formatNumber(actual.amount)}
-                </span>
-            </TableCell>
-        </TableRow>
-    );
+                <TableCell className={`w-[22%] text-left ${lastRowClass} border-l-2 border-border`}>
+                    <div className="space-y-1">
+                        <span 
+                            className="text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground hover:underline cursor-pointer" 
+                            title={actual.name}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                // TODO: Open actual edit dialog
+                            }}
+                            onPointerDown={(e) => {
+                                e.stopPropagation();
+                            }}
+                        >
+                            {actual.name}
+                        </span>
+                        <span className="text-xs italic text-muted-foreground">
+                            {projectName}
+                        </span>
+                    </div>
+                </TableCell>
+                <TableCell className={`w-[9%] text-right ${lastRowClass}`}>
+                    <span className="text-xs text-muted-foreground">
+                        {formatNumber(actual.amount)}
+                    </span>
+                </TableCell>
+            </TableRow>
+        );
 }
 
 interface AddTransactionDialogProps {

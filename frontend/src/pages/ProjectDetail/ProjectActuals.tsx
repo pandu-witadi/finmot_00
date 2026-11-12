@@ -26,12 +26,14 @@ import { formatDate } from "@/utils/dateFormatters";
 interface ProjectActualsProps {
     projectId: string;
     active: boolean;
+    projectName: string;
 }
 
 interface TransactionInfo {
     id: string;
     name: string;
     amount: number;
+    projectName: string;
 }
 
 interface ActualWithBudgetInfo extends Actual {
@@ -60,13 +62,13 @@ function ActualSortableRow({ id, children, disabled }: { id: string; children: R
     };
 
     return (
-        <tr ref={setNodeRef} style={style} {...attributes} {...listeners} className={disabled ? '' : 'cursor-move hover:bg-muted/50'}>
+        <tr ref={setNodeRef} style={style} {...attributes} {...listeners} className={disabled ? '' : 'cursor-move hover:bg-muted/50 border-b border-border'}>
             {children}
         </tr>
     );
 }
 
-export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
+export function ProjectActuals({ projectId, active, projectName }: ProjectActualsProps) {
     const [actuals, setActuals] = useState<ActualWithBudgetInfo[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isEditActualDialogOpen, setIsEditActualDialogOpen] = useState(false);
@@ -140,6 +142,8 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                 console.debug("Failed to load users:", userError);
             }
 
+            const projectsMap = new Map(projectsList.map((p: any) => [p.id, p.name]));
+            
             const actualsWithInfo: ActualWithBudgetInfo[] = actualsData.map((actual: any) => {
                 const budget = budgetsData.find(b => b.id === actual.budget);
                 const header = headersData.find(h => h.id === budget?.header);
@@ -148,17 +152,20 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                     ? transactionsData.find(t => t.id === actual.trx)
                     : undefined;
                 
+                const transactionInfo = transaction ? {
+                    id: transaction.id,
+                    name: transaction.name,
+                    amount: transaction.amount,
+                    projectName: projectsMap.get(transaction.project) || ''
+                } : undefined;
+                
                 return {
                     ...actual,
                     headerName: header?.name || '',
                     headerId: header?.id || '',
                     headerOrder: header ? headersData.findIndex(h => h.id === header.id) : 0,
                     budgetType: budget?.type || 'expense',
-                    transaction: transaction ? {
-                        id: transaction.id,
-                        name: transaction.name,
-                        amount: transaction.amount
-                    } : undefined,
+                    transaction: transactionInfo,
                     assignedTo: actual.assignedTo || "000000000000000000000000",
                     assignedToName: actual.assignedTo && actual.assignedTo !== "000000000000000000000000" ? allUsers.find(u => String(u.id) === String(actual.assignedTo))?.name || "Unknown" : "—"
                 };
@@ -549,20 +556,21 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                                                 onChange={toggleSelectAll}
                                             />
                                         </TableHead>
-                                        <TableHead className="w-[25%] bg-cyan-50">Name</TableHead>
-                                        <TableHead className="w-[7%] text-center bg-cyan-50">t</TableHead>
-                                        <TableHead className="w-[15%] bg-cyan-50">Header</TableHead>
-                                        <TableHead className="w-[15%] text-right bg-cyan-50">Amount</TableHead>
-                                        <TableHead className="w-[10%] bg-cyan-50">exDate</TableHead>
-                                        <TableHead className="w-[8%] bg-cyan-50">asgTo</TableHead>
-                                        <TableHead className="w-[22%] border-l-2 border-border bg-cyan-50">trxName</TableHead>
-                                        <TableHead className="w-[8%] text-right bg-cyan-50">trxAmount</TableHead>
+                                        <TableHead className="w-[22%] bg-cyan-50">Name</TableHead>
+                                        <TableHead className="w-[12%] bg-cyan-50">Tags</TableHead>
+                                        <TableHead className="w-[6%] text-center bg-cyan-50">t</TableHead>
+                                        <TableHead className="w-[12%] bg-cyan-50">Header</TableHead>
+                                        <TableHead className="w-[12%] text-right bg-cyan-50">Amount</TableHead>
+                                        <TableHead className="w-[6%] text-right bg-cyan-50">exDate</TableHead>
+                                        <TableHead className="w-[9%] bg-cyan-50">asgTo</TableHead>
+                                        <TableHead className="w-[25%] border-l-2 border-border bg-cyan-50">trxName</TableHead>
+                                        <TableHead className="w-[10%] text-right bg-cyan-50">trxAmount</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {filteredActuals.map((actual) => (
                                         <ActualSortableRow key={actual.id} id={actual.id} disabled={false}>
-                                            <TableCell className="px-2">
+                                            <TableCell className="px-2 py-3">
                                                 <input
                                                     type="checkbox"
                                                     className="h-4 w-4 accent-primary"
@@ -573,7 +581,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                                                     }}
                                                 />
                                             </TableCell>
-                                            <TableCell className="font-medium">
+                                            <TableCell className="font-medium py-3">
                                                 <div className="flex items-center gap-2">
                                                     <span
                                                         className="cursor-pointer hover:underline font-medium"
@@ -589,40 +597,56 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                                                     </span>
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="text-center">
+                                            <TableCell className="text-sm py-3">
+                                                {actual.tags && actual.tags.length > 0 ? (
+                                                    <div className="flex flex-col gap-0.5">
+                                                        {actual.tags.map((tag: string, idx: number) => (
+                                                            <span key={idx} className="text-xs">
+                                                                {tag}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-muted-foreground">—</span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="text-center py-3">
                                                 <span className={`text-xs px-2 py-0.5 rounded ${
                                                     actual.budgetType === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                                                 }`}>
                                                     {getTypeLabel(actual.budgetType)}
                                                 </span>
                                             </TableCell>
-                                            <TableCell className="text-sm text-muted-foreground">
+                                            <TableCell className="w-[12%] text-sm text-muted-foreground py-3">
                                                 {actual.headerName}
                                             </TableCell>
-                                            <TableCell className="text-right">
-                                                <span className="text-sm font-medium">
+                                            <TableCell className="w-[12%] text-right py-3">
+                                                <span className="text-xs font-medium">
                                                     {formatNumber(actual.amount)}
                                                 </span>
                                             </TableCell>
-                                            <TableCell className="text-sm text-muted-foreground">
+                                            <TableCell className="w-[6%] text-right text-sm text-muted-foreground py-3">
                                                 {actual.exDate ? <span className="text-xs">{formatDate(actual.exDate)}</span> : '—'}
                                             </TableCell>
-                                            <TableCell className="text-sm text-muted-foreground">
+                                            <TableCell className="w-[9%] text-sm text-muted-foreground py-3">
                                                 {actual.assignedToName !== "—" ? (
                                                     <span className="text-xs font-medium">{actual.assignedToName}</span>
                                                 ) : (
                                                     <span className="text-xs text-muted-foreground">—</span>
                                                 )}
                                             </TableCell>
-                                            <TableCell className="text-sm text-muted-foreground border-l-2 border-border">
+                                            <TableCell className="text-sm text-muted-foreground border-l-2 border-border py-3">
                                                 {actual.transaction ? (
-                                                    <span className="font-medium text-primary">{actual.transaction.name}</span>
+                                                    <div className="flex flex-col">
+                                                        <span className="font-medium text-primary">{actual.transaction.name}</span>
+                                                        <span className="text-xs italic text-muted-foreground">{actual.transaction.projectName}</span>
+                                                    </div>
                                                 ) : (
                                                     <span className="text-muted-foreground">—</span>
                                                 )}
                                             </TableCell>
-                                            <TableCell className="text-right">
-                                                <span className="text-sm font-medium">
+                                            <TableCell className="text-right py-3">
+                                                <span className="text-xs font-medium">
                                                     {actual.transaction ? formatNumber(actual.transaction.amount) : '-'}
                                                 </span>
                                             </TableCell>
