@@ -21,6 +21,9 @@ interface ActualEditDialogProps {
     setEditActualForm: React.Dispatch<React.SetStateAction<EditActualForm>>;
     onEditActual: () => void;
     onDeleteActual?: () => void;
+    budgetName?: string;
+    transactionName?: string;
+    hasTransaction?: boolean;
 }
 
 export function ActualEditDialog({
@@ -30,6 +33,9 @@ export function ActualEditDialog({
     setEditActualForm,
     onEditActual,
     onDeleteActual,
+    budgetName,
+    transactionName,
+    hasTransaction,
 }: ActualEditDialogProps) {
     const [users, setUsers] = useState<{id: string, name: string}[]>([]);
     const [viewMode, setViewMode] = useState(true);
@@ -134,6 +140,25 @@ export function ActualEditDialog({
                                     <span className="text-xs text-muted-foreground">No tags</span>
                                 )}
                             </div>
+                            
+                            {budgetName && (
+                                <div className="space-y-1">
+                                    <Label className="text-xs text-muted-foreground">Budget</Label>
+                                    <div className="text-sm font-medium text-primary">{budgetName}</div>
+                                </div>
+                            )}
+                            
+                            {transactionName && (
+                                <div className="space-y-1">
+                                    <Label className="text-xs text-muted-foreground">Transaction</Label>
+                                    <div className="text-sm font-medium text-primary">{transactionName}</div>
+                                    {hasTransaction && (
+                                        <span className="text-xs text-yellow-700 dark:text-yellow-500 mt-1 block">
+                                            ⚠ Warning: This actual is linked to a transaction
+                                        </span>
+                                    )}
+                                </div>
+                            )}
                             
                             <div className="pt-4 border-t space-y-2">
                                 <div className="flex items-center justify-between text-xs text-muted-foreground">

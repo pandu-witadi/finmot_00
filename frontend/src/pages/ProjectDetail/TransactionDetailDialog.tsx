@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { formatNumber, getTypeLabel } from "@/utils/formatters";
 import { formatDate, formatDateTime } from "@/utils/dateFormatters";
 import { useState, useEffect } from "react";
-import { transactionApi, userApi } from "@/services/api";
+import { transactionApi, userApi, api } from "@/services/api";
 import { toast } from "react-hot-toast";
 import { Transaction } from "./useTransactions";
 
@@ -25,6 +25,7 @@ export function TransactionDetailDialog({
 }: TransactionDetailDialogProps) {
     const [transaction, setTransaction] = useState<Transaction | null>(null);
     const [users, setUsers] = useState<{id: string, name: string}[]>([]);
+    const [actuals, setActuals] = useState<{id: string, name: string, project: string}[]>([]);
     const [loading, setLoading] = useState(false);
     const [editMode, setEditMode] = useState(false);
     const [editForm, setEditForm] = useState<Partial<Transaction>>({});
@@ -33,6 +34,7 @@ export function TransactionDetailDialog({
         if (transactionId && isOpen) {
             loadTransaction();
             loadUsers();
+            loadActuals();
         }
     }, [transactionId, isOpen]);
 
@@ -60,6 +62,49 @@ export function TransactionDetailDialog({
             }
         } catch (error: any) {
             console.debug("Failed to load users:", error);
+        }
+    };
+
+    const loadActuals = async () => {
+        if (!transaction) return;
+        
+        const actualIds = transaction.arrActual || [];
+        
+        if (actualIds.length === 0) {
+            setActuals([]);
+            return;
+        }
+        
+        try {
+            const res = await api.get('/actual');
+            const allActuals = Array.isArray(res.data) ? res.data : [];
+            
+            // Build map using both 'id' and '_id' fields - ensure string keys
+            const actualsMap: {[id: string]: any} = {};
+            allActuals.forEach((a: any) => {
+                const id = a.id || a._id;
+                const idStr = String(id);
+                if (idStr) {
+                    actualsMap[idStr] = a;
+                }
+            });
+            
+            // Find connected actuals - ensure string keys for lookup
+            const connectedActuals = [];
+            for (const actualId of actualIds) {
+                const idStr = String(actualId);
+                const found = actualsMap[idStr];
+                if (found) connectedActuals.push(found);
+            }
+            
+            setActuals(connectedActuals.map(a => ({
+                id: a.id || a._id || '',
+                name: a.name || '',
+                project: a.project || ''
+            })));
+        } catch (error: any) {
+            console.error("[TransactionDetailDialog] Failed to load actuals:", error);
+            setActuals([]);
         }
     };
 
@@ -96,6 +141,23 @@ export function TransactionDetailDialog({
     const handleCancel = () => {
         setEditMode(false);
         onClose();
+    };
+
+    const handleDelete = async () => {
+        if (!transactionId) return;
+        
+        if (window.confirm('Are you sure you want to delete this transaction?')) {
+            setLoading(true);
+            try {
+                await transactionApi.delete(transactionId);
+                toast.success("Transaction deleted successfully");
+                onClose();
+            } catch (error: any) {
+                const errorMessage = error?.response?.data?.error || "Failed to delete transaction";
+                toast.error(errorMessage);
+                setLoading(false);
+            }
+        }
     };
 
     if (!isOpen || !transactionId) return null;
@@ -190,6 +252,31 @@ export function TransactionDetailDialog({
                                         {transaction.active ? "Yes" : "No"}
                                     </span>
                                 </div>
+                                
+                                {transaction.arrActual && transaction.arrActual.length > 0 && (
+                                    <div className="space-y-2">
+                                        <div className="pt-4 border-t">
+                                            <Label className="text-sm font-medium">Connected actuals</Label>
+                                            <div className="mt-2 space-y-2">
+                                                {actuals.map((actual, idx) => (
+                                                    <div key={actual.id} className="text-sm border rounded-lg p-3 bg-muted/30">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="font-medium">{idx + 1}. {actual.name}</span>
+                                                            {actual.project && (
+                                                                <span className="text-xs text-muted-foreground">
+                                                                    Project: {actual.project}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div className="mt-2 flex items-center gap-2">
+                                                <span className="text-xs text-muted-foreground">This transaction cannot be deleted while actuals are connected.</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                                 
                                 <div className="pt-4 border-t space-y-2">
                                     <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -325,6 +412,11 @@ export function TransactionDetailDialog({
                             <Button variant="outline" onClick={handleCancel}>
                                 Cancel
                             </Button>
+                            {!transaction?.arrActual || transaction.arrActual.length === 0 ? (
+                                <Button variant="destructive" onClick={handleDelete}>
+                                    Delete
+                                </Button>
+                            ) : null}
                             <Button onClick={handleSave}>
                                 Save
                             </Button>

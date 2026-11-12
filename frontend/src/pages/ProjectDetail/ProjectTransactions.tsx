@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useTransactions } from "./useTransactions";
 import { actualApi } from "@/services/api";
 import { formatNumber, getTypeLabel } from "@/utils/formatters";
@@ -17,7 +17,6 @@ import {
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { toast } from "react-hot-toast";
 import { PlusIcon } from "lucide-react";
-import { TransactionDetailDialog } from "./TransactionDetailDialog";
 import { Actual } from "./useActuals";
 
 interface TransactionForm {
@@ -35,9 +34,8 @@ interface ProjectTransactionsProps {
 }
 
 export function ProjectTransactions({ projectId, projectName }: ProjectTransactionsProps) {
+    const navigate = useNavigate();
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-    const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
-    const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
     const [form, setForm] = useState<TransactionForm>({
         name: '',
         type: 'expense',
@@ -157,15 +155,7 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
     );
 
     const handleTransactionClick = (id: string) => {
-        setSelectedTransactionId(id);
-        setIsDetailDialogOpen(true);
-    };
-
-    const handleTransactionSave = async (updatedTransactionData: any) => {
-        if (!selectedTransactionId) return;
-        await updateTransaction(selectedTransactionId, updatedTransactionData);
-        setIsDetailDialogOpen(false);
-        setSelectedTransactionId(null);
+        navigate(`/transactions/${id}`);
     };
 
     const getUserById = (userId: string | null) => {
@@ -270,15 +260,6 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
                     {renderTable({ flattenedRows, transactionActualsMap, getUserById, projectName, selectedTransactionIds, setSelectedTransactionIds, onTransactionClick: handleTransactionClick })}
                 </CardContent>
             </Card>
-            {isAddDialogOpen && renderAddTransactionDialog({ form, setForm, handleAddTransaction, setIsAddDialogOpen })}
-            {isDetailDialogOpen && selectedTransactionId && (
-                <TransactionDetailDialog
-                    isOpen={isDetailDialogOpen}
-                    onClose={() => setIsDetailDialogOpen(false)}
-                    transactionId={selectedTransactionId}
-                    onSave={handleTransactionSave}
-                />
-            )}
         </div>
     );
 }
@@ -407,6 +388,7 @@ function renderTable({ flattenedRows, transactionActualsMap, getUserById, projec
                             type="checkbox"
                             className="h-4 w-4 accent-primary"
                             checked={allSelected}
+                            onClick={(e) => e.stopPropagation()}
                             onChange={(e) => {
                                 e.stopPropagation();
                                 if (allSelected) {
@@ -487,6 +469,7 @@ function TransactionRow({ transaction, actual, index, transactionActualsMap, get
                     type="checkbox"
                     className="h-4 w-4 accent-primary"
                     checked={isSelected}
+                    onClick={(e) => e.stopPropagation()}
                     onChange={(e) => {
                         e.stopPropagation();
                         onToggle();

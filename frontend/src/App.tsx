@@ -8,6 +8,7 @@ import { UserAdd } from '@/pages/UserAll/UserAdd';
 import { UserDetail } from '@/pages/UserDetail/index';
 import { ProjectAll, ProjectAdd } from '@/pages/ProjectAll/index';
 import { ProjectDetail } from '@/pages/ProjectDetail/index';
+import { TransactionDetail } from '@/pages/TransactionDetail';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Toaster } from 'react-hot-toast';
 
@@ -35,6 +36,7 @@ export const App = () => {
                     <Route path="users/:id" element={<UserDetail />} />
                     <Route path="projects" element={<ProjectAll />} />
                     <Route path="projects/:id" element={<ProjectDetail />} />
+                    <Route path="transactions/:id" element={<TransactionDetail />} />
                     <Route path="projects/new" element={<ProjectAdd />} />
                     <Route path="about" element={<About />} />
                 </Route>

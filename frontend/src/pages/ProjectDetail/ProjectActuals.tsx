@@ -99,6 +99,10 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
     const [transactionsForSelectedProject, setTransactionsForSelectedProject] = useState<{ id: string; name: string }[]>([]);
     const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
     const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
+    const [editActualBudgetName, setEditActualBudgetName] = useState("");
+    const [editActualTransactionName, setEditActualTransactionName] = useState<string | undefined>();
+    const [editActualHasTransaction, setEditActualHasTransaction] = useState(false);
+    const [budgets, setBudgets] = useState<any[]>([]);
 
     const loadData = async () => {
         try {
@@ -129,6 +133,7 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
 
             const headersData = Array.isArray(headersRes.data) ? headersRes.data : [];
             const budgetsData = Array.isArray(budgetsRes.data) ? budgetsRes.data : [];
+            setBudgets(budgetsData);
             const actualsData = Array.isArray(actualsRes.data) ? actualsRes.data : [];
             const transactionsData = Array.isArray(transactionsRes.data) ? transactionsRes.data : [];
             
@@ -274,6 +279,14 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
     };
 
     const openEditDialog = (actual: any) => {
+        // Find the budget name
+        const budget = budgets.find(b => b.id === actual.budget);
+        const budgetName = budget?.name || '';
+        
+        // Find the transaction name
+        const transactionName = actual.transaction ? actual.transaction.name : undefined;
+        const hasTransaction = actual.transaction !== undefined;
+        
         setEditActualForm({
             id: actual.id,
             name: actual.name,
@@ -285,6 +298,9 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
             updatedAt: actual.updatedAt,
             updatedBy: actual.updatedBy
         });
+        setEditActualBudgetName(budgetName);
+        setEditActualTransactionName(transactionName);
+        setEditActualHasTransaction(hasTransaction);
         setIsEditActualDialogOpen(true);
     };
 
@@ -673,6 +689,9 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
                         setEditActualForm={setEditActualForm}
                         onEditActual={handleEditActual}
                         onDeleteActual={() => handleDeleteActual(editActualForm.id)}
+                        budgetName={editActualBudgetName}
+                        transactionName={editActualTransactionName}
+                        hasTransaction={editActualHasTransaction}
                     />
 
                     {/* Register to Transaction Modal */}
