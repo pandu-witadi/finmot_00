@@ -27,8 +27,8 @@ export interface TransactionFilter {
 }
 
 export interface TransactionSort {
-    field?: 'name' | 'amount' | 'createdAt' | 'none';
-    order?: 'asc' | 'desc';
+    field?: 'exDate' | 'none';
+    order?: 'asc' | 'desc' | 'none';
 }
 
 export interface GetTransactionsQuery {
@@ -41,7 +41,7 @@ export interface GetTransactionsQuery {
 export function useTransactions(projectId: string) {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [filter, setFilter] = useState<TransactionFilter>({ project: projectId });
+    const [filter, setFilter] = useState<TransactionFilter>({ project: projectId, type: undefined });
     const [sort, setSort] = useState<TransactionSort>({ field: 'none', order: 'asc' });
 
     const loadData = async () => {

@@ -106,7 +106,7 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
     const [editActualTransactionName, setEditActualTransactionName] = useState<string | undefined>();
     const [editActualHasTransaction, setEditActualHasTransaction] = useState(false);
     const [budgets, setBudgets] = useState<any[]>([]);
-    const [filterType, setFilterType] = useState<'income' | 'expense' | 'all'>('all');
+    const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
     const [sortByDate, setSortByDate] = useState<'none' | 'asc' | 'desc'>('none');
 
     const loadData = async () => {
@@ -561,77 +561,83 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         )}
-                        <div className="flex items-center gap-2">
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={handleSavePosition}
-                                title="Save actual positions"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-save">
-                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                                    <path d="M17 21v-8H7v8" />
-                                    <path d="M7 10V3a1 1 0 0 1 1-1h5v7" />
-                                </svg>
-                            </Button>
-                            <Input
-                                placeholder="Name"
-                                value={searchNameTerm}
-                                onChange={(e) => setSearchNameTerm(e.target.value)}
-                                className="h-8 w-24"
-                            />
-                            <Input
-                                placeholder="Tags"
-                                value={searchTagTerm}
-                                onChange={(e) => setSearchTagTerm(e.target.value)}
-                                className="h-8 w-24"
-                            />
-                            <Input
-                                placeholder="Header"
-                                value={searchHeaderTerm}
-                                onChange={(e) => setSearchHeaderTerm(e.target.value)}
-                                className="h-8 w-24"
-                            />
-                            <Input
-                                placeholder="asgTo"
-                                value={assignToSearchTerm}
-                                onChange={(e) => setAssignToSearchTerm(e.target.value)}
-                                className="h-8 w-24"
-                            />
-                            <DropdownMenu>
-                                <DropdownMenuTrigger render={<div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background px-2 py-1 h-8 cursor-pointer">
-                                        Type: {filterType === 'all' ? 'All' : filterType === 'income' ? 'Inc' : 'Exp'}
-                                    </div>}>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => setFilterType('all')}>
-                                        All Types
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setFilterType('income')}>
-                                        Income
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setFilterType('expense')}>
-                                        Expense
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger render={<div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background px-2 py-1 h-8 cursor-pointer">
-                                        Sort: {sortByDate === 'none' ? 'None' : sortByDate === 'asc' ? 'Oldest' : 'Newest'}
-                                    </div>}>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => setSortByDate('none')}>
-                                        None (for drag-and-drop)
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setSortByDate('asc')}>
-                                        Date (Oldest)
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setSortByDate('desc')}>
-                                        Date (Newest)
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                        <div className="flex flex-wrap items-center gap-4">
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={handleSavePosition}
+                                    title="Save actual positions"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-save">
+                                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                                        <path d="M17 21v-8H7v8" />
+                                        <path d="M7 10V3a1 1 0 0 1 1-1h5v7" />
+                                    </svg>
+                                </Button>
+                                <Input
+                                    placeholder="Name"
+                                    value={searchNameTerm}
+                                    onChange={(e) => setSearchNameTerm(e.target.value)}
+                                    className="h-8 w-24"
+                                />
+                                <Input
+                                    placeholder="Tags"
+                                    value={searchTagTerm}
+                                    onChange={(e) => setSearchTagTerm(e.target.value)}
+                                    className="h-8 w-24"
+                                />
+                                <Input
+                                    placeholder="Header"
+                                    value={searchHeaderTerm}
+                                    onChange={(e) => setSearchHeaderTerm(e.target.value)}
+                                    className="h-8 w-24"
+                                />
+                                <Input
+                                    placeholder="asgTo"
+                                    value={assignToSearchTerm}
+                                    onChange={(e) => setAssignToSearchTerm(e.target.value)}
+                                    className="h-8 w-24"
+                                />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild={true}>
+                                        <div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background px-3 py-1.5 hover:bg-accent hover:text-accent-foreground h-8 px-3 cursor-pointer">
+                                            Type: {filterType === 'all' ? 'All' : filterType === 'income' ? 'Income' : 'Expense'}
+                                        </div>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => setFilterType('all')}>
+                                            All Types
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setFilterType('income')}>
+                                            Income
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setFilterType('expense')}>
+                                            Expense
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild={true}>
+                                        <div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background px-3 py-1.5 hover:bg-accent hover:text-accent-foreground h-8 px-3 cursor-pointer">
+                                            Sort: {sortByDate === 'none' ? 'None' : sortByDate === 'asc' ? 'Oldest' : 'Newest'}
+                                        </div>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => setSortByDate('none')}>
+                                            None
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setSortByDate('asc')}>
+                                            Oldest
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setSortByDate('desc')}>
+                                            Newest
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
                         </div>
                         <div className="text-right">
                             <div className="text-xs font-medium">
