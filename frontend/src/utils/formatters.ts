@@ -2,7 +2,8 @@ export function formatNumber(value: number): string {
     const num = Number(value);
     if (isNaN(num)) return "0";
     const integer = Math.floor(Math.abs(num)).toString();
-    return integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    const formatted = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return num < 0 ? `-${formatted}` : formatted;
 }
 
 export function getTypeLabel(type: 'income' | 'expense'): string {

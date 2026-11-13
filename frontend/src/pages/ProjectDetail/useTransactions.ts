@@ -27,7 +27,7 @@ export interface TransactionFilter {
 }
 
 export interface TransactionSort {
-    field?: 'name' | 'amount' | 'createdAt';
+    field?: 'name' | 'amount' | 'createdAt' | 'none';
     order?: 'asc' | 'desc';
 }
 
@@ -42,15 +42,18 @@ export function useTransactions(projectId: string) {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [filter, setFilter] = useState<TransactionFilter>({ project: projectId });
-    const [sort, setSort] = useState<TransactionSort>({ field: 'createdAt', order: 'desc' });
+    const [sort, setSort] = useState<TransactionSort>({ field: 'none', order: 'asc' });
 
     const loadData = async () => {
         try {
             setIsLoading(true);
             const query: GetTransactionsQuery = {
                 filter: { project: projectId, ...filter },
-                sort,
             };
+            
+            if (sort.field && sort.field !== 'none') {
+                query.sort = sort;
+            }
             
             const res = await transactionApi.getAll(query.filter, query.sort);
             const data = Array.isArray(res.data) ? res.data : [];

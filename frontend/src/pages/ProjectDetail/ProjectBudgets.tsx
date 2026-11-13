@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { headerApi, budgetApi, projectApi, actualApi } from "@/services/api";
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/button";
@@ -60,6 +61,7 @@ function BudgetSortableRow({ id, children, disabled }: { id: string; children: R
 }
 
 export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
+    const navigate = useNavigate();
     const [headers, setHeaders] = useState<Header[]>([]);
     const [budgets, setBudgets] = useState<Budget[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -403,17 +405,8 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     };
 
     const openEditBudget = (budget: Budget) => {
-        setEditBudgetForm({
-            id: budget.id,
-            name: budget.name,
-            note: budget.note || '',
-            type: budget.type,
-            amount: budget.amount,
-            tags: budget.tags ? budget.tags.join(', ') : '',
-            updatedAt: new Date(budget.updatedAt),
-            updatedBy: budget.updatedBy
-        });
-        setIsEditBudgetDialogOpen(true);
+        // Navigate to budget detail page
+        navigate(`/budgets/${budget.id}`);
     };
 
     const handleDeleteBudget = async (budgetId: string) => {
@@ -450,17 +443,8 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     };
 
     const openEditActual = (actual: {id: string, name: string, amount: number}) => {
-        setEditActualForm({
-            id: actual.id,
-            name: actual.name,
-            amount: actual.amount,
-            exDate: new Date(),
-            tags: [],
-            assignedTo: '',
-            updatedAt: new Date(),
-            updatedBy: ''
-        });
-        setIsEditActualDialogOpen(true);
+        // Navigate to actual detail page
+        navigate(`/actuals/${actual.id}`);
     };
 
     const handleDeleteActual = async (actualId: string) => {

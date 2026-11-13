@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { headerApi, budgetApi, actualApi, userApi, api, transactionApi } from "@/services/api";
 import { toast } from "react-hot-toast";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
@@ -71,6 +71,7 @@ function ActualSortableRow({ id, children, disabled }: { id: string; children: R
 }
 
 export function ProjectActuals({ projectId, active, projectName }: ProjectActualsProps) {
+    const navigate = useNavigate();
     const [actuals, setActuals] = useState<ActualWithBudgetInfo[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isEditActualDialogOpen, setIsEditActualDialogOpen] = useState(false);
@@ -93,6 +94,8 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
     const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set<string>());
     const [projectData, setProjectData] = useState<{ arrActual: string[] } | null>(null);
     const [searchNameTerm, setSearchNameTerm] = useState("");
+    const [searchTagTerm, setSearchTagTerm] = useState("");
+    const [searchHeaderTerm, setSearchHeaderTerm] = useState("");
     const [isRegisterToTransactionModalOpen, setIsRegisterToTransactionModalOpen] = useState(false);
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const [allProjects, setAllProjects] = useState<{ id: string; name: string }[]>([]);
@@ -103,6 +106,8 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
     const [editActualTransactionName, setEditActualTransactionName] = useState<string | undefined>();
     const [editActualHasTransaction, setEditActualHasTransaction] = useState(false);
     const [budgets, setBudgets] = useState<any[]>([]);
+    const [filterType, setFilterType] = useState<'income' | 'expense' | 'all'>('all');
+    const [sortByDate, setSortByDate] = useState<'none' | 'asc' | 'desc'>('desc');
 
     const loadData = async () => {
         try {
@@ -217,11 +222,29 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
         }
     };
 
-    const filteredActuals = actuals.filter(actual => {
-        const nameMatch = actual.name.toLowerCase().includes(searchNameTerm.toLowerCase());
-        const assignToMatch = actual.assignedToName.toLowerCase().includes(assignToSearchTerm.toLowerCase());
-        return nameMatch && assignToMatch;
-    });
+    const filteredActuals = actuals
+        .filter(actual => {
+            const nameMatch = actual.name.toLowerCase().includes(searchNameTerm.toLowerCase());
+            const tagMatch = searchTagTerm === '' || actual.tags.some((tag: string) => tag.toLowerCase().includes(searchTagTerm.toLowerCase()));
+            const headerMatch = searchHeaderTerm === '' || actual.headerName.toLowerCase().includes(searchHeaderTerm.toLowerCase());
+            const assignToMatch = assignToSearchTerm === '' || actual.assignedToName.toLowerCase().includes(assignToSearchTerm.toLowerCase());
+            return nameMatch && tagMatch && headerMatch && assignToMatch;
+        })
+        .filter(actual => filterType === 'all' || actual.budgetType === filterType)
+        .sort((a, b) => {
+            if (sortByDate === 'none') {
+                return 0;
+            }
+            const dateA = new Date(a.exDate).getTime();
+            const dateB = new Date(b.exDate).getTime();
+            return sortByDate === 'asc' ? dateA - dateB : dateB - dateA;
+        });
+
+    const selectedTotalAmount = Array.from(selectedActualIds).reduce((sum, id) => {
+        const actual = actuals.find(a => a.id === id);
+        const sign = actual?.budgetType === 'income' ? 1 : -1;
+        return sum + (actual?.amount || 0) * sign;
+    }, 0);
 
     const toggleSelectActual = (actualId: string) => {
         const newSet = new Set(selectedActualIds);
@@ -230,10 +253,10 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
     };
 
     const toggleSelectAll = () => {
-        if (selectedActualIds.size === actuals.length) {
+        if (selectedActualIds.size === filteredActuals.length) {
             setSelectedActualIds(new Set<string>());
         } else {
-            setSelectedActualIds(new Set(actuals.map(a => a.id)));
+            setSelectedActualIds(new Set(filteredActuals.map(a => a.id)));
         }
     };
 
@@ -302,6 +325,11 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
         setEditActualTransactionName(transactionName);
         setEditActualHasTransaction(hasTransaction);
         setIsEditActualDialogOpen(true);
+    };
+
+    const handleNameClick = (actual: any) => {
+        // Navigate to actual detail page
+        navigate(`/actuals/${actual.id}`);
     };
 
     const handleDeleteSelected = async () => {
@@ -510,8 +538,8 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
                         {selectedActualIds.size > 0 && (
                             <DropdownMenu>
                                 <DropdownMenuTrigger>
-                                    <Button variant="destructive">
-                                        ({selectedActualIds.size}) selected
+                                    <Button variant="destructive" className="h-8 px-2 text-xs">
+                                        ({selectedActualIds.size}) sel
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
@@ -534,18 +562,6 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
                             </DropdownMenu>
                         )}
                         <div className="flex items-center gap-2">
-                            <Input
-                                placeholder="Search name..."
-                                value={searchNameTerm}
-                                onChange={(e) => setSearchNameTerm(e.target.value)}
-                                className="h-8 w-48"
-                            />
-                            <Input
-                                placeholder="Search asgTo..."
-                                value={assignToSearchTerm}
-                                onChange={(e) => setAssignToSearchTerm(e.target.value)}
-                                className="h-8 w-48"
-                            />
                             <Button
                                 variant="ghost"
                                 size="icon"
@@ -558,6 +574,71 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
                                     <path d="M7 10V3a1 1 0 0 1 1-1h5v7" />
                                 </svg>
                             </Button>
+                            <Input
+                                placeholder="Name"
+                                value={searchNameTerm}
+                                onChange={(e) => setSearchNameTerm(e.target.value)}
+                                className="h-8 w-24"
+                            />
+                            <Input
+                                placeholder="Tags"
+                                value={searchTagTerm}
+                                onChange={(e) => setSearchTagTerm(e.target.value)}
+                                className="h-8 w-24"
+                            />
+                            <Input
+                                placeholder="Header"
+                                value={searchHeaderTerm}
+                                onChange={(e) => setSearchHeaderTerm(e.target.value)}
+                                className="h-8 w-24"
+                            />
+                            <Input
+                                placeholder="asgTo"
+                                value={assignToSearchTerm}
+                                onChange={(e) => setAssignToSearchTerm(e.target.value)}
+                                className="h-8 w-24"
+                            />
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <button type="button" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background px-2 py-1 h-8">
+                                        Type: {filterType === 'all' ? 'All' : filterType === 'income' ? 'Inc' : 'Exp'}
+                                    </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => setFilterType('all')}>
+                                        All Types
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setFilterType('income')}>
+                                        Income
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setFilterType('expense')}>
+                                        Expense
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <button type="button" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background px-2 py-1 h-8">
+                                        Sort: {sortByDate === 'none' ? 'None' : sortByDate === 'asc' ? 'Oldest' : 'Newest'}
+                                    </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => setSortByDate('none')}>
+                                        None (for drag-and-drop)
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setSortByDate('asc')}>
+                                        Date (Oldest)
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setSortByDate('desc')}>
+                                        Date (Newest)
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+                        <div className="text-right">
+                            <div className="text-xs font-medium">
+                                Total: {formatNumber(selectedTotalAmount)}
+                            </div>
                         </div>
                     </div>
                 </CardHeader>
@@ -577,8 +658,8 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
                                         </TableHead>
                                         <TableHead className="w-[22%] bg-cyan-50">Name</TableHead>
                                         <TableHead className="w-[12%] bg-cyan-50">Tags</TableHead>
-                                        <TableHead className="w-[6%] text-center bg-cyan-50">t</TableHead>
                                         <TableHead className="w-[12%] bg-cyan-50">Header</TableHead>
+                                        <TableHead className="w-[6%] text-center bg-cyan-50">t</TableHead>
                                         <TableHead className="w-[12%] text-right bg-cyan-50">Amount</TableHead>
                                         <TableHead className="w-[6%] text-right bg-cyan-50">exDate</TableHead>
                                         <TableHead className="w-[9%] bg-cyan-50">asgTo</TableHead>
@@ -606,7 +687,7 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
                                                         className="cursor-pointer hover:underline font-medium"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            openEditDialog(actual);
+                                                            handleNameClick(actual);
                                                         }}
                                                         onPointerDown={(e) => {
                                                             e.stopPropagation();
@@ -629,15 +710,15 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
                                                     <span className="text-muted-foreground">—</span>
                                                 )}
                                             </TableCell>
+                                            <TableCell className="w-[12%] text-sm text-muted-foreground py-3">
+                                                {actual.headerName}
+                                            </TableCell>
                                             <TableCell className="text-center py-3">
                                                 <span className={`text-xs px-2 py-0.5 rounded ${
                                                     actual.budgetType === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                                                 }`}>
                                                     {getTypeLabel(actual.budgetType)}
                                                 </span>
-                                            </TableCell>
-                                            <TableCell className="w-[12%] text-sm text-muted-foreground py-3">
-                                                {actual.headerName}
                                             </TableCell>
                                             <TableCell className="w-[12%] text-right py-3">
                                                 <span className="text-xs font-medium">

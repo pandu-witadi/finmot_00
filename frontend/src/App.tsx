@@ -6,6 +6,8 @@ import { About } from '@/pages/About';
 import { UserAll } from '@/pages/UserAll/index';
 import { UserAdd } from '@/pages/UserAll/UserAdd';
 import { UserDetail } from '@/pages/UserDetail/index';
+import { ActualDetail } from '@/pages/ActualDetail';
+import { BudgetDetail } from '@/pages/BudgetDetail';
 import { ProjectAll, ProjectAdd } from '@/pages/ProjectAll/index';
 import { ProjectDetail } from '@/pages/ProjectDetail/index';
 import { TransactionDetail } from '@/pages/TransactionDetail';
@@ -36,6 +38,8 @@ export const App = () => {
                     <Route path="users/:id" element={<UserDetail />} />
                     <Route path="projects" element={<ProjectAll />} />
                     <Route path="projects/:id" element={<ProjectDetail />} />
+                    <Route path="actuals/:id" element={<ActualDetail />} />
+                    <Route path="budgets/:id" element={<BudgetDetail />} />
                     <Route path="transactions/:id" element={<TransactionDetail />} />
                     <Route path="projects/new" element={<ProjectAdd />} />
                     <Route path="about" element={<About />} />
