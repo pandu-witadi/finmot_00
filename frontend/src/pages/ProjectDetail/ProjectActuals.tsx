@@ -107,7 +107,7 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
     const [editActualHasTransaction, setEditActualHasTransaction] = useState(false);
     const [budgets, setBudgets] = useState<any[]>([]);
     const [filterType, setFilterType] = useState<'income' | 'expense' | 'all'>('all');
-    const [sortByDate, setSortByDate] = useState<'none' | 'asc' | 'desc'>('desc');
+    const [sortByDate, setSortByDate] = useState<'none' | 'asc' | 'desc'>('none');
 
     const loadData = async () => {
         try {
@@ -600,9 +600,9 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
                             />
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <button type="button" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background px-2 py-1 h-8">
+                                    <div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background px-2 py-1 h-8 cursor-pointer">
                                         Type: {filterType === 'all' ? 'All' : filterType === 'income' ? 'Inc' : 'Exp'}
-                                    </button>
+                                    </div>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
                                     <DropdownMenuItem onClick={() => setFilterType('all')}>

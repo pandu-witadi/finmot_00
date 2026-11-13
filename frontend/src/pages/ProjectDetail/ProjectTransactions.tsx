@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { toast } from "react-hot-toast";
-import { PlusIcon } from "lucide-react";
+import { PlusIcon, UserPlusIcon } from "lucide-react";
 import { Actual } from "./useActuals";
 
 interface TransactionForm {
@@ -44,10 +44,15 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
         active: true,
         exDate: new Date(),
     });
-    const [searchTerm, setSearchTerm] = useState("");
     const [selectedTransactionIds, setSelectedTransactionIds] = useState<Set<string>>(new Set<string>());
     const [users, setUsers] = useState<{id: string, name: string, email: string}[]>([]);
     const [allProjects, setAllProjects] = useState<{ id: string; name: string }[]>([]);
+    const [searchNameTerm, setSearchNameTerm] = useState("");
+    const [searchTagTerm, setSearchTagTerm] = useState("");
+    const [searchAssignedTerm, setSearchAssignedTerm] = useState("");
+    const [isAssignToMenuOpen, setIsAssignToMenuOpen] = useState(false);
+    const [assignToSearchTerm, setAssignToSearchTerm] = useState("");
+    const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set<string>());
 
     const {
         transactions,
@@ -149,10 +154,12 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
         }
     };
 
-    const filteredTransactions = transactions.filter(t =>
-        t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        t.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    const filteredTransactions = transactions.filter(t => {
+        const nameMatch = t.name.toLowerCase().includes(searchNameTerm.toLowerCase());
+        const tagMatch = searchTagTerm === '' || t.tags.some(tag => tag.toLowerCase().includes(searchTagTerm.toLowerCase()));
+        const assignedMatch = searchAssignedTerm === '' || getUserById(t.assignedTo).toLowerCase().includes(searchAssignedTerm.toLowerCase());
+        return nameMatch && tagMatch && assignedMatch;
+    });
 
     const handleTransactionClick = (id: string) => {
         navigate(`/transactions/${id}`);
@@ -162,6 +169,45 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
         if (!userId || userId === "000000000000000000000000") return "—";
         const user = users.find(u => String(u.id) === String(userId));
         return user ? user.name : "Unknown";
+    };
+
+    const loadUsers = async () => {
+        if (users.length > 0) return;
+        try {
+            const res = await userApi.getAll();
+            if (Array.isArray(res.data)) {
+                setUsers(res.data);
+            }
+        } catch (error: any) {
+            toast.error("Failed to load users");
+        }
+    };
+
+    const handleAssignTo = async () => {
+        if (selectedTransactionIds.size === 0) return;
+
+        const user_ids = Array.from(selectedUsers);
+        if (user_ids.length === 0) {
+            toast.error("Please select at least one user");
+            return;
+        }
+
+        if (!window.confirm(`Assign ${selectedTransactionIds.size} selected transaction(s) to ${user_ids.length} user(s)?`)) {
+            return;
+        }
+
+        try {
+            await Promise.all(Array.from(selectedTransactionIds).map(transactionId => 
+                updateTransaction(transactionId, { assignedTo: Array.from(selectedUsers)[0] })
+            ));
+            toast.success(`${selectedTransactionIds.size} transaction(s) assigned successfully`);
+            setSelectedTransactionIds(new Set<string>());
+            setSelectedUsers(new Set<string>());
+            setIsAssignToMenuOpen(false);
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.error || "Failed to assign transactions";
+            toast.error(errorMessage);
+        }
     };
 
     // Map transaction IDs to their actuals
@@ -223,6 +269,12 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
     const totalExpense = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
     const netAmount = totalIncome - totalExpense;
 
+    const selectedTotalAmount = Array.from(selectedTransactionIds).reduce((sum, id) => {
+        const transaction = transactions.find(t => t.id === id);
+        const sign = transaction?.type === 'income' ? 1 : -1;
+        return sum + (transaction?.amount || 0) * sign;
+    }, 0);
+
     if (isLoading) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
@@ -233,26 +285,39 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
 
     return (
         <div className="space-y-6">
-            {renderSummaryBar({ totalIncome, totalExpense, netAmount, setIsAddDialogOpen })}
             <Card>
                 <CardHeader>
                     <div className="flex items-center justify-between">
                         {selectedTransactionIds.size > 0 && (
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-muted-foreground">
-                                    ({selectedTransactionIds.size}) selected
-                                </span>
-                                <Button 
-                                    variant="destructive" 
-                                    size="sm"
-                                    onClick={handleDeleteSelected}
-                                >
-                                    Delete
-                                </Button>
-                            </div>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger>
+                                    <Button variant="destructive" className="h-8 px-2 text-xs">
+                                        ({selectedTransactionIds.size}) sel
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={handleDeleteSelected}>
+                                        Delete
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => {
+                                        setIsAssignToMenuOpen(true);
+                                        loadUsers();
+                                    }}>
+                                        <div className="flex items-center gap-2">
+                                            <UserPlusIcon className="w-4 h-4" />
+                                            <span>Assign to User</span>
+                                        </div>
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         )}
                         <div className={selectedTransactionIds.size > 0 ? "hidden" : ""}>
-                            {renderTableHeader({ searchTerm, setSearchTerm, filter, setFilter, sort, setSort })}
+                            {renderTableHeader({ filter, setFilter, sort, setSort }, searchNameTerm, setSearchNameTerm, searchTagTerm, setSearchTagTerm, searchAssignedTerm, setSearchAssignedTerm)}
+                        </div>
+                        <div className="text-right">
+                            <div className="text-xs font-medium">
+                                Total: {formatNumber(selectedTotalAmount)}
+                            </div>
                         </div>
                     </div>
                 </CardHeader>
@@ -260,64 +325,111 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
                     {renderTable({ flattenedRows, transactionActualsMap, getUserById, projectName, selectedTransactionIds, setSelectedTransactionIds, onTransactionClick: handleTransactionClick })}
                 </CardContent>
             </Card>
-        </div>
-    );
-}
-
-interface SummaryBarProps {
-    totalIncome: number;
-    totalExpense: number;
-    netAmount: number;
-    setIsAddDialogOpen: (v: boolean) => void;
-}
-
-function renderSummaryBar({ totalIncome, totalExpense, netAmount, setIsAddDialogOpen }: SummaryBarProps) {
-    return (
-        <div className="flex items-center justify-between">
-            <div className="flex gap-2">
-                <Button onClick={() => setIsAddDialogOpen(true)}>
-                    <PlusIcon className="w-4 h-4 mr-2" />
-                    Add Transaction
-                </Button>
-            </div>
-            <div className="flex items-center gap-4 text-sm">
-                <div className="flex items-center gap-2">
-                    <span className="text-green-600 font-medium">Income:</span>
-                    <span className="text-green-600 font-bold">{formatNumber(totalIncome)}</span>
+            
+            {isAssignToMenuOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                    <div className="bg-background rounded-lg shadow-lg w-[400px] max-h-[80vh] flex flex-col">
+                        <div className="p-4 border-b">
+                            <h3 className="text-lg font-semibold">Assign to User</h3>
+                            <p className="text-sm text-muted-foreground">Select users for {selectedTransactionIds.size} transaction(s)</p>
+                        </div>
+                        
+                        <div className="p-3 border-b">
+                            <Input
+                                placeholder="Search users..."
+                                value={assignToSearchTerm}
+                                onChange={(e) => setAssignToSearchTerm(e.target.value)}
+                                className="h-8"
+                            />
+                        </div>
+                        
+                        <div className="flex-1 overflow-auto p-2 space-y-1">
+                            {users.length === 0 ? (
+                                <div className="flex items-center justify-center h-32">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                                </div>
+                            ) : (
+                                users.filter(user => 
+                                    user.name.toLowerCase().includes(assignToSearchTerm.toLowerCase()) ||
+                                    user.email.toLowerCase().includes(assignToSearchTerm.toLowerCase())
+                                ).map(user => (
+                                    <div
+                                        key={user.id}
+                                        onClick={() => {
+                                            const newSet = new Set(selectedUsers);
+                                            newSet.has(user.id) ? newSet.delete(user.id) : newSet.add(user.id);
+                                            setSelectedUsers(newSet);
+                                        }}
+                                        className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-accent ${selectedUsers.has(user.id) ? 'bg-accent' : ''}`}
+                                    >
+                                        <div className={`w-4 h-4 border rounded flex items-center justify-center ${selectedUsers.has(user.id) ? 'border-primary bg-primary text-primary-foreground' : 'border-input'}`}>
+                                            {selectedUsers.has(user.id) && (
+                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            )}
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="font-medium text-sm">{user.name}</div>
+                                            <div className="text-xs text-muted-foreground">{user.email}</div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                        
+                        <div className="p-3 border-t flex justify-end gap-2">
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setIsAssignToMenuOpen(false);
+                                    setAssignToSearchTerm("");
+                                    setSelectedUsers(new Set<string>());
+                                }}
+                            >
+                                Cancel
+                            </Button>
+                            <Button onClick={handleAssignTo}>
+                                Assign ({selectedUsers.size} selected)
+                            </Button>
+                        </div>
+                    </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <span className="text-red-600 font-medium">Expense:</span>
-                    <span className="text-red-600 font-bold">{formatNumber(totalExpense)}</span>
-                </div>
-                <div className="flex items-center gap-2 border-l-2 border-border pl-4">
-                    <span className="font-medium">Net:</span>
-                    <span className={`font-bold ${netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {formatNumber(netAmount)}
-                    </span>
-                </div>
-            </div>
+            )}
         </div>
     );
 }
 
 interface TableHeaderProps {
-    searchTerm: string;
-    setSearchTerm: (v: string) => void;
     filter: any;
     setFilter: (v: any) => void;
     sort: any;
     setSort: (v: any) => void;
 }
 
-function renderTableHeader({ searchTerm, setSearchTerm, filter, setFilter, sort, setSort }: TableHeaderProps) {
+function renderTableHeader({ filter, setFilter, sort, setSort }: TableHeaderProps, searchNameTerm: string, setSearchNameTerm: (v: string) => void, searchTagTerm: string, setSearchTagTerm: (v: string) => void, searchAssignedTerm: string, setSearchAssignedTerm: (v: string) => void) {
     return (
         <div className="flex items-center justify-between">
-            <Input
-                placeholder="Search transactions..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="max-w-sm"
-            />
+            <div className="flex gap-2">
+                <Input
+                    placeholder="Name"
+                    value={searchNameTerm}
+                    onChange={(e) => setSearchNameTerm(e.target.value)}
+                    className="h-8 w-24"
+                />
+                <Input
+                    placeholder="Tags"
+                    value={searchTagTerm}
+                    onChange={(e) => setSearchTagTerm(e.target.value)}
+                    className="h-8 w-24"
+                />
+                <Input
+                    placeholder="asgTo"
+                    value={searchAssignedTerm}
+                    onChange={(e) => setSearchAssignedTerm(e.target.value)}
+                    className="h-8 w-24"
+                />
+            </div>
             <div className="flex gap-2">
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -340,10 +452,13 @@ function renderTableHeader({ searchTerm, setSearchTerm, filter, setFilter, sort,
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <button type="button" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background px-3 py-1.5 hover:bg-accent hover:text-accent-foreground h-8 px-3">
-                            Sort: {sort.field === 'createdAt' ? 'Date' : sort.field === 'amount' ? 'Amount' : 'Name'}
+                            Sort: {sort.field === 'none' ? 'None' : sort.field === 'createdAt' ? 'Date' : sort.field === 'amount' ? 'Amount' : 'Name'}
                         </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setSort({ field: 'none', order: 'asc' })}>
+                            None
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => setSort({ field: 'createdAt', order: 'desc' })}>
                             Date (Newest)
                         </DropdownMenuItem>
@@ -404,9 +519,9 @@ function renderTable({ flattenedRows, transactionActualsMap, getUserById, projec
                     <TableHead className="w-[4%] text-center bg-cyan-50">t</TableHead>
                     <TableHead className="text-right w-[7%] bg-cyan-50">Amount</TableHead>
                     <TableHead className="w-[6%] text-right bg-cyan-50">exDate</TableHead>
-                    <TableHead className="w-[7%] bg-cyan-50">asgTo</TableHead>
-                    <TableHead className="w-[22%] border-l-2 border-border bg-cyan-50">actName</TableHead>
-                    <TableHead className="w-[9%] text-right bg-cyan-50">actAmount</TableHead>
+                    <TableHead className="w-[10%] bg-cyan-50">asgTo</TableHead>
+                    <TableHead className="w-[12%] border-l-2 border-border bg-cyan-50">actName</TableHead>
+                    <TableHead className="w-[8%] text-right bg-cyan-50">actAmount</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
