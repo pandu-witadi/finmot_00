@@ -154,7 +154,7 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
                 console.debug("Failed to load users:", userError);
             }
 
-            const projectsMap = new Map(projectsList.map((p: any) => [p.id, p.name]));
+            const projectsMap = new Map(projectsList.map((p: any) => [String(p.id), p.name]));
             
             const actualsWithInfo: ActualWithBudgetInfo[] = actualsData.map((actual: any) => {
                 const budget = budgetsData.find(b => b.id === actual.budget);
@@ -168,8 +168,8 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
                     id: transaction.id,
                     name: transaction.name,
                     amount: transaction.amount,
-                    projectName: projectsMap.get(transaction.project) || '',
-                    project: transaction.project
+                    projectName: projectsMap.get(String(transaction.project)) || '',
+                    project: String(transaction.project)
                 } : undefined;
                 
                 return {
@@ -744,7 +744,7 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
                                                     <div className="flex flex-col">
                                                         <span className="font-medium text-primary">{actual.transaction.name}</span>
                                                         <Link 
-                                                            to={`/projects/${actual.transaction.project}?tab=actuals`}
+                                                            to={`/projects/${actual.transaction.project}?tab=transactions`}
                                                             className="text-xs italic text-muted-foreground hover:underline"
                                                             onClick={(e) => e.stopPropagation()}
                                                         >
