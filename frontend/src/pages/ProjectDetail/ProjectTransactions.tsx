@@ -432,10 +432,9 @@ function renderTableHeader({ filter, setFilter, sort, setSort }: TableHeaderProp
             </div>
             <div className="flex gap-2">
                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <button type="button" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background px-3 py-1.5 hover:bg-accent hover:text-accent-foreground h-8 px-3">
-                            Type: {filter.type ? (filter.type === 'income' ? 'Income' : 'Expense') : 'All'}
-                        </button>
+                    <DropdownMenuTrigger render={<div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background px-3 py-1.5 hover:bg-accent hover:text-accent-foreground h-8 px-3 cursor-pointer">
+                        Type: {filter.type ? (filter.type === 'income' ? 'Income' : 'Expense') : 'All'}
+                    </div>}>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => setFilter({ ...filter, type: undefined })}>
@@ -450,10 +449,9 @@ function renderTableHeader({ filter, setFilter, sort, setSort }: TableHeaderProp
                     </DropdownMenuContent>
                 </DropdownMenu>
                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <button type="button" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background px-3 py-1.5 hover:bg-accent hover:text-accent-foreground h-8 px-3">
-                            Sort: {sort.field === 'none' ? 'None' : sort.field === 'createdAt' ? 'Date' : sort.field === 'amount' ? 'Amount' : 'Name'}
-                        </button>
+                    <DropdownMenuTrigger render={<div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background px-3 py-1.5 hover:bg-accent hover:text-accent-foreground h-8 px-3 cursor-pointer">
+                        Sort: {sort.field === 'none' ? 'None' : sort.field === 'createdAt' ? 'Date' : sort.field === 'amount' ? 'Amount' : 'Name'}
+                    </div>}>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => setSort({ field: 'none', order: 'asc' })}>
