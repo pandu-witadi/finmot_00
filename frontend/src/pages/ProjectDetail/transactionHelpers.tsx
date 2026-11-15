@@ -291,7 +291,7 @@ export function TransactionRow({ transaction, actual, index, transactionActualsM
         
         // AssignedTo cell
         cells.push(
-            <TableCell className="w-[7%] px-2 text-left border-b border-gray-200" key="assigned" rowSpan={hasActuals ? transactionActuals.length : 1}>
+            <TableCell className="w-[10%] px-2 text-left border-b border-gray-200" key="assigned" rowSpan={hasActuals ? transactionActuals.length : 1}>
                 {getUserById(transaction.assignedTo)}
             </TableCell>
         );
@@ -303,10 +303,10 @@ export function TransactionRow({ transaction, actual, index, transactionActualsM
         if (!hasActuals || !actual) {
             return (
                 <>
-                    <TableCell className="w-[22%] border-l-2 border-border text-left border-b border-gray-200" key="act-name">
+                    <TableCell className="w-[12%] border-l-2 border-border text-left border-b border-gray-200" key="act-name">
                         <span className="text-sm text-muted-foreground">—</span>
                     </TableCell>
-                    <TableCell className="w-[9%] text-right border-b border-gray-200" key="act-amount">
+                    <TableCell className="w-[8%] text-right border-b border-gray-200" key="act-amount">
                         <span className="text-sm text-muted-foreground">—</span>
                     </TableCell>
                 </>
@@ -317,7 +317,7 @@ export function TransactionRow({ transaction, actual, index, transactionActualsM
 
         return (
             <>
-                <TableCell className={`w-[22%] text-left ${lastRowClass} border-l-2 border-border`} key="act-name">
+                <TableCell className={`w-[12%] text-left ${lastRowClass} border-l-2 border-border`} key="act-name">
                     <div className="flex flex-col">
                         <span
                             className="font-medium text-primary cursor-pointer"
@@ -346,7 +346,7 @@ export function TransactionRow({ transaction, actual, index, transactionActualsM
                         )}
                     </div>
                 </TableCell>
-                <TableCell className={`w-[9%] text-right ${lastRowClass}`} key="act-amount">
+                <TableCell className={`w-[8%] text-right ${lastRowClass}`} key="act-amount">
                     <span className="text-xs text-muted-foreground">
                         {actual ? formatNumber(actual.actual.amount) : '-'}
                     </span>

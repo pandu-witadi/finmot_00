@@ -23,6 +23,9 @@ import { EditActualForm } from "./types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { formatNumber, getTypeLabel, parseTags } from "@/utils/formatters";
 import { formatDate } from "@/utils/dateFormatters";
+import { filterActualsBySearch, filterActualsByType, sortActualsByDate, calculateTotalAmount } from "./actuals-filters";
+import { filterUsers } from "./actuals-users";
+import { loadTransactionsForProject, resetRegisterToTransactionState } from "./actuals-transactions";
 
 interface ProjectActualsProps {
     projectId: string;
@@ -30,7 +33,7 @@ interface ProjectActualsProps {
     projectName: string;
 }
 
-interface TransactionInfo {
+export interface TransactionInfo {
     id: string;
     name: string;
     amount: number;
@@ -38,7 +41,7 @@ interface TransactionInfo {
     project: string;
 }
 
-interface ActualWithBudgetInfo extends Actual {
+export interface ActualWithBudgetInfo extends Actual {
     headerName: string;
     headerId: string;
     headerOrder: number;
@@ -47,9 +50,10 @@ interface ActualWithBudgetInfo extends Actual {
     assignedTo: string;
     assignedToName: string;
     exDate: Date;
+    tags: string[];
 }
 
-interface User {
+export interface User {
     id: string;
     name: string;
     email: string;
@@ -222,29 +226,15 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
         }
     };
 
-    const filteredActuals = actuals
-        .filter(actual => {
-            const nameMatch = actual.name.toLowerCase().includes(searchNameTerm.toLowerCase());
-            const tagMatch = searchTagTerm === '' || actual.tags.some((tag: string) => tag.toLowerCase().includes(searchTagTerm.toLowerCase()));
-            const headerMatch = searchHeaderTerm === '' || actual.headerName.toLowerCase().includes(searchHeaderTerm.toLowerCase());
-            const assignToMatch = assignToSearchTerm === '' || actual.assignedToName.toLowerCase().includes(assignToSearchTerm.toLowerCase());
-            return nameMatch && tagMatch && headerMatch && assignToMatch;
-        })
-        .filter(actual => filterType === 'all' || actual.budgetType === filterType)
-        .sort((a, b) => {
-            if (sortByDate === 'none') {
-                return 0;
-            }
-            const dateA = new Date(a.exDate).getTime();
-            const dateB = new Date(b.exDate).getTime();
-            return sortByDate === 'asc' ? dateA - dateB : dateB - dateA;
-        });
+    const filteredActuals = sortActualsByDate(
+        filterActualsByType(
+            filterActualsBySearch(actuals, searchNameTerm, searchTagTerm, searchHeaderTerm, assignToSearchTerm),
+            filterType
+        ),
+        sortByDate
+    );
 
-    const selectedTotalAmount = Array.from(selectedActualIds).reduce((sum, id) => {
-        const actual = actuals.find(a => a.id === id);
-        const sign = actual?.budgetType === 'income' ? 1 : -1;
-        return sum + (actual?.amount || 0) * sign;
-    }, 0);
+    const selectedTotalAmount = calculateTotalAmount(actuals, selectedActualIds);
 
     const toggleSelectActual = (actualId: string) => {
         const newSet = new Set(selectedActualIds);
@@ -525,10 +515,7 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
         );
     }
 
-    const filteredUsers = allUsers.filter(user =>
-        user.name.toLowerCase().includes(assignToSearchTerm.toLowerCase()) ||
-        user.email.toLowerCase().includes(assignToSearchTerm.toLowerCase())
-    );
+    const filteredUsers = filterUsers(allUsers, assignToSearchTerm);
 
     return (
         <div className="space-y-6">

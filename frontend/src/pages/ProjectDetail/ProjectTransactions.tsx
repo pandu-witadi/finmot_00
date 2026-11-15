@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useTransactions } from "./useTransactions";
-import { formatNumber } from "@/utils/formatters";
+import { actualApi } from "@/services/api";
+import { formatNumber, getTypeLabel } from "@/utils/formatters";
+import { formatDate } from "@/utils/dateFormatters";
 import { userApi, api } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,10 +16,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { toast } from "react-hot-toast";
-import { UserPlusIcon } from "lucide-react";
+import { PlusIcon, UserPlusIcon } from "lucide-react";
 import { Actual } from "./useActuals";
-import * as txHelpers from "./transactionHelpers.tsx";
-import { TransactionRow } from "./transactionHelpers.tsx";
+import { DndContext, DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface TransactionForm {
     name: string;
@@ -31,6 +35,22 @@ interface TransactionForm {
 interface ProjectTransactionsProps {
     projectId: string;
     projectName: string;
+}
+
+// Transaction Sortable Row
+function TransactionSortableRow({ id, children, disabled }: { id: string; children: React.ReactNode; disabled?: boolean }) {
+    const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id, disabled });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
+    return (
+        <tr ref={setNodeRef} style={style} {...attributes} {...listeners} className={disabled ? '' : 'cursor-move hover:bg-muted/50 border-b border-border'}>
+            {children}
+        </tr>
+    );
 }
 
 export function ProjectTransactions({ projectId, projectName }: ProjectTransactionsProps) {
@@ -53,6 +73,9 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
     const [isAssignToMenuOpen, setIsAssignToMenuOpen] = useState(false);
     const [assignToSearchTerm, setAssignToSearchTerm] = useState("");
     const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set<string>());
+    const [displayOrder, setDisplayOrder] = useState<string[]>([]);
+    const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
+    const [sortByExDate, setSortByExDate] = useState<'none' | 'asc' | 'desc'>('none');
 
     const {
         transactions,
@@ -154,6 +177,18 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
         }
     };
 
+    const filteredTransactions = transactions.filter(t => {
+        const nameMatch = t.name.toLowerCase().includes(searchNameTerm.toLowerCase());
+        const tagMatch = searchTagTerm === '' || t.tags.some(tag => tag.toLowerCase().includes(searchTagTerm.toLowerCase()));
+        const assignedMatch = searchAssignedTerm === '' || getUserById(t.assignedTo).toLowerCase().includes(searchAssignedTerm.toLowerCase());
+        const typeMatch = filterType === 'all' || t.type === filterType;
+        return nameMatch && tagMatch && assignedMatch && typeMatch;
+    });
+
+    const handleTransactionClick = (id: string) => {
+        navigate(`/transactions/${id}`);
+    };
+
     const getUserById = (userId: string | null) => {
         if (!userId || userId === "000000000000000000000000") return "—";
         const user = users.find(u => String(u.id) === String(userId));
@@ -199,28 +234,112 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
         }
     };
 
+    // Map transaction IDs to their actuals
+    // Transaction.arrActual contains actual IDs
+    const actualsMap: {[actualId: string]: Actual} = {};
+    allActuals.forEach(actual => {
+        actualsMap[actual.id] = actual;
+    });
+
+    // Create projects map for lookup
     const projectsMap = new Map(allProjects.map((p: any) => [p.id, p.name]));
 
-    const handleTransactionClick = (id: string) => {
-        navigate(`/transactions/${id}`);
+    // Map actuals with their project names
+    const actualsWithProject: {[actualId: string]: {actual: Actual, projectName: string}} = {};
+    allActuals.forEach(actual => {
+        const projectName = projectsMap.get(actual.project) || '';
+        actualsWithProject[actual.id] = { actual, projectName };
+    });
+
+    const sortedTransactions = [...filteredTransactions].sort((a, b) => {
+        let cmp = 0;
+        // First check exDate sort (user's primary sort)
+        if (sortByExDate !== 'none') {
+            const aDate = a.exDate ? new Date(a.exDate).getTime() : 0;
+            const bDate = b.exDate ? new Date(b.exDate).getTime() : 0;
+            cmp = aDate - bDate;
+            if (sortByExDate === 'desc') cmp = -cmp;
+            if (cmp !== 0) return cmp;
+        }
+        // Then check other fields from the existing sort
+        if (sort.field === 'name') {
+            cmp = a.name.localeCompare(b.name);
+        } else if (sort.field === 'amount') {
+            cmp = a.amount - b.amount;
+        } else if (sort.field === 'createdAt') {
+            cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        }
+        return sort.order === 'asc' ? cmp : -cmp;
+    });
+
+    // Create a map of transaction ID -> array of actuals with project names
+    const transactionActualsMap: {[transactionId: string]: {actual: Actual, projectName: string}[]} = {};
+    sortedTransactions.forEach(transaction => {
+        // Deduplicate actual IDs first
+        const uniqueActualIds = Array.from(new Set(transaction.arrActual || []));
+        const transactionActuals = uniqueActualIds.map(actualId => actualsWithProject[actualId]).filter(a => a !== undefined) as {actual: Actual, projectName: string}[];
+        if (transactionActuals.length > 0) {
+            transactionActualsMap[transaction.id] = transactionActuals;
+        }
+    });
+
+    // Get transaction IDs in order (for sortable context)
+    const transactionIds = sortedTransactions.map(t => t.id);
+
+    // Use displayOrder if available, otherwise use default transaction order
+    const order = displayOrder.length > 0 ? displayOrder : transactionIds;
+    const orderedTransactions = order.map(id => {
+        return sortedTransactions.find(t => t.id === id);
+    }).filter((t): t is any => t !== undefined);
+
+    const toggleSelectTransaction = (transactionId: string) => {
+        const newSet = new Set(selectedTransactionIds);
+        newSet.has(transactionId) ? newSet.delete(transactionId) : newSet.add(transactionId);
+        // Toggle transaction selection
+        setSelectedTransactionIds(newSet);
     };
 
-    const sortedTransactions = txHelpers.sortTransactions(
-        txHelpers.filterTransactions(
-            transactions,
-            searchNameTerm,
-            searchTagTerm,
-            searchAssignedTerm,
-            users
-        ),
-        (sort.field as 'exDate' | 'none') || 'none',
-        (sort.order as 'asc' | 'desc' | 'none') || 'asc'
-    );
+    
 
-    const transactionActualsMap = txHelpers.mapActualsToTransactions(sortedTransactions, allActuals, projectsMap);
+    const toggleSelectAll = () => {
+        if (selectedTransactionIds.size === orderedTransactions.length) {
+            setSelectedTransactionIds(new Set<string>());
+        } else {
+            setSelectedTransactionIds(new Set(orderedTransactions.map(t => t.id)));
+        }
+    };
 
-    const { totalIncome, totalExpense } = txHelpers.calculateTransactionTotals(transactions);
-    const selectedTotalAmount = txHelpers.calculateSelectedTotal(selectedTransactionIds, transactions);
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (!over) return;
+
+        const activeId = active.id as string;
+        const overId = over.id as string;
+
+        if (activeId !== overId) {
+            const oldIndex = order.indexOf(activeId);
+            const newIndex = order.indexOf(overId);
+
+            const newOrder = arrayMove(order, oldIndex, newIndex);
+            setDisplayOrder(newOrder);
+        }
+    };
+
+    const handleSavePositions = () => {
+        // Save current display order
+        setDisplayOrder(orderedTransactions.map(t => t.id));
+        toast.success("Transaction positions saved");
+    };
+
+    const totalIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+    const totalExpense = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+    const netAmount = totalIncome - totalExpense;
+
+    const selectedTotalAmount = Array.from(selectedTransactionIds).reduce((sum, id) => {
+        const transaction = transactions.find(t => t.id === id);
+        const sign = transaction?.type === 'income' ? 1 : -1;
+        return sum + (transaction?.amount || 0) * sign;
+    }, 0);
 
     if (isLoading) {
         return (
@@ -230,8 +349,6 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
         );
     }
 
-    const flattenedRows = txHelpers.flattenTransactionsWithActuals(sortedTransactions, transactionActualsMap);
-
     return (
         <div className="space-y-6">
             <Card>
@@ -239,7 +356,7 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
                     <div className="flex items-center justify-between">
                         {selectedTransactionIds.size > 0 && (
                             <DropdownMenu>
-                                <DropdownMenuTrigger>
+                                <DropdownMenuTrigger asChild={true}>
                                     <Button variant="destructive" className="h-8 px-2 text-xs">
                                         ({selectedTransactionIds.size}) sel
                                     </Button>
@@ -260,8 +377,76 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         )}
-                        <div className={selectedTransactionIds.size > 0 ? "hidden" : ""}>
-                            {renderTableHeader({ filter, setFilter, sort, setSort }, searchNameTerm, setSearchNameTerm, searchTagTerm, setSearchTagTerm, searchAssignedTerm, setSearchAssignedTerm)}
+                        <div className="flex flex-wrap items-center gap-4">
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={handleSavePositions}
+                                    title="Save transaction positions"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-save">
+                                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                                        <path d="M17 21v-8H7v8" />
+                                    </svg>
+                                </Button>
+                                <Input
+                                    placeholder="Name"
+                                    value={searchNameTerm}
+                                    onChange={(e) => setSearchNameTerm(e.target.value)}
+                                    className="h-8 w-24"
+                                />
+                                <Input
+                                    placeholder="Tags"
+                                    value={searchTagTerm}
+                                    onChange={(e) => setSearchTagTerm(e.target.value)}
+                                    className="h-8 w-24"
+                                />
+                                <Input
+                                    placeholder="asgTo"
+                                    value={searchAssignedTerm}
+                                    onChange={(e) => setSearchAssignedTerm(e.target.value)}
+                                    className="h-8 w-24"
+                                />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild={true}>
+                                        <div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background px-3 py-1.5 hover:bg-accent hover:text-accent-foreground h-8 px-3 cursor-pointer">
+                                            Type: {filterType === 'all' ? 'All' : filterType === 'income' ? 'Income' : 'Expense'}
+                                        </div>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => setFilterType('all')}>
+                                            All Types
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setFilterType('income')}>
+                                            Income
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setFilterType('expense')}>
+                                            Expense
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild={true}>
+                                        <div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background px-3 py-1.5 hover:bg-accent hover:text-accent-foreground h-8 px-3 cursor-pointer">
+                                            Sort: {sortByExDate === 'none' ? 'None' : sortByExDate === 'asc' ? 'Oldest' : 'Newest'}
+                                        </div>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => setSortByExDate('none')}>
+                                            None
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setSortByExDate('asc')}>
+                                            Oldest
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setSortByExDate('desc')}>
+                                            Newest
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
                         </div>
                         <div className="text-right">
                             <div className="text-xs font-medium">
@@ -271,98 +456,104 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
                     </div>
                 </CardHeader>
                 <CardContent>
-                    {renderTable({ flattenedRows, transactionActualsMap, getUserById, projectName, selectedTransactionIds, setSelectedTransactionIds, onTransactionClick: handleTransactionClick })}
+                    <DndContext onDragEnd={handleDragEnd}>
+                        <SortableContext items={order} strategy={verticalListSortingStrategy}>
+                            {renderTable({ orderedTransactions, transactionActualsMap, getUserById, selectedTransactionIds, setSelectedTransactionIds, onTransactionClick: handleTransactionClick, toggleSelectTransaction, toggleSelectAll })}
+                        </SortableContext>
+                    </DndContext>
                 </CardContent>
             </Card>
             
             {isAssignToMenuOpen && (
-                <AssignToMenu
-                    users={users}
-                    selectedTransactionIds={selectedTransactionIds}
-                    selectedUsers={selectedUsers}
-                    setSelectedUsers={setSelectedUsers}
-                    assignToSearchTerm={assignToSearchTerm}
-                    setAssignToSearchTerm={setAssignToSearchTerm}
-                    setIsAssignToMenuOpen={setIsAssignToMenuOpen}
-                    handleAssignTo={handleAssignTo}
-                />
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                    <div className="bg-background rounded-lg shadow-lg w-[400px] max-h-[80vh] flex flex-col">
+                        <div className="p-4 border-b">
+                            <h3 className="text-lg font-semibold">Assign to User</h3>
+                            <p className="text-sm text-muted-foreground">Select users for {selectedTransactionIds.size} transaction(s)</p>
+                        </div>
+                        
+                        <div className="p-3 border-b">
+                            <Input
+                                placeholder="Search users..."
+                                value={assignToSearchTerm}
+                                onChange={(e) => setAssignToSearchTerm(e.target.value)}
+                                className="h-8"
+                            />
+                        </div>
+                        
+                        <div className="flex-1 overflow-auto p-2 space-y-1">
+                            {users.length === 0 ? (
+                                <div className="flex items-center justify-center h-32">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                                </div>
+                            ) : (
+                                users.filter(user => 
+                                    user.name.toLowerCase().includes(assignToSearchTerm.toLowerCase()) ||
+                                    user.email.toLowerCase().includes(assignToSearchTerm.toLowerCase())
+                                ).map(user => (
+                                    <div
+                                        key={user.id}
+                                        onClick={() => {
+                                            const newSet = new Set(selectedUsers);
+                                            newSet.has(user.id) ? newSet.delete(user.id) : newSet.add(user.id);
+                                            setSelectedUsers(newSet);
+                                        }}
+                                        className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-accent ${selectedUsers.has(user.id) ? 'bg-accent' : ''}`}
+                                    >
+                                        <div className={`w-4 h-4 border rounded flex items-center justify-center ${selectedUsers.has(user.id) ? 'border-primary bg-primary text-primary-foreground' : 'border-input'}`}>
+                                            {selectedUsers.has(user.id) && (
+                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            )}
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="font-medium text-sm">{user.name}</div>
+                                            <div className="text-xs text-muted-foreground">{user.email}</div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                        
+                        <div className="p-3 border-t flex justify-end gap-2">
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setIsAssignToMenuOpen(false);
+                                    setAssignToSearchTerm("");
+                                    setSelectedUsers(new Set<string>());
+                                }}
+                            >
+                                Cancel
+                            </Button>
+                            <Button onClick={handleAssignTo}>
+                                Assign ({selectedUsers.size} selected)
+                            </Button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
 }
 
-// ============== Helper Components ==============
-
-function renderTableHeader({ filter, setFilter, sort, setSort }: { filter: any; setFilter: (v: any) => void; sort: any; setSort: (v: any) => void }, searchNameTerm: string, setSearchNameTerm: (v: string) => void, searchTagTerm: string, setSearchTagTerm: (v: string) => void, searchAssignedTerm: string, setSearchAssignedTerm: (v: string) => void) {
-    return (
-        <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-                <Input
-                    placeholder="Name"
-                    value={searchNameTerm}
-                    onChange={(e) => setSearchNameTerm(e.target.value)}
-                    className="h-8 w-24"
-                />
-                <Input
-                    placeholder="Tags"
-                    value={searchTagTerm}
-                    onChange={(e) => setSearchTagTerm(e.target.value)}
-                    className="h-8 w-24"
-                />
-                <Input
-                    placeholder="asgTo"
-                    value={searchAssignedTerm}
-                    onChange={(e) => setSearchAssignedTerm(e.target.value)}
-                    className="h-8 w-24"
-                />
-            </div>
-            <div className="flex items-center gap-2">
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild={true}>
-                        <div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background px-3 py-1.5 hover:bg-accent hover:text-accent-foreground h-8 px-3 cursor-pointer">
-                            Type: {filter.type ? (filter.type === 'income' ? 'Income' : 'Expense') : 'All'}
-                        </div>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setFilter({ ...filter, type: undefined })}>
-                            All Types
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setFilter({ ...filter, type: 'income' })}>
-                            Income
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setFilter({ ...filter, type: 'expense' })}>
-                            Expense
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild={true}>
-                        <div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background px-3 py-1.5 hover:bg-accent hover:text-accent-foreground h-8 px-3 cursor-pointer">
-                            Sort: {sort.field === 'none' ? 'None' : sort.field === 'exDate' ? 'Date' : 'Name'}
-                        </div>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setSort({ field: 'none', order: 'asc' })}>
-                            None
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setSort({ field: 'exDate', order: 'desc' })}>
-                            Newest
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setSort({ field: 'exDate', order: 'asc' })}>
-                            Oldest
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            </div>
-        </div>
-    );
+interface TableProps {
+    orderedTransactions: any[];
+    transactionActualsMap: {[transactionId: string]: {actual: Actual, projectName: string}[]};
+    getUserById: (userId: string) => string;
+    selectedTransactionIds: Set<string>;
+    setSelectedTransactionIds: React.Dispatch<React.SetStateAction<Set<string>>>;
+    onTransactionClick: (id: string) => void;
+    toggleSelectTransaction: (transactionId: string) => void;
+    toggleSelectAll: () => void;
 }
 
-function renderTable({ flattenedRows, transactionActualsMap, getUserById, projectName, selectedTransactionIds, setSelectedTransactionIds, onTransactionClick }: txHelpers.TableProps) {
-    const allSelected = flattenedRows.length > 0 && flattenedRows.every(r => selectedTransactionIds.has(r.transaction.id));
+function renderTable({ orderedTransactions, transactionActualsMap, getUserById, selectedTransactionIds, setSelectedTransactionIds, onTransactionClick, toggleSelectTransaction, toggleSelectAll }: TableProps) {
+    const allSelected = orderedTransactions.length > 0 && selectedTransactionIds.size === orderedTransactions.length;
 
     return (
-        <Table>
+        <Table className="table-fixed">
             <TableHeader>
                 <TableRow>
                     <TableHead className="w-[5%] bg-cyan-50">
@@ -371,14 +562,7 @@ function renderTable({ flattenedRows, transactionActualsMap, getUserById, projec
                             className="h-4 w-4 accent-primary"
                             checked={allSelected}
                             onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => {
-                                e.stopPropagation();
-                                if (allSelected) {
-                                    setSelectedTransactionIds(new Set<string>());
-                                } else {
-                                    setSelectedTransactionIds(new Set(flattenedRows.map(r => r.transaction.id)));
-                                }
-                            }}
+                            onChange={toggleSelectAll}
                         />
                     </TableHead>
                     <TableHead className="w-[22%] bg-cyan-50">Name</TableHead>
@@ -392,122 +576,258 @@ function renderTable({ flattenedRows, transactionActualsMap, getUserById, projec
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {flattenedRows.length === 0 ? (
+                {orderedTransactions.length === 0 ? (
                     <TableRow>
                         <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                             No transactions found
                         </TableCell>
                     </TableRow>
                 ) : (
-                    flattenedRows.map((row) => (
-                        <TransactionRow 
-                            key={row.actual ? `${row.transaction.id}-actual-${row.index}` : row.transaction.id} 
-                            transaction={row.transaction} 
-                            actual={row.actual}
-                            index={row.index}
-                            transactionActualsMap={transactionActualsMap}
-                            getUserById={getUserById}
-                            isSelected={selectedTransactionIds.has(row.transaction.id)}
-                            onToggle={() => {
-                                const newSet = new Set(selectedTransactionIds);
-                                if (newSet.has(row.transaction.id)) {
-                                    newSet.delete(row.transaction.id);
-                                } else {
-                                    newSet.add(row.transaction.id);
-                                }
-                                setSelectedTransactionIds(newSet);
-                            }}
-                            onNameClick={(e) => {
-                                e.stopPropagation();
-                                onTransactionClick(row.transaction.id);
-                            }}
-                        />
-                    ))
+                    orderedTransactions.flatMap((transaction) => {
+                        const transactionActuals = transactionActualsMap[transaction.id] || [];
+                        if (transactionActuals.length === 0) {
+                            return renderTransactionRow(transaction, null, 0, toggleSelectTransaction);
+                        }
+                        return transactionActuals.map((actualWithProject, index) => renderTransactionRow(transaction, actualWithProject, index, toggleSelectTransaction));
+                    })
                 )}
             </TableBody>
         </Table>
     );
-}
 
-interface AssignToMenuProps {
-    users: { id: string; name: string; email: string }[];
-    selectedTransactionIds: Set<string>;
-    selectedUsers: Set<string>;
-    setSelectedUsers: React.Dispatch<React.SetStateAction<Set<string>>>;
-    assignToSearchTerm: string;
-    setAssignToSearchTerm: (v: string) => void;
-    setIsAssignToMenuOpen: (v: boolean) => void;
-    handleAssignTo: () => void;
-}
+    function renderTransactionRow(transaction: any, actual: {actual: Actual, projectName: string} | null, index: number, toggleSelectTransaction: (id: string) => void) {
+        const transactionActuals = transactionActualsMap[transaction.id] || [];
+        const isDraggable = index === 0;
+        const rowKey = index === 0 ? transaction.id : actual?.actual.id || transaction.id;
+        const hasActuals = transactionActuals.length > 0;
+        const rowSpan = hasActuals ? transactionActuals.length : 1;
+        const isSelected = selectedTransactionIds.has(transaction.id);
 
-function AssignToMenu({ users, selectedTransactionIds, selectedUsers, setSelectedUsers, assignToSearchTerm, setAssignToSearchTerm, setIsAssignToMenuOpen, handleAssignTo }: AssignToMenuProps) {
-    const filteredUsers = users.filter(user =>
-        user.name.toLowerCase().includes(assignToSearchTerm.toLowerCase()) ||
-        user.email.toLowerCase().includes(assignToSearchTerm.toLowerCase())
-    );
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="bg-background rounded-lg shadow-lg w-[400px] max-h-[80vh] flex flex-col">
-                <div className="p-4 border-b">
-                    <h3 className="text-lg font-semibold">Assign to User</h3>
-                    <p className="text-sm text-muted-foreground">Select users for {selectedTransactionIds.size} transaction(s)</p>
-                </div>
-                
-                <div className="p-3 border-b">
-                    <Input
-                        placeholder="Search users..."
-                        value={assignToSearchTerm}
-                        onChange={(e) => setAssignToSearchTerm(e.target.value)}
-                        className="h-8"
+        const sharedCells = (
+            <>
+                <TableCell className="w-[5%] px-2 text-left" rowSpan={rowSpan}>
+                    <input
+                        type="checkbox"
+                        className="h-4 w-4 accent-primary"
+                        checked={selectedTransactionIds.has(transaction.id)}
+                        onPointerDown={(e) => {
+                            e.stopPropagation();
+                            toggleSelectTransaction(transaction.id);
+                        }}
+                        onChange={() => {}}
                     />
-                </div>
-                
-                <div className="flex-1 overflow-auto p-2 space-y-1">
-                    {users.length === 0 ? (
-                        <div className="flex items-center justify-center h-32">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </TableCell>
+                <TableCell className="w-[22%] px-2 text-left border-b border-gray-200" rowSpan={rowSpan}>
+                    <div className="flex items-center gap-2">
+                        <span
+                            className="cursor-pointer hover:underline font-medium"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onTransactionClick(transaction.id);
+                            }}
+                            onPointerDown={(e) => {
+                                e.stopPropagation();
+                            }}
+                        >
+                            {transaction.name}
+                        </span>
+                    </div>
+                </TableCell>
+                <TableCell className="w-[8%] px-2 text-left border-b border-gray-200" rowSpan={rowSpan}>
+                    {transaction.tags.length > 0 ? (
+                        <div className="flex flex-col gap-0.5">
+                            {transaction.tags.map((tag: string, idx: number) => (
+                                <span key={idx} className="text-xs">
+                                    {tag}
+                                </span>
+                            ))}
                         </div>
                     ) : (
-                        filteredUsers.map(user => (
-                            <div
-                                key={user.id}
-                                onClick={() => {
-                                    const newSet = new Set(selectedUsers);
-                                    newSet.has(user.id) ? newSet.delete(user.id) : newSet.add(user.id);
-                                    setSelectedUsers(newSet);
-                                }}
-                                className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-accent ${selectedUsers.has(user.id) ? 'bg-accent' : ''}`}
-                            >
-                                <div className={`w-4 h-4 border rounded flex items-center justify-center ${selectedUsers.has(user.id) ? 'border-primary bg-primary text-primary-foreground' : 'border-input'}`}>
-                                    {selectedUsers.has(user.id) && (
-                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                        </svg>
-                                    )}
-                                </div>
-                                <div className="flex-1">
-                                    <div className="font-medium text-sm">{user.name}</div>
-                                    <div className="text-xs text-muted-foreground">{user.email}</div>
-                                </div>
-                            </div>
-                        ))
+                        <span className="text-sm text-muted-foreground">—</span>
                     )}
+                </TableCell>
+                <TableCell className="w-[4%] px-2 text-center border-b border-gray-200" rowSpan={rowSpan}>
+                    <span className={`text-xs px-2 py-0.5 rounded ${
+                        transaction.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    }`}>
+                        {getTypeLabel(transaction.type)}
+                    </span>
+                </TableCell>
+                <TableCell className="w-[7%] text-right border-b border-gray-200" rowSpan={rowSpan}>
+                    <span className="text-xs">
+                        {formatNumber(transaction.amount)}
+                    </span>
+                </TableCell>
+                <TableCell className="w-[6%] px-2 text-right border-b border-gray-200" rowSpan={rowSpan}>
+                    {transaction.exDate ? <span className="text-xs">{formatDate(transaction.exDate)}</span> : '—'}
+                </TableCell>
+                <TableCell className="w-[10%] px-2 text-left border-b border-gray-200" rowSpan={rowSpan}>
+                    {getUserById(transaction.assignedTo)}
+                </TableCell>
+            </>
+        );
+
+        const lastRowClass = index === transactionActuals.length - 1 ? "border-b border-gray-200" : "";
+
+        if (!hasActuals || !actual) {
+            return (
+                <TransactionSortableRow key={rowKey} id={rowKey} disabled={false}>
+                    {sharedCells}
+                    <TableCell className="w-[12%] border-l-2 border-border text-left border-b border-gray-200">
+                        <span className="text-sm text-muted-foreground">—</span>
+                    </TableCell>
+                    <TableCell className="w-[8%] text-right border-b border-gray-200">
+                        <span className="text-sm text-muted-foreground">—</span>
+                    </TableCell>
+                </TransactionSortableRow>
+            );
+        }
+
+        return (
+            <TransactionSortableRow key={rowKey} id={rowKey} disabled={!isDraggable}>
+                {index === 0 && sharedCells}
+                <TableCell className={`w-[12%] text-left ${lastRowClass} border-l-2 border-border`}>
+                    <div className="flex flex-col">
+                        <span
+                            className="font-medium text-primary cursor-pointer"
+                            title={actual?.actual.name}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                            }}
+                            onPointerDown={(e) => {
+                                e.stopPropagation();
+                            }}
+                        >
+                            {actual?.actual.name}
+                        </span>
+                        {actual?.projectName && actual?.actual.project ? (
+                            <Link
+                                to={`/projects/${actual.actual.project}?tab=actuals`}
+                                className="text-xs italic text-muted-foreground hover:underline"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                {actual.projectName}
+                            </Link>
+                        ) : (
+                            <span className="text-xs italic text-muted-foreground">
+                                {actual?.projectName || ''}
+                            </span>
+                        )}
+                    </div>
+                </TableCell>
+                <TableCell className={`w-[8%] text-right ${lastRowClass}`}>
+                    <span className="text-xs text-muted-foreground">
+                        {actual ? formatNumber(actual.actual.amount) : '-'}
+                    </span>
+                </TableCell>
+            </TransactionSortableRow>
+        );
+    }
+}
+
+interface AddTransactionDialogProps {
+    form: TransactionForm;
+    setForm: (v: TransactionForm) => void;
+    handleAddTransaction: () => void;
+    setIsAddDialogOpen: (v: boolean) => void;
+}
+
+function renderAddTransactionDialog({ form, setForm, handleAddTransaction, setIsAddDialogOpen }: AddTransactionDialogProps) {
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="bg-background rounded-lg shadow-lg w-[500px] max-h-[90vh] flex flex-col">
+                <div className="p-4 border-b">
+                    <h3 className="text-lg font-semibold">Add Transaction</h3>
+                    <p className="text-sm text-muted-foreground">Create a new transaction for this project</p>
                 </div>
                 
-                <div className="p-3 border-t flex justify-end gap-2">
+                <div className="flex-1 overflow-auto p-4 space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Name *</label>
+                        <Input
+                            value={form.name}
+                            onChange={(e) => setForm({ ...form, name: e.target.value })}
+                            placeholder="Transaction name"
+                            className="h-9"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Type *</label>
+                        <div className="flex gap-2">
+                            <Button
+                                type="button"
+                                variant={form.type === 'income' ? 'default' : 'outline'}
+                                onClick={() => setForm({ ...form, type: 'income' })}
+                                className="flex-1"
+                            >
+                                Income
+                            </Button>
+                            <Button
+                                type="button"
+                                variant={form.type === 'expense' ? 'default' : 'outline'}
+                                onClick={() => setForm({ ...form, type: 'expense' })}
+                                className="flex-1"
+                            >
+                                Expense
+                            </Button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Amount *</label>
+                        <Input
+                            type="number"
+                            value={form.amount || ''}
+                            onChange={(e) => setForm({ ...form, amount: parseFloat(e.target.value) || 0 })}
+                            placeholder="0.00"
+                            className="h-9"
+                            min="0"
+                            step="0.01"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Tags</label>
+                        <Input
+                            value={form.tags}
+                            onChange={(e) => setForm({ ...form, tags: e.target.value })}
+                            placeholder="comma,separated,tags"
+                            className="h-9"
+                        />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="checkbox"
+                            id="active"
+                            checked={form.active}
+                            onChange={(e) => setForm({ ...form, active: e.target.checked })}
+                            className="h-4 w-4 accent-primary"
+                        />
+                        <label htmlFor="active" className="text-sm font-medium">Active</label>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Date *</label>
+                        <Input
+                            type="date"
+                            value={form.exDate.toISOString().split('T')[0]}
+                            onChange={(e) => setForm({ ...form, exDate: new Date(e.target.value) })}
+                            className="h-9"
+                        />
+                    </div>
+                </div>
+                
+                <div className="p-4 border-t flex justify-end gap-2">
                     <Button
                         variant="outline"
-                        onClick={() => {
-                            setIsAssignToMenuOpen(false);
-                            setAssignToSearchTerm("");
-                            setSelectedUsers(new Set<string>());
-                        }}
+                        onClick={() => setIsAddDialogOpen(false)}
                     >
                         Cancel
                     </Button>
-                    <Button onClick={handleAssignTo}>
-                        Assign ({selectedUsers.size} selected)
+                    <Button onClick={handleAddTransaction}>
+                        Create Transaction
                     </Button>
                 </div>
             </div>
