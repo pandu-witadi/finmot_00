@@ -103,4 +103,5 @@ export const transactionApi = {
     create: (data: any) => api.post(`/transaction`, data),
     update: (id: string, data: any) => api.put(`/transaction/${id}`, data),
     delete: (id: string) => api.delete(`/transaction/${id}`),
+    updateBulkPosition: (projectId: string, positions: string[]) => api.put(`/transaction/bulk-position`, { projectId, positions }),
 };

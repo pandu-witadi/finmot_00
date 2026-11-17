@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTransactions } from "./useTransactions";
-import { actualApi } from "@/services/api";
+import { transactionApi } from "@/services/api";
 import { formatNumber, getTypeLabel } from "@/utils/formatters";
 import { formatDate } from "@/utils/dateFormatters";
 import { userApi, api } from "@/services/api";
@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { toast } from "react-hot-toast";
-import { PlusIcon, UserPlusIcon } from "lucide-react";
 import { Actual } from "./useActuals";
 import { DndContext, DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -53,7 +52,7 @@ function TransactionSortableRow({ id, children, disabled }: { id: string; childr
     );
 }
 
-export function ProjectTransactions({ projectId, projectName }: ProjectTransactionsProps) {
+export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
     const navigate = useNavigate();
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [form, setForm] = useState<TransactionForm>({
@@ -80,10 +79,6 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
     const {
         transactions,
         isLoading,
-        filter,
-        setFilter,
-        sort,
-        setSort,
         createTransaction,
         updateTransaction,
         deleteTransaction,
@@ -195,18 +190,6 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
         return user ? user.name : "Unknown";
     };
 
-    const loadUsers = async () => {
-        if (users.length > 0) return;
-        try {
-            const res = await userApi.getAll();
-            if (Array.isArray(res.data)) {
-                setUsers(res.data);
-            }
-        } catch (error: any) {
-            toast.error("Failed to load users");
-        }
-    };
-
     const handleAssignTo = async () => {
         if (selectedTransactionIds.size === 0) return;
 
@@ -235,7 +218,6 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
     };
 
     // Map transaction IDs to their actuals
-    // Transaction.arrActual contains actual IDs
     const actualsMap: {[actualId: string]: Actual} = {};
     allActuals.forEach(actual => {
         actualsMap[actual.id] = actual;
@@ -253,7 +235,6 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
 
     const sortedTransactions = [...filteredTransactions].sort((a, b) => {
         let cmp = 0;
-        // First check exDate sort (user's primary sort)
         if (sortByExDate !== 'none') {
             const aDate = a.exDate ? new Date(a.exDate).getTime() : 0;
             const bDate = b.exDate ? new Date(b.exDate).getTime() : 0;
@@ -261,21 +242,11 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
             if (sortByExDate === 'desc') cmp = -cmp;
             if (cmp !== 0) return cmp;
         }
-        // Then check other fields from the existing sort
-        if (sort.field === 'name') {
-            cmp = a.name.localeCompare(b.name);
-        } else if (sort.field === 'amount') {
-            cmp = a.amount - b.amount;
-        } else if (sort.field === 'createdAt') {
-            cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-        }
-        return sort.order === 'asc' ? cmp : -cmp;
+        return 0;
     });
 
-    // Create a map of transaction ID -> array of actuals with project names
     const transactionActualsMap: {[transactionId: string]: {actual: Actual, projectName: string}[]} = {};
     sortedTransactions.forEach(transaction => {
-        // Deduplicate actual IDs first
         const uniqueActualIds = Array.from(new Set(transaction.arrActual || []));
         const transactionActuals = uniqueActualIds.map(actualId => actualsWithProject[actualId]).filter(a => a !== undefined) as {actual: Actual, projectName: string}[];
         if (transactionActuals.length > 0) {
@@ -284,22 +255,29 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
     });
 
     // Get transaction IDs in order (for sortable context)
-    const transactionIds = sortedTransactions.map(t => t.id);
-
-    // Use displayOrder if available, otherwise use default transaction order
-    const order = displayOrder.length > 0 ? displayOrder : transactionIds;
+    // Use transactions (sorted by position from backend) when displayOrder is empty
+    // When displayOrder is populated (after drag), use that order
+    // Use filtered transactions to respect current filters
+    const filteredTransactionIds = filteredTransactions.map(t => t.id);
+    
+    // Full order: displayOrder if populated (from drag), otherwise backend order
+    const positionBasedOrder = displayOrder.length > 0 
+        ? displayOrder 
+        : transactions.map(t => t.id);
+    
+    // Filter to only include visible (filtered) transactions for rendering
+    const order = positionBasedOrder.filter(id => filteredTransactionIds.includes(id));
     const orderedTransactions = order.map(id => {
-        return sortedTransactions.find(t => t.id === id);
+        const t = transactions.find(tx => tx.id === id);
+        if (t) return t;
+        return sortedTransactions.find(tx => tx.id === id);
     }).filter((t): t is any => t !== undefined);
 
     const toggleSelectTransaction = (transactionId: string) => {
         const newSet = new Set(selectedTransactionIds);
         newSet.has(transactionId) ? newSet.delete(transactionId) : newSet.add(transactionId);
-        // Toggle transaction selection
         setSelectedTransactionIds(newSet);
     };
-
-    
 
     const toggleSelectAll = () => {
         if (selectedTransactionIds.size === orderedTransactions.length) {
@@ -309,7 +287,27 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
         }
     };
 
+    // Get the full order (all transactions, not filtered)
+    // This is used for drag operations and saving positions
+    // Only use displayOrder if no filters/sort are active
+    const hasActiveFilters = filteredTransactions.length !== transactions.length;
+    const hasActiveSort = sortByExDate !== 'none';
+    const canDrag = !hasActiveFilters && !hasActiveSort;
+    
+    const fullOrder = canDrag && displayOrder.length > 0 
+        ? displayOrder 
+        : transactions.map(t => t.id);
+    
+    // Filter fullOrder to only include visible transactions
+    const visibleOrder = fullOrder.filter(id => filteredTransactionIds.includes(id));
+
     const handleDragEnd = (event: DragEndEvent) => {
+        // Only allow dragging when no filters/sort are active
+        if (!canDrag) {
+            console.log('Drag disabled - canDrag:', canDrag, 'filters:', filteredTransactions.length, 'transactions:', transactions.length, 'sort:', sortByExDate);
+            return;
+        }
+
         const { active, over } = event;
         if (!over) return;
 
@@ -317,23 +315,70 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
         const overId = over.id as string;
 
         if (activeId !== overId) {
-            const oldIndex = order.indexOf(activeId);
-            const newIndex = order.indexOf(overId);
+            console.log('Drag:', { activeId, overId, oldIndex: visibleOrder.indexOf(activeId), newIndex: visibleOrder.indexOf(overId), visibleOrder, fullOrder });
+            // Get positions in visibleOrder (what user sees)
+            const oldIndex = visibleOrder.indexOf(activeId);
+            const newIndex = visibleOrder.indexOf(overId);
 
-            const newOrder = arrayMove(order, oldIndex, newIndex);
-            setDisplayOrder(newOrder);
+            // Compute new visible order after drag
+            const newVisibleOrder = arrayMove(visibleOrder, oldIndex, newIndex);
+            const visibleSet = new Set(newVisibleOrder);
+            
+            // Build new full order by:
+            // 1. Finding positions of non-visible transactions in fullOrder
+            // 2. Inserting visible transactions from newVisibleOrder at those positions
+            const nonVisibleMap = new Map<number, string>();
+            
+            // Create a map of original index -> id for non-visible transactions
+            for (let i = 0; i < fullOrder.length; i++) {
+                if (!visibleSet.has(fullOrder[i])) {
+                    nonVisibleMap.set(i, fullOrder[i]);
+                }
+            }
+            
+            // Build result: iterate through fullOrder positions
+            // - If position has a non-visible transaction, insert it
+            // - Otherwise, insert next visible transaction from newVisibleOrder
+            const result: string[] = [];
+            let visiblePos = 0;
+            
+            for (let i = 0; i < fullOrder.length; i++) {
+                if (nonVisibleMap.has(i)) {
+                    // Insert non-visible transaction at its original position
+                    result.push(nonVisibleMap.get(i)!);
+                } else {
+                    // Insert next visible transaction from newVisibleOrder
+                    if (visiblePos < newVisibleOrder.length) {
+                        result.push(newVisibleOrder[visiblePos]);
+                        visiblePos++;
+                    }
+                }
+            }
+            
+            console.log('New order:', result);
+            setDisplayOrder(result);
         }
     };
 
-    const handleSavePositions = () => {
-        // Save current display order
-        setDisplayOrder(orderedTransactions.map(t => t.id));
-        toast.success("Transaction positions saved");
+    const handleSavePositions = async () => {
+        // Only allow saving positions when no filters/sort are active
+        console.log('Save positions:', { displayOrder, canDrag, filteredTransactions: filteredTransactions.length, transactions: transactions.length });
+        
+        if (!canDrag) {
+            toast.error("Please clear all filters/sort before saving positions");
+            return;
+        }
+        
+        try {
+            // Save displayOrder directly - it should contain all transactions
+            // (either set by drag, or defaults to all transaction IDs from backend)
+            await transactionApi.updateBulkPosition(projectId, displayOrder);
+            toast.success("Transaction positions saved");
+        } catch (error: any) {
+            console.error("Failed to save transaction positions:", error);
+            toast.error(error?.response?.data?.error || "Failed to save transaction positions");
+        }
     };
-
-    const totalIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-    const totalExpense = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
-    const netAmount = totalIncome - totalExpense;
 
     const selectedTotalAmount = Array.from(selectedTransactionIds).reduce((sum, id) => {
         const transaction = transactions.find(t => t.id === id);
@@ -367,10 +412,25 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => {
                                         setIsAssignToMenuOpen(true);
+                                        const loadUsers = async () => {
+                                            try {
+                                                const res = await userApi.getAll();
+                                                if (Array.isArray(res.data)) {
+                                                    setUsers(res.data);
+                                                }
+                                            } catch (error: any) {
+                                                toast.error("Failed to load users");
+                                            }
+                                        };
                                         loadUsers();
                                     }}>
                                         <div className="flex items-center gap-2">
-                                            <UserPlusIcon className="w-4 h-4" />
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-user-plus">
+                                                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                                                <circle cx="9" cy="7" r="4"/>
+                                                <line x1="19" x2="19" y1="8" y2="14"/>
+                                                <line x1="22" x2="16" y1="11" y2="11"/>
+                                            </svg>
                                             <span>Assign to User</span>
                                         </div>
                                     </DropdownMenuItem>
@@ -386,7 +446,7 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
                                     title="Save transaction positions"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-save">
-                                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1-2-2h11l5 5v11a2 2 0 0 1-2 2z" />
                                         <path d="M17 21v-8H7v8" />
                                     </svg>
                                 </Button>
@@ -457,12 +517,113 @@ export function ProjectTransactions({ projectId, projectName }: ProjectTransacti
                 </CardHeader>
                 <CardContent>
                     <DndContext onDragEnd={handleDragEnd}>
-                        <SortableContext items={order} strategy={verticalListSortingStrategy}>
-                            {renderTable({ orderedTransactions, transactionActualsMap, getUserById, selectedTransactionIds, setSelectedTransactionIds, onTransactionClick: handleTransactionClick, toggleSelectTransaction, toggleSelectAll })}
+                        <SortableContext items={visibleOrder} strategy={verticalListSortingStrategy}>
+                            {renderTable({ orderedTransactions, transactionActualsMap, getUserById, selectedTransactionIds, toggleSelectTransaction, toggleSelectAll, onTransactionClick: handleTransactionClick })}
                         </SortableContext>
                     </DndContext>
                 </CardContent>
             </Card>
+            
+            {isAddDialogOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                    <div className="bg-background rounded-lg shadow-lg w-[500px] max-h-[90vh] flex flex-col">
+                        <div className="p-4 border-b">
+                            <h3 className="text-lg font-semibold">Add Transaction</h3>
+                            <p className="text-sm text-muted-foreground">Create a new transaction for this project</p>
+                        </div>
+                        
+                        <div className="flex-1 overflow-auto p-4 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Name *</label>
+                                <Input
+                                    value={form.name}
+                                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                                    placeholder="Transaction name"
+                                    className="h-9"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Type *</label>
+                                <div className="flex gap-2">
+                                    <Button
+                                        type="button"
+                                        variant={form.type === 'income' ? 'default' : 'outline'}
+                                        onClick={() => setForm({ ...form, type: 'income' })}
+                                        className="flex-1"
+                                    >
+                                        Income
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant={form.type === 'expense' ? 'default' : 'outline'}
+                                        onClick={() => setForm({ ...form, type: 'expense' })}
+                                        className="flex-1"
+                                    >
+                                        Expense
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Amount *</label>
+                                <Input
+                                    type="number"
+                                    value={form.amount || ''}
+                                    onChange={(e) => setForm({ ...form, amount: parseFloat(e.target.value) || 0 })}
+                                    placeholder="0.00"
+                                    className="h-9"
+                                    min="0"
+                                    step="0.01"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Tags</label>
+                                <Input
+                                    value={form.tags}
+                                    onChange={(e) => setForm({ ...form, tags: e.target.value })}
+                                    placeholder="comma,separated,tags"
+                                    className="h-9"
+                                />
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    id="active"
+                                    checked={form.active}
+                                    onChange={(e) => setForm({ ...form, active: e.target.checked })}
+                                    className="h-4 w-4 accent-primary"
+                                />
+                                <label htmlFor="active" className="text-sm font-medium">Active</label>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Date *</label>
+                                <Input
+                                    type="date"
+                                    value={form.exDate.toISOString().split('T')[0]}
+                                    onChange={(e) => setForm({ ...form, exDate: new Date(e.target.value) })}
+                                    className="h-9"
+                                />
+                            </div>
+                        </div>
+                        
+                        <div className="p-4 border-t flex justify-end gap-2">
+                            <Button
+                                variant="outline"
+                                onClick={() => setIsAddDialogOpen(false)}
+                            >
+                                Cancel
+                            </Button>
+                            <Button onClick={handleAddTransaction}>
+                                Create Transaction
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
             
             {isAssignToMenuOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -543,13 +704,12 @@ interface TableProps {
     transactionActualsMap: {[transactionId: string]: {actual: Actual, projectName: string}[]};
     getUserById: (userId: string) => string;
     selectedTransactionIds: Set<string>;
-    setSelectedTransactionIds: React.Dispatch<React.SetStateAction<Set<string>>>;
     onTransactionClick: (id: string) => void;
     toggleSelectTransaction: (transactionId: string) => void;
     toggleSelectAll: () => void;
 }
 
-function renderTable({ orderedTransactions, transactionActualsMap, getUserById, selectedTransactionIds, setSelectedTransactionIds, onTransactionClick, toggleSelectTransaction, toggleSelectAll }: TableProps) {
+function renderTable({ orderedTransactions, transactionActualsMap, getUserById, selectedTransactionIds, onTransactionClick, toggleSelectTransaction, toggleSelectAll }: TableProps) {
     const allSelected = orderedTransactions.length > 0 && selectedTransactionIds.size === orderedTransactions.length;
 
     return (
@@ -598,10 +758,10 @@ function renderTable({ orderedTransactions, transactionActualsMap, getUserById, 
     function renderTransactionRow(transaction: any, actual: {actual: Actual, projectName: string} | null, index: number, toggleSelectTransaction: (id: string) => void) {
         const transactionActuals = transactionActualsMap[transaction.id] || [];
         const isDraggable = index === 0;
-        const rowKey = index === 0 ? transaction.id : actual?.actual.id || transaction.id;
+        const rowKey = actual ? `${transaction.id}-${actual.actual.id}` : transaction.id;
+        const sortableId = transaction.id;
         const hasActuals = transactionActuals.length > 0;
         const rowSpan = hasActuals ? transactionActuals.length : 1;
-        const isSelected = selectedTransactionIds.has(transaction.id);
 
         const sharedCells = (
             <>
@@ -671,7 +831,7 @@ function renderTable({ orderedTransactions, transactionActualsMap, getUserById, 
 
         if (!hasActuals || !actual) {
             return (
-                <TransactionSortableRow key={rowKey} id={rowKey} disabled={false}>
+                <TransactionSortableRow key={rowKey} id={sortableId} disabled={false}>
                     {sharedCells}
                     <TableCell className="w-[12%] border-l-2 border-border text-left border-b border-gray-200">
                         <span className="text-sm text-muted-foreground">—</span>
@@ -684,7 +844,7 @@ function renderTable({ orderedTransactions, transactionActualsMap, getUserById, 
         }
 
         return (
-            <TransactionSortableRow key={rowKey} id={rowKey} disabled={!isDraggable}>
+            <TransactionSortableRow key={rowKey} id={sortableId} disabled={!isDraggable}>
                 {index === 0 && sharedCells}
                 <TableCell className={`w-[12%] text-left ${lastRowClass} border-l-2 border-border`}>
                     <div className="flex flex-col">
@@ -710,7 +870,7 @@ function renderTable({ orderedTransactions, transactionActualsMap, getUserById, 
                             </Link>
                         ) : (
                             <span className="text-xs italic text-muted-foreground">
-                                {actual?.projectName || ''}
+                                {actual?.projectName || ''} 
                             </span>
                         )}
                     </div>
@@ -724,115 +884,3 @@ function renderTable({ orderedTransactions, transactionActualsMap, getUserById, 
         );
     }
 }
-
-interface AddTransactionDialogProps {
-    form: TransactionForm;
-    setForm: (v: TransactionForm) => void;
-    handleAddTransaction: () => void;
-    setIsAddDialogOpen: (v: boolean) => void;
-}
-
-function renderAddTransactionDialog({ form, setForm, handleAddTransaction, setIsAddDialogOpen }: AddTransactionDialogProps) {
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="bg-background rounded-lg shadow-lg w-[500px] max-h-[90vh] flex flex-col">
-                <div className="p-4 border-b">
-                    <h3 className="text-lg font-semibold">Add Transaction</h3>
-                    <p className="text-sm text-muted-foreground">Create a new transaction for this project</p>
-                </div>
-                
-                <div className="flex-1 overflow-auto p-4 space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Name *</label>
-                        <Input
-                            value={form.name}
-                            onChange={(e) => setForm({ ...form, name: e.target.value })}
-                            placeholder="Transaction name"
-                            className="h-9"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Type *</label>
-                        <div className="flex gap-2">
-                            <Button
-                                type="button"
-                                variant={form.type === 'income' ? 'default' : 'outline'}
-                                onClick={() => setForm({ ...form, type: 'income' })}
-                                className="flex-1"
-                            >
-                                Income
-                            </Button>
-                            <Button
-                                type="button"
-                                variant={form.type === 'expense' ? 'default' : 'outline'}
-                                onClick={() => setForm({ ...form, type: 'expense' })}
-                                className="flex-1"
-                            >
-                                Expense
-                            </Button>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Amount *</label>
-                        <Input
-                            type="number"
-                            value={form.amount || ''}
-                            onChange={(e) => setForm({ ...form, amount: parseFloat(e.target.value) || 0 })}
-                            placeholder="0.00"
-                            className="h-9"
-                            min="0"
-                            step="0.01"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Tags</label>
-                        <Input
-                            value={form.tags}
-                            onChange={(e) => setForm({ ...form, tags: e.target.value })}
-                            placeholder="comma,separated,tags"
-                            className="h-9"
-                        />
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="checkbox"
-                            id="active"
-                            checked={form.active}
-                            onChange={(e) => setForm({ ...form, active: e.target.checked })}
-                            className="h-4 w-4 accent-primary"
-                        />
-                        <label htmlFor="active" className="text-sm font-medium">Active</label>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Date *</label>
-                        <Input
-                            type="date"
-                            value={form.exDate.toISOString().split('T')[0]}
-                            onChange={(e) => setForm({ ...form, exDate: new Date(e.target.value) })}
-                            className="h-9"
-                        />
-                    </div>
-                </div>
-                
-                <div className="p-4 border-t flex justify-end gap-2">
-                    <Button
-                        variant="outline"
-                        onClick={() => setIsAddDialogOpen(false)}
-                    >
-                        Cancel
-                    </Button>
-                    <Button onClick={handleAddTransaction}>
-                        Create Transaction
-                    </Button>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-export default ProjectTransactions;

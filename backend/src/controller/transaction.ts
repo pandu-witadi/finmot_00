@@ -12,6 +12,7 @@ export interface TransactionResponse {
     arrActual: string[];
     exDate: Date;
     assignedTo: string | null;
+    position: number;
     updatedBy: string;
     createdAt: Date;
     updatedAt: Date;
@@ -27,6 +28,7 @@ export interface CreateTransactionRequest {
     arrActual?: string[];
     exDate: Date;
     assignedTo?: string;
+    position?: number;
     updatedBy?: string;
 }
 
@@ -34,12 +36,14 @@ export interface UpdateTransactionRequest {
     name?: string;
     tags?: string[];
     active?: boolean;
+    note?: string;
     type?: 'income' | 'expense';
     amount?: number;
     project?: string;
     arrActual?: string[];
     exDate?: Date;
     assignedTo?: string;
+    position?: number;
     updatedBy?: string;
 }
 
@@ -52,7 +56,7 @@ export interface TransactionFilter {
 }
 
 export interface TransactionSort {
-    field?: 'name' | 'amount' | 'createdAt';
+    field?: 'name' | 'amount' | 'createdAt' | 'position';
     order?: 'asc' | 'desc';
 }
 
@@ -75,6 +79,7 @@ function transactionToResponse(transaction: any): TransactionResponse {
         arrActual: transaction.arrActual.map((id: any) => id.toString()),
         exDate: transaction.exDate,
         assignedTo: transaction.assignedTo ? transaction.assignedTo.toString() : null,
+        position: transaction.position ?? 0,
         updatedBy: transaction.updatedBy.toString(),
         createdAt: transaction.createdAt,
         updatedAt: transaction.updatedAt || transaction.createdAt,
@@ -119,7 +124,7 @@ export async function getAllTransactions(query?: GetTransactionsQuery): Promise<
         }
     }
 
-    const sortField = sort?.field || 'createdAt';
+    const sortField = sort?.field || 'position';
     const sortOrder = sort?.order === 'asc' ? 1 : -1;
 
     const transactionsQuery = Transaction.find(mongoQuery)
@@ -148,6 +153,7 @@ export async function createTransaction(body: CreateTransactionRequest): Promise
         arrActual: (body.arrActual ?? []).map((id: any) => new mongoose.Types.ObjectId(id)),
         exDate: body.exDate,
         assignedTo: body.assignedTo ? new mongoose.Types.ObjectId(body.assignedTo) : null,
+        position: body.position ?? 0,
         updatedAt: new Date(),
         updatedBy: new mongoose.Types.ObjectId(body.updatedBy || "000000000000000000000000"),
     });
@@ -194,6 +200,10 @@ export async function updateTransaction(id: string, body: UpdateTransactionReque
 
     if (body.assignedTo !== undefined) {
         updateFields.assignedTo = new mongoose.Types.ObjectId(body.assignedTo);
+    }
+
+    if (body.position !== undefined) {
+        updateFields.position = body.position;
     }
 
     if (body.updatedBy !== undefined) {

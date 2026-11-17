@@ -112,6 +112,7 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
     const [budgets, setBudgets] = useState<any[]>([]);
     const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
     const [sortByDate, setSortByDate] = useState<'none' | 'asc' | 'desc'>('none');
+    const [isOrderDirty, setIsOrderDirty] = useState(false);
 
     const loadData = async () => {
         try {
@@ -466,7 +467,8 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
         }
     };
 
-    const handleActualDragEnd = async (event: DragEndEvent) => {
+    // Only update displayOrder when user clicks save, not on drag
+    const handleActualDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
 
         if (!over || active.id === over.id) {
@@ -482,24 +484,15 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
 
         const newActuals = arrayMove(actuals, activeIndex, overIndex);
         setActuals(newActuals);
-
-        // Save order to project
-        try {
-            const newOrder = newActuals.map(a => a.id);
-            await api.put(`/project/${projectId}`, { arrActual: newOrder });
-            // Update local state to reflect new order immediately
-            setProjectData({ arrActual: newOrder });
-        } catch (error: any) {
-            console.error("Failed to save order:", error);
-            toast.error("Failed to save order");
-        }
+        setIsOrderDirty(true);
     };
 
     const handleSavePosition = async () => {
         try {
-            await api.put(`/project/${projectId}`, { arrActual: filteredActuals.map(a => a.id) });
-            // Update local state to reflect new order immediately
-            setProjectData({ arrActual: filteredActuals.map(a => a.id) });
+            const orderToSave = isOrderDirty ? actuals.map(a => a.id) : filteredActuals.map(a => a.id);
+            await api.put(`/project/${projectId}`, { arrActual: orderToSave });
+            setProjectData({ arrActual: orderToSave });
+            setIsOrderDirty(false);
             toast.success("Actual position saved successfully");
         } catch (error: any) {
             console.error("Failed to save position:", error);

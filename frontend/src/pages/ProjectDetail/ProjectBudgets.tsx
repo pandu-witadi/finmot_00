@@ -908,7 +908,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         return (
             <BudgetSortableRow key={rowKey} id={rowKey} disabled={!isDraggable}>
                 {index === 0 && sharedCells}
-                <TableCell className={`w-[40%] text-left ${lastRowClass} border-l-2 border-border`}>
+                <TableCell className={`w-[40%] text-left ${lastRowClass} border-l-2 border-border border-b border-gray-200`}>
                     <span 
                         className="text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground hover:underline cursor-pointer" 
                         title={actual?.name}
@@ -923,7 +923,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                         {actual?.name}
                     </span>
                 </TableCell>
-                <TableCell className={`w-[20%] text-right ${lastRowClass}`}>
+                <TableCell className={`w-[20%] text-right ${lastRowClass} border-b border-gray-200`}>
                     <span className="text-xs text-muted-foreground">
                         {formatNumber(actual?.amount || 0)}
                     </span>

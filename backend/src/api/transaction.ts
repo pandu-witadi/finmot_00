@@ -14,6 +14,7 @@ import {
     GetTransactionsQuery
 } from '../controller/transaction.js';
 import { verifyToken } from '../utils/jwt.js';
+import { Transaction } from '../model/transaction.js';
 
 const transactionRoute = async (app: FastifyInstance): Promise<void> => {
     const verifyAuth = async (request: FastifyRequest, reply: FastifyReply) => {
@@ -113,6 +114,29 @@ const transactionRoute = async (app: FastifyInstance): Promise<void> => {
                 reply.code(204).send();
             } catch (error) {
                 reply.code(500).send({ error: 'Failed to delete transaction' });
+            }
+        }
+    );
+
+    app.put(
+        '/transaction/bulk-position',
+        async (request: FastifyRequest<{ Body: { projectId: string; positions: string[] } }>, reply: FastifyReply): Promise<void> => {
+            try {
+                await verifyAuth(request, reply);
+                const { projectId, positions } = request.body;
+
+                if (!projectId || !Array.isArray(positions)) {
+                    return reply.code(400).send({ error: 'Invalid request: projectId and positions are required' });
+                }
+
+                const updates = positions.map((id: string, index: number) => ({
+                    updateOne: { filter: { _id: id }, update: { $set: { position: index } } }
+                }));
+
+                await Transaction.bulkWrite(updates);
+                reply.code(200).send({ success: true, count: updates.length });
+            } catch (error) {
+                reply.code(500).send({ error: 'Failed to update transaction positions' });
             }
         }
     );

@@ -13,6 +13,7 @@ export interface Transaction {
     arrActual: string[];
     exDate: Date;
     assignedTo: string | null;
+    position: number;
     updatedBy: string;
     createdAt: Date;
     updatedAt: Date;
@@ -27,7 +28,7 @@ export interface TransactionFilter {
 }
 
 export interface TransactionSort {
-    field?: 'exDate' | 'none';
+    field?: 'exDate' | 'none' | 'position';
     order?: 'asc' | 'desc' | 'none';
 }
 
