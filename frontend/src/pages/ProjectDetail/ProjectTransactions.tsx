@@ -217,21 +217,8 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
         }
     };
 
-    // Map transaction IDs to their actuals
-    const actualsMap: {[actualId: string]: Actual} = {};
-    allActuals.forEach(actual => {
-        actualsMap[actual.id] = actual;
-    });
-
     // Create projects map for lookup
     const projectsMap = new Map(allProjects.map((p: any) => [p.id, p.name]));
-
-    // Map actuals with their project names
-    const actualsWithProject: {[actualId: string]: {actual: Actual, projectName: string}} = {};
-    allActuals.forEach(actual => {
-        const projectName = projectsMap.get(actual.project) || '';
-        actualsWithProject[actual.id] = { actual, projectName };
-    });
 
     const sortedTransactions = [...filteredTransactions].sort((a, b) => {
         let cmp = 0;
@@ -243,15 +230,6 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
             if (cmp !== 0) return cmp;
         }
         return 0;
-    });
-
-    const transactionActualsMap: {[transactionId: string]: {actual: Actual, projectName: string}[]} = {};
-    sortedTransactions.forEach(transaction => {
-        const uniqueActualIds = Array.from(new Set(transaction.arrActual || []));
-        const transactionActuals = uniqueActualIds.map(actualId => actualsWithProject[actualId]).filter(a => a !== undefined) as {actual: Actual, projectName: string}[];
-        if (transactionActuals.length > 0) {
-            transactionActualsMap[transaction.id] = transactionActuals;
-        }
     });
 
     // Get transaction IDs in order (for sortable context)
@@ -518,7 +496,7 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
                 <CardContent>
                     <DndContext onDragEnd={handleDragEnd}>
                         <SortableContext items={visibleOrder} strategy={verticalListSortingStrategy}>
-                            {renderTable({ orderedTransactions, transactionActualsMap, getUserById, selectedTransactionIds, toggleSelectTransaction, toggleSelectAll, onTransactionClick: handleTransactionClick })}
+                            {renderTable({ orderedTransactions, getUserById, selectedTransactionIds, toggleSelectTransaction, toggleSelectAll, onTransactionClick: handleTransactionClick })}
                         </SortableContext>
                     </DndContext>
                 </CardContent>
@@ -701,7 +679,6 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
 
 interface TableProps {
     orderedTransactions: any[];
-    transactionActualsMap: {[transactionId: string]: {actual: Actual, projectName: string}[]};
     getUserById: (userId: string) => string;
     selectedTransactionIds: Set<string>;
     onTransactionClick: (id: string) => void;
@@ -709,7 +686,7 @@ interface TableProps {
     toggleSelectAll: () => void;
 }
 
-function renderTable({ orderedTransactions, transactionActualsMap, getUserById, selectedTransactionIds, onTransactionClick, toggleSelectTransaction, toggleSelectAll }: TableProps) {
+function renderTable({ orderedTransactions, getUserById, selectedTransactionIds, onTransactionClick, toggleSelectTransaction, toggleSelectAll }: TableProps) {
     const allSelected = orderedTransactions.length > 0 && selectedTransactionIds.size === orderedTransactions.length;
 
     return (
@@ -726,64 +703,56 @@ function renderTable({ orderedTransactions, transactionActualsMap, getUserById, 
                         />
                     </TableHead>
                     <TableHead className="w-[22%] bg-cyan-50">Name</TableHead>
-                    <TableHead className="w-[8%] bg-cyan-50">Tags</TableHead>
-                    <TableHead className="w-[4%] text-center bg-cyan-50">t</TableHead>
-                    <TableHead className="text-right w-[7%] bg-cyan-50">Amount</TableHead>
+                    <TableHead className="w-[12%] bg-cyan-50">Tags</TableHead>
+                    <TableHead className="w-[12%] bg-cyan-50">Header</TableHead>
+                    <TableHead className="w-[6%] text-center bg-cyan-50">t</TableHead>
+                    <TableHead className="w-[12%] text-right bg-cyan-50">Amount</TableHead>
                     <TableHead className="w-[6%] text-right bg-cyan-50">exDate</TableHead>
-                    <TableHead className="w-[10%] bg-cyan-50">asgTo</TableHead>
-                    <TableHead className="w-[12%] border-l-2 border-border bg-cyan-50">actName</TableHead>
-                    <TableHead className="w-[8%] text-right bg-cyan-50">actAmount</TableHead>
+                    <TableHead className="w-[9%] bg-cyan-50">asgTo</TableHead>
+                    <TableHead className="w-[25%] border-l-2 border-border bg-cyan-50">trxName</TableHead>
+                    <TableHead className="w-[10%] text-right bg-cyan-50">trxAmount</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
                 {orderedTransactions.length === 0 ? (
                     <TableRow>
-                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                             No transactions found
                         </TableCell>
                     </TableRow>
                 ) : (
-                    orderedTransactions.flatMap((transaction) => {
-                        const transactionActuals = transactionActualsMap[transaction.id] || [];
-                        if (transactionActuals.length === 0) {
-                            return renderTransactionRow(transaction, null, 0, toggleSelectTransaction);
-                        }
-                        return transactionActuals.map((actualWithProject, index) => renderTransactionRow(transaction, actualWithProject, index, toggleSelectTransaction));
-                    })
+                    orderedTransactions.map((transaction) => (
+                        renderTransactionRow(transaction, toggleSelectTransaction, onTransactionClick)
+                    ))
                 )}
             </TableBody>
         </Table>
     );
 
-    function renderTransactionRow(transaction: any, actual: {actual: Actual, projectName: string} | null, index: number, toggleSelectTransaction: (id: string) => void) {
-        const transactionActuals = transactionActualsMap[transaction.id] || [];
-        const isDraggable = index === 0;
-        const rowKey = actual ? `${transaction.id}-${actual.actual.id}` : transaction.id;
-        const sortableId = transaction.id;
-        const hasActuals = transactionActuals.length > 0;
-        const rowSpan = hasActuals ? transactionActuals.length : 1;
+    function renderTransactionRow(transaction: any, toggleSelectTransaction: (id: string) => void, onTransactionClick: (id: string) => void) {
+        const transactionId = transaction.id;
+        const isDraggable = true;
 
-        const sharedCells = (
-            <>
-                <TableCell className="w-[5%] px-2 text-left" rowSpan={rowSpan}>
+        return (
+            <TransactionSortableRow key={transactionId} id={transactionId} disabled={!isDraggable}>
+                <TableCell className="px-2 py-3">
                     <input
                         type="checkbox"
                         className="h-4 w-4 accent-primary"
-                        checked={selectedTransactionIds.has(transaction.id)}
+                        checked={selectedTransactionIds.has(transactionId)}
+                        onChange={() => toggleSelectTransaction(transactionId)}
                         onPointerDown={(e) => {
                             e.stopPropagation();
-                            toggleSelectTransaction(transaction.id);
                         }}
-                        onChange={() => {}}
                     />
                 </TableCell>
-                <TableCell className="w-[22%] px-2 text-left border-b border-gray-200" rowSpan={rowSpan}>
+                <TableCell className="font-medium py-3">
                     <div className="flex items-center gap-2">
                         <span
                             className="cursor-pointer hover:underline font-medium"
                             onClick={(e) => {
                                 e.stopPropagation();
-                                onTransactionClick(transaction.id);
+                                onTransactionClick(transactionId);
                             }}
                             onPointerDown={(e) => {
                                 e.stopPropagation();
@@ -793,7 +762,7 @@ function renderTable({ orderedTransactions, transactionActualsMap, getUserById, 
                         </span>
                     </div>
                 </TableCell>
-                <TableCell className="w-[8%] px-2 text-left border-b border-gray-200" rowSpan={rowSpan}>
+                <TableCell className="text-sm py-3">
                     {transaction.tags.length > 0 ? (
                         <div className="flex flex-col gap-0.5">
                             {transaction.tags.map((tag: string, idx: number) => (
@@ -803,81 +772,34 @@ function renderTable({ orderedTransactions, transactionActualsMap, getUserById, 
                             ))}
                         </div>
                     ) : (
-                        <span className="text-sm text-muted-foreground">—</span>
+                        <span className="text-muted-foreground">—</span>
                     )}
                 </TableCell>
-                <TableCell className="w-[4%] px-2 text-center border-b border-gray-200" rowSpan={rowSpan}>
+                <TableCell className="w-[12%] text-sm text-muted-foreground py-3">—</TableCell>
+                <TableCell className="text-center py-3">
                     <span className={`text-xs px-2 py-0.5 rounded ${
                         transaction.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                     }`}>
                         {getTypeLabel(transaction.type)}
                     </span>
                 </TableCell>
-                <TableCell className="w-[7%] text-right border-b border-gray-200" rowSpan={rowSpan}>
-                    <span className="text-xs">
+                <TableCell className="w-[12%] text-right py-3">
+                    <span className="text-xs font-medium">
                         {formatNumber(transaction.amount)}
                     </span>
                 </TableCell>
-                <TableCell className="w-[6%] px-2 text-right border-b border-gray-200" rowSpan={rowSpan}>
+                <TableCell className="w-[6%] text-right text-sm text-muted-foreground py-3">
                     {transaction.exDate ? <span className="text-xs">{formatDate(transaction.exDate)}</span> : '—'}
                 </TableCell>
-                <TableCell className="w-[10%] px-2 text-left border-b border-gray-200" rowSpan={rowSpan}>
+                <TableCell className="w-[9%] text-sm text-muted-foreground py-3">
                     {getUserById(transaction.assignedTo)}
                 </TableCell>
-            </>
-        );
-
-        const lastRowClass = index === transactionActuals.length - 1 ? "border-b border-gray-200" : "";
-
-        if (!hasActuals || !actual) {
-            return (
-                <TransactionSortableRow key={rowKey} id={sortableId} disabled={false}>
-                    {sharedCells}
-                    <TableCell className="w-[12%] border-l-2 border-border text-left border-b border-gray-200">
-                        <span className="text-sm text-muted-foreground">—</span>
-                    </TableCell>
-                    <TableCell className="w-[8%] text-right border-b border-gray-200">
-                        <span className="text-sm text-muted-foreground">—</span>
-                    </TableCell>
-                </TransactionSortableRow>
-            );
-        }
-
-        return (
-            <TransactionSortableRow key={rowKey} id={sortableId} disabled={!isDraggable}>
-                {index === 0 && sharedCells}
-                <TableCell className={`w-[12%] text-left ${lastRowClass} border-l-2 border-border`}>
-                    <div className="flex flex-col">
-                        <span
-                            className="font-medium text-primary cursor-pointer"
-                            title={actual?.actual.name}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                            }}
-                            onPointerDown={(e) => {
-                                e.stopPropagation();
-                            }}
-                        >
-                            {actual?.actual.name}
-                        </span>
-                        {actual?.projectName && actual?.actual.project ? (
-                            <Link
-                                to={`/projects/${actual.actual.project}?tab=actuals`}
-                                className="text-xs italic text-muted-foreground hover:underline"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                {actual.projectName}
-                            </Link>
-                        ) : (
-                            <span className="text-xs italic text-muted-foreground">
-                                {actual?.projectName || ''} 
-                            </span>
-                        )}
-                    </div>
+                <TableCell className="text-sm text-muted-foreground border-l-2 border-border py-3">
+                    <span className="text-muted-foreground">—</span>
                 </TableCell>
-                <TableCell className={`w-[8%] text-right ${lastRowClass}`}>
-                    <span className="text-xs text-muted-foreground">
-                        {actual ? formatNumber(actual.actual.amount) : '-'}
+                <TableCell className="text-right py-3">
+                    <span className="text-xs font-medium">
+                        —
                     </span>
                 </TableCell>
             </TransactionSortableRow>
