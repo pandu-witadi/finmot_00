@@ -232,6 +232,24 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
         return 0;
     });
 
+    // Map transactions to their actuals
+    const actualsMap = new Map(allActuals.map(a => [a.id, a]));
+    const transactionActualsMap: {[transactionId: string]: {actual: Actual, projectName: string}[]} = {};
+    sortedTransactions.forEach(transaction => {
+        const uniqueActualIds = Array.from(new Set(transaction.arrActual || []));
+        const transactionActuals = uniqueActualIds
+            .map(actualId => {
+                const actual = actualsMap.get(actualId);
+                if (!actual) return null;
+                const projectName = projectsMap.get(actual.project) || '';
+                return { actual, projectName };
+            })
+            .filter((item): item is {actual: Actual, projectName: string} => item !== null);
+        if (transactionActuals.length > 0) {
+            transactionActualsMap[transaction.id] = transactionActuals;
+        }
+    });
+
     // Get transaction IDs in order (for sortable context)
     // Use transactions (sorted by position from backend) when displayOrder is empty
     // When displayOrder is populated (after drag), use that order
@@ -496,7 +514,7 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
                 <CardContent>
                     <DndContext onDragEnd={handleDragEnd}>
                         <SortableContext items={visibleOrder} strategy={verticalListSortingStrategy}>
-                            {renderTable({ orderedTransactions, getUserById, selectedTransactionIds, toggleSelectTransaction, toggleSelectAll, onTransactionClick: handleTransactionClick })}
+                            {renderTable({ orderedTransactions, transactionActualsMap, getUserById, selectedTransactionIds, toggleSelectTransaction, toggleSelectAll, onTransactionClick: handleTransactionClick })}
                         </SortableContext>
                     </DndContext>
                 </CardContent>
@@ -679,6 +697,7 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
 
 interface TableProps {
     orderedTransactions: any[];
+    transactionActualsMap: {[transactionId: string]: {actual: Actual, projectName: string}[]};
     getUserById: (userId: string) => string;
     selectedTransactionIds: Set<string>;
     onTransactionClick: (id: string) => void;
@@ -686,7 +705,7 @@ interface TableProps {
     toggleSelectAll: () => void;
 }
 
-function renderTable({ orderedTransactions, getUserById, selectedTransactionIds, onTransactionClick, toggleSelectTransaction, toggleSelectAll }: TableProps) {
+function renderTable({ orderedTransactions, transactionActualsMap, getUserById, selectedTransactionIds, onTransactionClick, toggleSelectTransaction, toggleSelectAll }: TableProps) {
     const allSelected = orderedTransactions.length > 0 && selectedTransactionIds.size === orderedTransactions.length;
 
     return (
@@ -709,8 +728,8 @@ function renderTable({ orderedTransactions, getUserById, selectedTransactionIds,
                     <TableHead className="w-[12%] text-right bg-cyan-50">Amount</TableHead>
                     <TableHead className="w-[6%] text-right bg-cyan-50">exDate</TableHead>
                     <TableHead className="w-[9%] bg-cyan-50">asgTo</TableHead>
-                    <TableHead className="w-[25%] border-l-2 border-border bg-cyan-50">trxName</TableHead>
-                    <TableHead className="w-[10%] text-right bg-cyan-50">trxAmount</TableHead>
+                    <TableHead className="w-[25%] border-l-2 border-border bg-cyan-50">actName</TableHead>
+                    <TableHead className="w-[10%] text-right bg-cyan-50">actAmount</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
@@ -722,16 +741,17 @@ function renderTable({ orderedTransactions, getUserById, selectedTransactionIds,
                     </TableRow>
                 ) : (
                     orderedTransactions.map((transaction) => (
-                        renderTransactionRow(transaction, toggleSelectTransaction, onTransactionClick)
+                        renderTransactionRow(transaction, transactionActualsMap[transaction.id] || [], toggleSelectTransaction, onTransactionClick)
                     ))
                 )}
             </TableBody>
         </Table>
     );
 
-    function renderTransactionRow(transaction: any, toggleSelectTransaction: (id: string) => void, onTransactionClick: (id: string) => void) {
+    function renderTransactionRow(transaction: any, actuals: {actual: Actual, projectName: string}[], toggleSelectTransaction: (id: string) => void, onTransactionClick: (id: string) => void) {
         const transactionId = transaction.id;
         const isDraggable = true;
+        const hasActuals = actuals.length > 0;
 
         return (
             <TransactionSortableRow key={transactionId} id={transactionId} disabled={!isDraggable}>
@@ -794,13 +814,31 @@ function renderTable({ orderedTransactions, getUserById, selectedTransactionIds,
                 <TableCell className="w-[9%] text-sm text-muted-foreground py-3">
                     {getUserById(transaction.assignedTo)}
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground border-l-2 border-border py-3">
-                    <span className="text-muted-foreground">—</span>
+                <TableCell className={`text-sm border-l-2 border-border py-3 ${hasActuals ? 'text-primary' : 'text-muted-foreground'}`}>
+                    {hasActuals ? (
+                        <div className="flex flex-col">
+                            {actuals.map((item, idx) => (
+                                <span key={idx} className="font-medium text-xs">
+                                    {item.actual.name}
+                                </span>
+                            ))}
+                        </div>
+                    ) : (
+                        <span className="text-muted-foreground">—</span>
+                    )}
                 </TableCell>
-                <TableCell className="text-right py-3">
-                    <span className="text-xs font-medium">
-                        —
-                    </span>
+                <TableCell className={`text-right py-3 ${hasActuals ? 'font-medium' : 'text-muted-foreground'}`}>
+                    {hasActuals ? (
+                        <div className="flex flex-col">
+                            {actuals.map((item, idx) => (
+                                <span key={idx} className="text-xs">
+                                    {formatNumber(item.actual.amount)}
+                                </span>
+                            ))}
+                        </div>
+                    ) : (
+                        <span className="text-muted-foreground">—</span>
+                    )}
                 </TableCell>
             </TransactionSortableRow>
         );
