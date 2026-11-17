@@ -72,12 +72,12 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
     const [isAssignToMenuOpen, setIsAssignToMenuOpen] = useState(false);
     const [assignToSearchTerm, setAssignToSearchTerm] = useState("");
     const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set<string>());
-    const [displayOrder, setDisplayOrder] = useState<string[]>([]);
     const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
     const [sortByExDate, setSortByExDate] = useState<'none' | 'asc' | 'desc'>('none');
 
     const {
         transactions,
+        setTransactions,
         isLoading,
         createTransaction,
         updateTransaction,
@@ -220,22 +220,20 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
     // Create projects map for lookup
     const projectsMap = new Map(allProjects.map((p: any) => [p.id, p.name]));
 
-    const sortedTransactions = [...filteredTransactions].sort((a, b) => {
-        let cmp = 0;
-        if (sortByExDate !== 'none') {
-            const aDate = a.exDate ? new Date(a.exDate).getTime() : 0;
-            const bDate = b.exDate ? new Date(b.exDate).getTime() : 0;
-            cmp = aDate - bDate;
-            if (sortByExDate === 'desc') cmp = -cmp;
-            if (cmp !== 0) return cmp;
-        }
-        return 0;
+    // Apply filters and date sorting for display only
+    const filteredAndSortedTransactions = [...filteredTransactions].sort((a, b) => {
+        if (sortByExDate === 'none') return 0;
+        const aDate = a.exDate ? new Date(a.exDate).getTime() : 0;
+        const bDate = b.exDate ? new Date(b.exDate).getTime() : 0;
+        let cmp = aDate - bDate;
+        if (sortByExDate === 'desc') cmp = -cmp;
+        return cmp;
     });
 
     // Map transactions to their actuals
     const actualsMap = new Map(allActuals.map(a => [a.id, a]));
     const transactionActualsMap: {[transactionId: string]: {actual: Actual, projectName: string, project: string}[]} = {};
-    sortedTransactions.forEach(transaction => {
+    filteredAndSortedTransactions.forEach(transaction => {
         const uniqueActualIds = Array.from(new Set(transaction.arrActual || []));
         const transactionActuals = uniqueActualIds
             .map(actualId => {
@@ -250,25 +248,6 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
         }
     });
 
-    // Get transaction IDs in order (for sortable context)
-    // Use transactions (sorted by position from backend) when displayOrder is empty
-    // When displayOrder is populated (after drag), use that order
-    // Use filtered transactions to respect current filters
-    const filteredTransactionIds = filteredTransactions.map(t => t.id);
-    
-    // Full order: displayOrder if populated (from drag), otherwise backend order
-    const positionBasedOrder = displayOrder.length > 0 
-        ? displayOrder 
-        : transactions.map(t => t.id);
-    
-    // Filter to only include visible (filtered) transactions for rendering
-    const order = positionBasedOrder.filter(id => filteredTransactionIds.includes(id));
-    const orderedTransactions = order.map(id => {
-        const t = transactions.find(tx => tx.id === id);
-        if (t) return t;
-        return sortedTransactions.find(tx => tx.id === id);
-    }).filter((t): t is any => t !== undefined);
-
     const toggleSelectTransaction = (transactionId: string) => {
         const newSet = new Set(selectedTransactionIds);
         newSet.has(transactionId) ? newSet.delete(transactionId) : newSet.add(transactionId);
@@ -276,100 +255,38 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
     };
 
     const toggleSelectAll = () => {
-        if (selectedTransactionIds.size === orderedTransactions.length) {
+        if (selectedTransactionIds.size === filteredAndSortedTransactions.length) {
             setSelectedTransactionIds(new Set<string>());
         } else {
-            setSelectedTransactionIds(new Set(orderedTransactions.map(t => t.id)));
+            setSelectedTransactionIds(new Set(filteredAndSortedTransactions.map(t => t.id)));
         }
     };
 
-    // Get the full order (all transactions, not filtered)
-    // This is used for drag operations and saving positions
-    // Only use displayOrder if no filters/sort are active
-    const hasActiveFilters = filteredTransactions.length !== transactions.length;
-    const hasActiveSort = sortByExDate !== 'none';
-    const canDrag = !hasActiveFilters && !hasActiveSort;
-    
-    const fullOrder = canDrag && displayOrder.length > 0 
-        ? displayOrder 
-        : transactions.map(t => t.id);
-    
-    // Filter fullOrder to only include visible transactions
-    const visibleOrder = fullOrder.filter(id => filteredTransactionIds.includes(id));
-
+    // Drag handler - directly modifies transactions array
+    // transactions is sorted by position from backend, so drag works on correct order
     const handleDragEnd = (event: DragEndEvent) => {
-        // Only allow dragging when no filters/sort are active
-        if (!canDrag) {
-            console.log('Drag disabled - canDrag:', canDrag, 'filters:', filteredTransactions.length, 'transactions:', transactions.length, 'sort:', sortByExDate);
+        const { active, over } = event;
+        
+        if (!over || active.id === over.id) {
             return;
         }
-
-        const { active, over } = event;
-        if (!over) return;
-
-        const activeId = active.id as string;
-        const overId = over.id as string;
-
-        if (activeId !== overId) {
-            console.log('Drag:', { activeId, overId, oldIndex: visibleOrder.indexOf(activeId), newIndex: visibleOrder.indexOf(overId), visibleOrder, fullOrder });
-            // Get positions in visibleOrder (what user sees)
-            const oldIndex = visibleOrder.indexOf(activeId);
-            const newIndex = visibleOrder.indexOf(overId);
-
-            // Compute new visible order after drag
-            const newVisibleOrder = arrayMove(visibleOrder, oldIndex, newIndex);
-            const visibleSet = new Set(newVisibleOrder);
-            
-            // Build new full order by:
-            // 1. Finding positions of non-visible transactions in fullOrder
-            // 2. Inserting visible transactions from newVisibleOrder at those positions
-            const nonVisibleMap = new Map<number, string>();
-            
-            // Create a map of original index -> id for non-visible transactions
-            for (let i = 0; i < fullOrder.length; i++) {
-                if (!visibleSet.has(fullOrder[i])) {
-                    nonVisibleMap.set(i, fullOrder[i]);
-                }
-            }
-            
-            // Build result: iterate through fullOrder positions
-            // - If position has a non-visible transaction, insert it
-            // - Otherwise, insert next visible transaction from newVisibleOrder
-            const result: string[] = [];
-            let visiblePos = 0;
-            
-            for (let i = 0; i < fullOrder.length; i++) {
-                if (nonVisibleMap.has(i)) {
-                    // Insert non-visible transaction at its original position
-                    result.push(nonVisibleMap.get(i)!);
-                } else {
-                    // Insert next visible transaction from newVisibleOrder
-                    if (visiblePos < newVisibleOrder.length) {
-                        result.push(newVisibleOrder[visiblePos]);
-                        visiblePos++;
-                    }
-                }
-            }
-            
-            console.log('New order:', result);
-            setDisplayOrder(result);
+        
+        const activeIndex = transactions.findIndex(t => t.id === active.id);
+        const overIndex = transactions.findIndex(t => t.id === over.id);
+        
+        if (activeIndex === -1 || overIndex === -1) {
+            return;
         }
+        
+        const newTransactions = arrayMove(transactions, activeIndex, overIndex);
+        setTransactions(newTransactions);
     };
 
+    // Save positions - saves current transactions order
     const handleSavePositions = async () => {
-        // Only allow saving positions when no filters/sort are active
-        console.log('Save positions:', { displayOrder, canDrag, filteredTransactions: filteredTransactions.length, transactions: transactions.length });
-        
-        if (!canDrag) {
-            toast.error("Please clear all filters/sort before saving positions");
-            return;
-        }
-        
         try {
-            // Save displayOrder directly - it should contain all transactions
-            // (either set by drag, or defaults to all transaction IDs from backend)
-            await transactionApi.updateBulkPosition(projectId, displayOrder);
-            toast.success("Transaction positions saved");
+            await transactionApi.updateBulkPosition(projectId, transactions.map(t => t.id));
+            toast.success("Transaction positions saved successfully");
         } catch (error: any) {
             console.error("Failed to save transaction positions:", error);
             toast.error(error?.response?.data?.error || "Failed to save transaction positions");
@@ -444,6 +361,7 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-save">
                                         <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1-2-2h11l5 5v11a2 2 0 0 1-2 2z" />
                                         <path d="M17 21v-8H7v8" />
+                                        <path d="M7 10V3a1 1 0 0 1 1-1h5v7" />
                                     </svg>
                                 </Button>
                                 <Input
@@ -513,8 +431,50 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
                 </CardHeader>
                 <CardContent>
                     <DndContext onDragEnd={handleDragEnd}>
-                        <SortableContext items={visibleOrder} strategy={verticalListSortingStrategy}>
-                            {renderTable({ orderedTransactions, transactionActualsMap, getUserById, selectedTransactionIds, toggleSelectTransaction, toggleSelectAll, onTransactionClick: handleTransactionClick })}
+                        <SortableContext items={transactions.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="w-[5%] bg-cyan-50">
+                                            <input
+                                                type="checkbox"
+                                                className="h-4 w-4 accent-primary"
+                                                checked={selectedTransactionIds.size > 0 && selectedTransactionIds.size === filteredAndSortedTransactions.length}
+                                                onChange={toggleSelectAll}
+                                            />
+                                        </TableHead>
+                                        <TableHead className="w-[22%] bg-cyan-50">Name</TableHead>
+                                        <TableHead className="w-[12%] bg-cyan-50">Tags</TableHead>
+                                        <TableHead className="w-[12%] bg-cyan-50">Header</TableHead>
+                                        <TableHead className="w-[6%] text-center bg-cyan-50">t</TableHead>
+                                        <TableHead className="w-[12%] text-right bg-cyan-50">Amount</TableHead>
+                                        <TableHead className="w-[6%] text-right bg-cyan-50">exDate</TableHead>
+                                        <TableHead className="w-[9%] bg-cyan-50">asgTo</TableHead>
+                                        <TableHead className="w-[25%] border-l-2 border-border bg-cyan-50">actName</TableHead>
+                                        <TableHead className="w-[10%] text-right bg-cyan-50">actAmount</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {filteredAndSortedTransactions.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                                                No transactions found
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        filteredAndSortedTransactions.map((transaction) => (
+                                            renderTransactionRow(
+                                                transaction,
+                                                transactionActualsMap[transaction.id] || [],
+                                                toggleSelectTransaction,
+                                                handleTransactionClick,
+                                                selectedTransactionIds,
+                                                getUserById
+                                            )
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
                         </SortableContext>
                     </DndContext>
                 </CardContent>
@@ -695,165 +655,118 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
     );
 }
 
-interface TableProps {
-    orderedTransactions: any[];
-    transactionActualsMap: {[transactionId: string]: {actual: Actual, projectName: string}[]};
-    getUserById: (userId: string) => string;
-    selectedTransactionIds: Set<string>;
-    onTransactionClick: (id: string) => void;
-    toggleSelectTransaction: (transactionId: string) => void;
-    toggleSelectAll: () => void;
-}
-
-function renderTable({ orderedTransactions, transactionActualsMap, getUserById, selectedTransactionIds, onTransactionClick, toggleSelectTransaction, toggleSelectAll }: TableProps) {
-    const allSelected = orderedTransactions.length > 0 && selectedTransactionIds.size === orderedTransactions.length;
+function renderTransactionRow(
+    transaction: any,
+    actuals: {actual: Actual, projectName: string, project: string}[],
+    toggleSelectTransaction: (id: string) => void,
+    onTransactionClick: (id: string) => void,
+    selectedTransactionIds: Set<string>,
+    getUserById: (userId: string | null) => string
+) {
+    const transactionId = transaction.id;
+    const isDraggable = true;
+    const hasActuals = actuals.length > 0;
 
     return (
-        <Table className="table-fixed">
-            <TableHeader>
-                <TableRow>
-                    <TableHead className="w-[5%] bg-cyan-50">
-                        <input
-                            type="checkbox"
-                            className="h-4 w-4 accent-primary"
-                            checked={allSelected}
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={toggleSelectAll}
-                        />
-                    </TableHead>
-                    <TableHead className="w-[22%] bg-cyan-50">Name</TableHead>
-                    <TableHead className="w-[12%] bg-cyan-50">Tags</TableHead>
-                    <TableHead className="w-[12%] bg-cyan-50">Header</TableHead>
-                    <TableHead className="w-[6%] text-center bg-cyan-50">t</TableHead>
-                    <TableHead className="w-[12%] text-right bg-cyan-50">Amount</TableHead>
-                    <TableHead className="w-[6%] text-right bg-cyan-50">exDate</TableHead>
-                    <TableHead className="w-[9%] bg-cyan-50">asgTo</TableHead>
-                    <TableHead className="w-[25%] border-l-2 border-border bg-cyan-50">actName</TableHead>
-                    <TableHead className="w-[10%] text-right bg-cyan-50">actAmount</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {orderedTransactions.length === 0 ? (
-                    <TableRow>
-                        <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
-                            No transactions found
-                        </TableCell>
-                    </TableRow>
-                ) : (
-                    orderedTransactions.map((transaction) => (
-                        renderTransactionRow(transaction, transactionActualsMap[transaction.id] || [], toggleSelectTransaction, onTransactionClick)
-                    ))
-                )}
-            </TableBody>
-        </Table>
-    );
-
-    function renderTransactionRow(transaction: any, actuals: {actual: Actual, projectName: string}[], toggleSelectTransaction: (id: string) => void, onTransactionClick: (id: string) => void) {
-        const transactionId = transaction.id;
-        const isDraggable = true;
-        const hasActuals = actuals.length > 0;
-
-        return (
-            <TransactionSortableRow key={transactionId} id={transactionId} disabled={!isDraggable}>
-                <TableCell className="px-2 py-3">
-                    <input
-                        type="checkbox"
-                        className="h-4 w-4 accent-primary"
-                        checked={selectedTransactionIds.has(transactionId)}
-                        onChange={() => toggleSelectTransaction(transactionId)}
+        <TransactionSortableRow key={transactionId} id={transactionId} disabled={!isDraggable}>
+            <TableCell className="px-2 py-3">
+                <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-primary"
+                    checked={selectedTransactionIds.has(transactionId)}
+                    onChange={() => toggleSelectTransaction(transactionId)}
+                    onPointerDown={(e) => {
+                        e.stopPropagation();
+                    }}
+                />
+            </TableCell>
+            <TableCell className="font-medium py-3">
+                <div className="flex items-center gap-2">
+                    <span
+                        className="cursor-pointer hover:underline font-medium"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onTransactionClick(transactionId);
+                        }}
                         onPointerDown={(e) => {
                             e.stopPropagation();
                         }}
-                    />
-                </TableCell>
-                <TableCell className="font-medium py-3">
-                    <div className="flex items-center gap-2">
-                        <span
-                            className="cursor-pointer hover:underline font-medium"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onTransactionClick(transactionId);
-                            }}
-                            onPointerDown={(e) => {
-                                e.stopPropagation();
-                            }}
-                        >
-                            {transaction.name}
-                        </span>
+                    >
+                        {transaction.name}
+                    </span>
+                </div>
+            </TableCell>
+            <TableCell className="text-sm py-3">
+                {transaction.tags.length > 0 ? (
+                    <div className="flex flex-col gap-0.5">
+                        {transaction.tags.map((tag: string, idx: number) => (
+                            <span key={idx} className="text-xs">
+                                {tag}
+                            </span>
+                        ))}
                     </div>
-                </TableCell>
-                <TableCell className="text-sm py-3">
-                    {transaction.tags.length > 0 ? (
-                        <div className="flex flex-col gap-0.5">
-                            {transaction.tags.map((tag: string, idx: number) => (
-                                <span key={idx} className="text-xs">
-                                    {tag}
-                                </span>
-                            ))}
-                        </div>
-                    ) : (
-                        <span className="text-muted-foreground">—</span>
-                    )}
-                </TableCell>
-                <TableCell className="w-[12%] text-sm text-muted-foreground py-3">—</TableCell>
-                <TableCell className="text-center py-3">
-                    <span className={`text-xs px-2 py-0.5 rounded ${
-                        transaction.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                    }`}>
-                        {getTypeLabel(transaction.type)}
-                    </span>
-                </TableCell>
-                <TableCell className="w-[12%] text-right py-3">
-                    <span className="text-xs font-medium">
-                        {formatNumber(transaction.amount)}
-                    </span>
-                </TableCell>
-                <TableCell className="w-[6%] text-right text-sm text-muted-foreground py-3">
-                    {transaction.exDate ? <span className="text-xs">{formatDate(transaction.exDate)}</span> : '—'}
-                </TableCell>
-                <TableCell className="w-[9%] text-sm text-muted-foreground py-3">
-                    {getUserById(transaction.assignedTo)}
-                </TableCell>
-                <TableCell className={`text-sm border-l-2 border-border py-3 ${hasActuals ? 'text-primary' : 'text-muted-foreground'}`}>
-                    {hasActuals ? (
-                        <div className="flex flex-col">
-                            {actuals.map((item, idx) => (
-                                <div key={idx} className="border-b border-gray-200 pb-1 mb-1">
-                                    <span className="font-medium text-xs">{item.actual.name}</span>
-                                    {item.project && item.project !== '000000000000000000000000' ? (
-                                        <Link
-                                            to={`/projects/${item.project}?tab=actuals`}
-                                            className="text-xs italic text-muted-foreground hover:underline"
-                                            onClick={(e) => e.stopPropagation()}
-                                        >
-                                            {item.projectName}
-                                        </Link>
-                                    ) : (
-                                        <span className="text-xs italic text-muted-foreground">
-                                            {item.projectName}
-                                        </span>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <span className="text-muted-foreground">—</span>
-                    )}
-                </TableCell>
-                <TableCell className={`text-right py-3 ${hasActuals ? 'font-medium' : 'text-muted-foreground'}`}>
-                    {hasActuals ? (
-                        <div className="flex flex-col">
-                            {actuals.map((item, idx) => (
-                                <span key={idx} className="text-xs border-b border-gray-200 pb-1 mb-1">
-                                    {formatNumber(item.actual.amount)}
-                                </span>
-                            ))}
-                        </div>
-                    ) : (
-                        <span className="text-muted-foreground">—</span>
-                    )}
-                </TableCell>
-            </TransactionSortableRow>
-        );
-    }
+                ) : (
+                    <span className="text-muted-foreground">—</span>
+                )}
+            </TableCell>
+            <TableCell className="w-[12%] text-sm text-muted-foreground py-3">—</TableCell>
+            <TableCell className="text-center py-3">
+                <span className={`text-xs px-2 py-0.5 rounded ${
+                    transaction.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                }`}>
+                    {getTypeLabel(transaction.type)}
+                </span>
+            </TableCell>
+            <TableCell className="w-[12%] text-right py-3">
+                <span className="text-xs font-medium">
+                    {formatNumber(transaction.amount)}
+                </span>
+            </TableCell>
+            <TableCell className="w-[6%] text-right text-sm text-muted-foreground py-3">
+                {transaction.exDate ? <span className="text-xs">{formatDate(transaction.exDate)}</span> : '—'}
+            </TableCell>
+            <TableCell className="w-[9%] text-sm text-muted-foreground py-3">
+                {transaction.assignedTo ? getUserById(transaction.assignedTo) : '—'}
+            </TableCell>
+            <TableCell className={`text-sm border-l-2 border-border py-3 ${hasActuals ? 'text-primary' : 'text-muted-foreground'}`}>
+                {hasActuals ? (
+                    <div className="flex flex-col">
+                        {actuals.map((item, idx) => (
+                            <div key={idx} className="border-b border-gray-200 pb-1 mb-1">
+                                <span className="font-medium text-xs">{item.actual.name}</span>
+                                {item.project && item.project !== '000000000000000000000000' ? (
+                                    <Link
+                                        to={`/projects/${item.project}?tab=actuals`}
+                                        className="text-xs italic text-muted-foreground hover:underline"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        {item.projectName}
+                                    </Link>
+                                ) : (
+                                    <span className="text-xs italic text-muted-foreground">
+                                        {item.projectName}
+                                    </span>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <span className="text-muted-foreground">—</span>
+                )}
+            </TableCell>
+            <TableCell className={`text-right py-3 ${hasActuals ? 'font-medium' : 'text-muted-foreground'}`}>
+                {hasActuals ? (
+                    <div className="flex flex-col">
+                        {actuals.map((item, idx) => (
+                            <span key={idx} className="text-xs border-b border-gray-200 pb-1 mb-1">
+                                {formatNumber(item.actual.amount)}
+                            </span>
+                        ))}
+                    </div>
+                ) : (
+                    <span className="text-muted-foreground">—</span>
+                )}
+            </TableCell>
+        </TransactionSortableRow>
+    );
 }

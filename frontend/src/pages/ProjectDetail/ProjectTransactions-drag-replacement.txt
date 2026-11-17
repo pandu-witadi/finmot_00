@@ -1,0 +1,21 @@
+const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+        
+        if (!over || active.id === over.id) {
+            return;
+        }
+        
+        const activeId = active.id as string;
+        const overId = over.id as string;
+        
+        const activeIndex = transactions.findIndex(t => t.id === activeId);
+        const overIndex = transactions.findIndex(t => t.id === overId);
+        
+        if (activeIndex === -1 || overIndex === -1) {
+            return;
+        }
+        
+        const newTransactions = arrayMove(transactions, activeIndex, overIndex);
+        setTransactions(newTransactions);
+        setIsOrderDirty(true);
+    };

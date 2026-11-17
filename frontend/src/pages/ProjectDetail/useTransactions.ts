@@ -58,7 +58,10 @@ export function useTransactions(projectId: string) {
             
             const res = await transactionApi.getAll(query.filter, query.sort);
             const data = Array.isArray(res.data) ? res.data : [];
-            setTransactions(data);
+            
+            // Sort by position to maintain user-defined order
+            const sortedByPosition = [...data].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+            setTransactions(sortedByPosition);
         } catch (error: any) {
             const errorMessage = error?.response?.data?.error || "Failed to load transactions";
             toast.error(errorMessage);
@@ -122,6 +125,7 @@ export function useTransactions(projectId: string) {
 
     return {
         transactions,
+        setTransactions,
         isLoading,
         filter,
         setFilter,

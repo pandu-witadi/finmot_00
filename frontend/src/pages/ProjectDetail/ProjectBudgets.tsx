@@ -597,57 +597,61 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                         <div
                             className={`cursor-move space-y-1 ${!expandedHeaders.has(header.id) ? 'cursor-grab' : 'cursor-not-allowed'}`}
                         >
-                            <div className="flex items-center gap-2">
-                                <button
-                                    type="button"
-                                    className="text-muted-foreground hover:text-foreground pointer-events-auto"
-                                    onPointerDown={(e) => {
-                                        e.stopPropagation();
-                                    }}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        const newExpanded = new Set(expandedHeaders);
-                                        if (newExpanded.has(header.id)) {
-                                            newExpanded.delete(header.id);
-                                        } else {
-                                            newExpanded.add(header.id);
-                                        }
-                                        setExpandedHeaders(newExpanded);
-                                    }}
-                                >
-                                    {expandedHeaders.has(header.id) ? (
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-up">
-                                            <path d="m18 15-6-6-6 6" />
-                                        </svg>
-                                    ) : (
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-down">
-                                            <path d="m6 9 6 6 6-6" />
-                                        </svg>
-                                    )}
-                                </button>
-                                <button
-                                    type="button"
-                                    className="text-lg font-bold text-primary hover:underline"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        openEditHeader(header);
-                                    }}
-                                >
-                                    {header.name}
-                                </button>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground ml-6">
-                                <span className={`text-xs px-2 py-0.5 rounded ${
-                                    header.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                                }`}>
-                                    {getTypeLabel(header.type)}
-                                </span>
-                                <span>{formatNumber(headerTotal)}</span>
-                                {associatedBudgets.length > 0 && Array.from(selectedBudgetIds).some(id => associatedBudgets.some(b => b.id === id)) && (
-                                    <span className="ml-2 text-xs text-muted-foreground">
-                                        {Array.from(selectedBudgetIds).filter(id => associatedBudgets.some(b => b.id === id)).length} selected
+                            <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        className="text-muted-foreground hover:text-foreground pointer-events-auto"
+                                        onPointerDown={(e) => {
+                                            e.stopPropagation();
+                                        }}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            const newExpanded = new Set(expandedHeaders);
+                                            if (newExpanded.has(header.id)) {
+                                                newExpanded.delete(header.id);
+                                            } else {
+                                                newExpanded.add(header.id);
+                                            }
+                                            setExpandedHeaders(newExpanded);
+                                        }}
+                                    >
+                                        {expandedHeaders.has(header.id) ? (
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-up">
+                                                <path d="m18 15-6-6-6 6" />
+                                            </svg>
+                                        ) : (
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-down">
+                                                <path d="m6 9 6 6 6-6" />
+                                            </svg>
+                                        )}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="text-lg font-bold text-primary hover:underline"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            openEditHeader(header);
+                                        }}
+                                    >
+                                        {header.name}
+                                    </button>
+                                </div>
+                                <div className="flex items-center gap-2 text-muted-foreground border-l border-border pl-3">
+                                    <span className={`text-xs px-2 py-0.5 rounded ${
+                                        header.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                    }`}>
+                                        {getTypeLabel(header.type)}
                                     </span>
-                                )}
+                                    <span className="text-xs">{formatNumber(headerTotal)}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground ml-6">
+                                    {associatedBudgets.length > 0 && Array.from(selectedBudgetIds).some(id => associatedBudgets.some(b => b.id === id)) && (
+                                        <span className="text-xs text-muted-foreground">
+                                            {Array.from(selectedBudgetIds).filter(id => associatedBudgets.some(b => b.id === id)).length} selected
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         </div>
                         <div className="flex gap-2">

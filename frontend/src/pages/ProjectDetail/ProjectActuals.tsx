@@ -4,7 +4,6 @@ import { headerApi, budgetApi, actualApi, userApi, api, transactionApi } from "@
 import { toast } from "react-hot-toast";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { UserPlusIcon } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -526,17 +525,12 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
                                     <DropdownMenuItem onClick={handleDeleteSelected}>
                                         Delete
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleOpenRegisterToTransaction(Array.from(selectedActualIds)[0])} disabled={selectedActualIds.size !== 1}>
-                                        Register to Transaction
-                                    </DropdownMenuItem>
+                                    <div className="border-b border-border" />
                                     <DropdownMenuItem onClick={() => {
                                         setIsAssignToMenuOpen(true);
                                         loadUsers();
                                     }}>
-                                        <div className="flex items-center gap-2">
-                                            <UserPlusIcon className="w-4 h-4" />
-                                            <span>Assign to User</span>
-                                        </div>
+                                        Assign to User
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
