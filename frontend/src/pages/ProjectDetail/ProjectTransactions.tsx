@@ -818,7 +818,7 @@ function renderTable({ orderedTransactions, transactionActualsMap, getUserById, 
                     {hasActuals ? (
                         <div className="flex flex-col">
                             {actuals.map((item, idx) => (
-                                <span key={idx} className="font-medium text-xs">
+                                <span key={idx} className="font-medium text-xs border-b border-gray-200 pb-1 mb-1">
                                     {item.actual.name}
                                 </span>
                             ))}
@@ -831,7 +831,7 @@ function renderTable({ orderedTransactions, transactionActualsMap, getUserById, 
                     {hasActuals ? (
                         <div className="flex flex-col">
                             {actuals.map((item, idx) => (
-                                <span key={idx} className="text-xs">
+                                <span key={idx} className="text-xs border-b border-gray-200 pb-1 mb-1">
                                     {formatNumber(item.actual.amount)}
                                 </span>
                             ))}
