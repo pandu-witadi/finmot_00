@@ -314,15 +314,12 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
                     <div className="flex items-center justify-between">
                         {selectedTransactionIds.size > 0 && (
                             <DropdownMenu>
-                                <DropdownMenuTrigger asChild={true}>
+                                <DropdownMenuTrigger>
                                     <Button variant="destructive" className="h-8 px-2 text-xs">
                                         ({selectedTransactionIds.size}) sel
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={handleDeleteSelected}>
-                                        Delete
-                                    </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => {
                                         setIsAssignToMenuOpen(true);
                                         const loadUsers = async () => {
@@ -337,21 +334,28 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
                                         };
                                         loadUsers();
                                     }}>
-                                        <div className="flex items-center gap-2">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-user-plus">
-                                                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-                                                <circle cx="9" cy="7" r="4"/>
-                                                <line x1="19" x2="19" y1="8" y2="14"/>
-                                                <line x1="22" x2="16" y1="11" y2="11"/>
-                                            </svg>
-                                            <span>Assign to User</span>
-                                        </div>
+                                        Assign to User
+                                    </DropdownMenuItem>
+                                    <div className="border-b border-border" />
+                                    <DropdownMenuItem onClick={handleDeleteSelected} className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                                        Delete
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         )}
                         <div className="flex flex-wrap items-center gap-4">
                             <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => setIsAddDialogOpen(true)}
+                                    title="Add transaction"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus">
+                                        <path d="M5 12h14" />
+                                        <path d="M12 5v14" />
+                                    </svg>
+                                </Button>
                                 <Button
                                     variant="ghost"
                                     size="icon"
@@ -382,8 +386,6 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
                                     onChange={(e) => setSearchAssignedTerm(e.target.value)}
                                     className="h-8 w-24"
                                 />
-                            </div>
-                            <div className="flex items-center gap-2">
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild={true}>
                                         <div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background px-3 py-1.5 hover:bg-accent hover:text-accent-foreground h-8 px-3 cursor-pointer">
@@ -432,7 +434,7 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
                 <CardContent>
                     <DndContext onDragEnd={handleDragEnd}>
                         <SortableContext items={transactions.map(t => t.id)} strategy={verticalListSortingStrategy}>
-                            <Table>
+                            <Table className="table-fixed">
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead className="w-[5%] bg-cyan-50">
@@ -443,21 +445,19 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
                                                 onChange={toggleSelectAll}
                                             />
                                         </TableHead>
-                                        <TableHead className="w-[22%] bg-cyan-50">Name</TableHead>
+                                        <TableHead className="w-[25%] bg-cyan-50">Name</TableHead>
                                         <TableHead className="w-[12%] bg-cyan-50">Tags</TableHead>
-                                        <TableHead className="w-[12%] bg-cyan-50">Header</TableHead>
-                                        <TableHead className="w-[6%] text-center bg-cyan-50">t</TableHead>
-                                        <TableHead className="w-[12%] text-right bg-cyan-50">Amount</TableHead>
+                                        <TableHead className="w-[4%] text-center bg-cyan-50">t</TableHead>
+                                        <TableHead className="w-[13%] text-right bg-cyan-50">Amount</TableHead>
                                         <TableHead className="w-[6%] text-right bg-cyan-50">exDate</TableHead>
                                         <TableHead className="w-[9%] bg-cyan-50">asgTo</TableHead>
-                                        <TableHead className="w-[25%] border-l-2 border-border bg-cyan-50">actName</TableHead>
-                                        <TableHead className="w-[10%] text-right bg-cyan-50">actAmount</TableHead>
+                                        <TableHead className="w-[25%] border-l-2 border-border bg-cyan-50">actual</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {filteredAndSortedTransactions.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                                            <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                                                 No transactions found
                                             </TableCell>
                                         </TableRow>
@@ -669,7 +669,7 @@ function renderTransactionRow(
 
     return (
         <TransactionSortableRow key={transactionId} id={transactionId} disabled={!isDraggable}>
-            <TableCell className="px-2 py-3">
+            <TableCell className="w-[5%] px-2 py-3">
                 <input
                     type="checkbox"
                     className="h-4 w-4 accent-primary"
@@ -680,7 +680,7 @@ function renderTransactionRow(
                     }}
                 />
             </TableCell>
-            <TableCell className="font-medium py-3">
+            <TableCell className="w-[25%] font-medium py-3">
                 <div className="flex items-center gap-2">
                     <span
                         className="cursor-pointer hover:underline font-medium"
@@ -696,7 +696,7 @@ function renderTransactionRow(
                     </span>
                 </div>
             </TableCell>
-            <TableCell className="text-sm py-3">
+            <TableCell className="w-[12%] text-sm py-3">
                 {transaction.tags.length > 0 ? (
                     <div className="flex flex-col gap-0.5">
                         {transaction.tags.map((tag: string, idx: number) => (
@@ -709,15 +709,14 @@ function renderTransactionRow(
                     <span className="text-muted-foreground">—</span>
                 )}
             </TableCell>
-            <TableCell className="w-[12%] text-sm text-muted-foreground py-3">—</TableCell>
-            <TableCell className="text-center py-3">
+            <TableCell className="w-[4%] text-center py-3">
                 <span className={`text-xs px-2 py-0.5 rounded ${
                     transaction.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                 }`}>
                     {getTypeLabel(transaction.type)}
                 </span>
             </TableCell>
-            <TableCell className="w-[12%] text-right py-3">
+            <TableCell className="w-[13%] text-right py-3">
                 <span className="text-xs font-medium">
                     {formatNumber(transaction.amount)}
                 </span>
@@ -728,39 +727,35 @@ function renderTransactionRow(
             <TableCell className="w-[9%] text-sm text-muted-foreground py-3">
                 {transaction.assignedTo ? getUserById(transaction.assignedTo) : '—'}
             </TableCell>
-            <TableCell className={`text-sm border-l-2 border-border py-3 ${hasActuals ? 'text-primary' : 'text-muted-foreground'}`}>
+            <TableCell className={`w-[25%] text-sm border-l-2 border-border py-3 ${hasActuals ? 'text-primary' : 'text-muted-foreground'}`}>
                 {hasActuals ? (
                     <div className="flex flex-col">
                         {actuals.map((item, idx) => (
                             <div key={idx} className="border-b border-gray-200 pb-1 mb-1">
-                                <span className="font-medium text-xs">{item.actual.name}</span>
-                                {item.project && item.project !== '000000000000000000000000' ? (
-                                    <Link
-                                        to={`/projects/${item.project}?tab=actuals`}
-                                        className="text-xs italic text-muted-foreground hover:underline"
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        {item.projectName}
-                                    </Link>
-                                ) : (
-                                    <span className="text-xs italic text-muted-foreground">
-                                        {item.projectName}
-                                    </span>
-                                )}
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-medium text-xs">{item.actual.name}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs text-muted-foreground">{formatNumber(item.actual.amount)}</span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {item.project && item.project !== '000000000000000000000000' ? (
+                                        <Link
+                                            to={`/projects/${item.project}?tab=actuals`}
+                                            className="text-xs italic text-muted-foreground hover:underline"
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            {item.projectName}
+                                        </Link>
+                                    ) : (
+                                        <span className="text-xs italic text-muted-foreground">
+                                            {item.projectName}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
-                        ))}
-                    </div>
-                ) : (
-                    <span className="text-muted-foreground">—</span>
-                )}
-            </TableCell>
-            <TableCell className={`text-right py-3 ${hasActuals ? 'font-medium' : 'text-muted-foreground'}`}>
-                {hasActuals ? (
-                    <div className="flex flex-col">
-                        {actuals.map((item, idx) => (
-                            <span key={idx} className="text-xs border-b border-gray-200 pb-1 mb-1">
-                                {formatNumber(item.actual.amount)}
-                            </span>
                         ))}
                     </div>
                 ) : (

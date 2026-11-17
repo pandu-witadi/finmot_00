@@ -475,15 +475,15 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={handleDeleteSelected}>
-                                        Delete
-                                    </DropdownMenuItem>
-                                    <div className="border-b border-border" />
                                     <DropdownMenuItem onClick={() => {
                                         setIsAssignToMenuOpen(true);
                                         loadUsers();
                                     }}>
                                         Assign to User
+                                    </DropdownMenuItem>
+                                    <div className="border-b border-border" />
+                                    <DropdownMenuItem onClick={handleDeleteSelected} className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                                        Delete
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
