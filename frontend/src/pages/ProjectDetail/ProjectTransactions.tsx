@@ -234,7 +234,7 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
 
     // Map transactions to their actuals
     const actualsMap = new Map(allActuals.map(a => [a.id, a]));
-    const transactionActualsMap: {[transactionId: string]: {actual: Actual, projectName: string}[]} = {};
+    const transactionActualsMap: {[transactionId: string]: {actual: Actual, projectName: string, project: string}[]} = {};
     sortedTransactions.forEach(transaction => {
         const uniqueActualIds = Array.from(new Set(transaction.arrActual || []));
         const transactionActuals = uniqueActualIds
@@ -242,9 +242,9 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
                 const actual = actualsMap.get(actualId);
                 if (!actual) return null;
                 const projectName = projectsMap.get(actual.project) || '';
-                return { actual, projectName };
+                return { actual, projectName, project: String(actual.project) };
             })
-            .filter((item): item is {actual: Actual, projectName: string} => item !== null);
+            .filter((item): item is {actual: Actual, projectName: string, project: string} => item !== null);
         if (transactionActuals.length > 0) {
             transactionActualsMap[transaction.id] = transactionActuals;
         }
@@ -818,9 +818,22 @@ function renderTable({ orderedTransactions, transactionActualsMap, getUserById, 
                     {hasActuals ? (
                         <div className="flex flex-col">
                             {actuals.map((item, idx) => (
-                                <span key={idx} className="font-medium text-xs border-b border-gray-200 pb-1 mb-1">
-                                    {item.actual.name}
-                                </span>
+                                <div key={idx} className="border-b border-gray-200 pb-1 mb-1">
+                                    <span className="font-medium text-xs">{item.actual.name}</span>
+                                    {item.project && item.project !== '000000000000000000000000' ? (
+                                        <Link
+                                            to={`/projects/${item.project}?tab=actuals`}
+                                            className="text-xs italic text-muted-foreground hover:underline"
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            {item.projectName}
+                                        </Link>
+                                    ) : (
+                                        <span className="text-xs italic text-muted-foreground">
+                                            {item.projectName}
+                                        </span>
+                                    )}
+                                </div>
                             ))}
                         </div>
                     ) : (
