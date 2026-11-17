@@ -124,7 +124,7 @@ export async function getAllTransactions(query?: GetTransactionsQuery): Promise<
         }
     }
 
-    const sortField = sort?.field && sort.field !== 'none' ? sort.field : 'position';
+    const sortField = sort?.field ?? 'position';
     const sortOrder = sort?.order === 'asc' ? 1 : -1;
 
     const transactionsQuery = Transaction.find(mongoQuery)

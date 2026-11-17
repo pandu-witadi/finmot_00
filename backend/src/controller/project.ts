@@ -1,5 +1,4 @@
 import { Project } from '../model/project.js';
-import mongoose from 'mongoose';
 
 export interface ProjectResponse {
     id: string;

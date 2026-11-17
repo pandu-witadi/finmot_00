@@ -153,7 +153,7 @@ export async function createHeader(body: CreateHeaderRequest): Promise<HeaderRes
     let order = body.order ?? 0;
     
     if (body.order === undefined) {
-        const lastHeader = await Header.findOne({ project: body.project })
+        const lastHeader = await Header.findOne({ project: body.project as any })
             .sort({ order: -1 })
             .lean();
         order = lastHeader ? lastHeader.order + 1 : 0;
@@ -245,18 +245,3 @@ export async function deleteHeader(id: string): Promise<boolean> {
     const result = await Header.findByIdAndDelete(id);
     return result !== null;
 }
-
-// Backward compatibility wrappers
-export const getBudgetHeaderById = getHeaderById;
-export const getAllBudgetHeaders = getAllHeaders;
-export const createBudgetHeader = createHeader;
-export const updateBudgetHeader = updateHeader;
-export const deleteBudgetHeader = deleteHeader;
-
-// Backward compatibility type exports
-export type BudgetHeaderResponse = HeaderResponse;
-export type CreateBudgetHeaderRequest = CreateHeaderRequest;
-export type UpdateBudgetHeaderRequest = UpdateHeaderRequest;
-export type BudgetHeaderFilter = HeaderFilter;
-export type BudgetHeaderSort = HeaderSort;
-export type GetBudgetHeadersQuery = GetHeadersQuery;

@@ -7,7 +7,6 @@ export interface TransactionDoc extends Document {
     note: string;
     type: 'income' | 'expense';
     amount: number;
-    calcAmount: number;
     project: Schema.Types.ObjectId;
     arrActual: Schema.Types.ObjectId[];
     exDate: Date;
@@ -43,11 +42,6 @@ const transactionSchema = new Schema<TransactionDoc>({
         required: true
     },
     amount: {
-        type: Number,
-        required: true,
-        default: 0
-    },
-    calcAmount: {
         type: Number,
         required: true,
         default: 0

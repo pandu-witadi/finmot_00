@@ -24,7 +24,6 @@ import { formatNumber, getTypeLabel, parseTags } from "@/utils/formatters";
 import { formatDate } from "@/utils/dateFormatters";
 import { filterActualsBySearch, filterActualsByType, sortActualsByDate, calculateTotalAmount } from "./actuals-filters";
 import { filterUsers } from "./actuals-users";
-import { loadTransactionsForProject, resetRegisterToTransactionState } from "./actuals-transactions";
 
 interface ProjectActualsProps {
     projectId: string;
@@ -73,7 +72,7 @@ function ActualSortableRow({ id, children, disabled }: { id: string; children: R
     );
 }
 
-export function ProjectActuals({ projectId, active, projectName }: ProjectActualsProps) {
+export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
     const navigate = useNavigate();
     const [actuals, setActuals] = useState<ActualWithBudgetInfo[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -95,7 +94,6 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
     const [allUsers, setAllUsers] = useState<User[]>([]);
     const [isLoadingUsers, setIsLoadingUsers] = useState(false);
     const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set<string>());
-    const [projectData, setProjectData] = useState<{ arrActual: string[] } | null>(null);
     const [searchNameTerm, setSearchNameTerm] = useState("");
     const [searchTagTerm, setSearchTagTerm] = useState("");
     const [searchHeaderTerm, setSearchHeaderTerm] = useState("");
@@ -105,10 +103,6 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
     const [transactionsForSelectedProject, setTransactionsForSelectedProject] = useState<{ id: string; name: string }[]>([]);
     const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
     const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
-    const [editActualBudgetName, setEditActualBudgetName] = useState("");
-    const [editActualTransactionName, setEditActualTransactionName] = useState<string | undefined>();
-    const [editActualHasTransaction, setEditActualHasTransaction] = useState(false);
-    const [budgets, setBudgets] = useState<any[]>([]);
     const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
     const [sortByDate, setSortByDate] = useState<'none' | 'asc' | 'desc'>('none');
     const [isOrderDirty, setIsOrderDirty] = useState(false);
@@ -133,7 +127,6 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
             } catch (err: any) {
                 console.debug("Failed to load project data:", err);
             }
-            setProjectData(projectDataRes);
 
             // Load all projects for the modal
             const projectsData = Array.isArray(projectsRes.data) ? projectsRes.data : [];
@@ -142,7 +135,6 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
 
             const headersData = Array.isArray(headersRes.data) ? headersRes.data : [];
             const budgetsData = Array.isArray(budgetsRes.data) ? budgetsRes.data : [];
-            setBudgets(budgetsData);
             const actualsData = Array.isArray(actualsRes.data) ? actualsRes.data : [];
             const transactionsData = Array.isArray(transactionsRes.data) ? transactionsRes.data : [];
             
@@ -291,32 +283,6 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
         }
     };
 
-    const openEditDialog = (actual: any) => {
-        // Find the budget name
-        const budget = budgets.find(b => b.id === actual.budget);
-        const budgetName = budget?.name || '';
-        
-        // Find the transaction name
-        const transactionName = actual.transaction ? actual.transaction.name : undefined;
-        const hasTransaction = actual.transaction !== undefined;
-        
-        setEditActualForm({
-            id: actual.id,
-            name: actual.name,
-            note: actual.note || '',
-            amount: actual.amount,
-            exDate: actual.exDate || new Date(),
-            tags: (actual.tags || []).join(', '),
-            assignedTo: actual.assignedTo || '',
-            updatedAt: actual.updatedAt,
-            updatedBy: actual.updatedBy
-        });
-        setEditActualBudgetName(budgetName);
-        setEditActualTransactionName(transactionName);
-        setEditActualHasTransaction(hasTransaction);
-        setIsEditActualDialogOpen(true);
-    };
-
     const handleNameClick = (actual: any) => {
         // Navigate to actual detail page
         navigate(`/actuals/${actual.id}`);
@@ -354,18 +320,6 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
         } catch (error: any) {
             const errorMessage = error?.response?.data?.error || "Failed to delete actuals";
             toast.error(errorMessage);
-        }
-    };
-
-    const handleOpenRegisterToTransaction = async (actualId: string) => {
-        setIsRegisterToTransactionModalOpen(true);
-        setSelectedProjectId(null);
-        setTransactionsForSelectedProject([]);
-        setSelectedTransactionId(null);
-        // Pre-select current project
-        setSelectedProjectId(projectId);
-        if (projectId) {
-            await loadTransactionsForProject(projectId);
         }
     };
 
@@ -490,7 +444,6 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
         try {
             const orderToSave = isOrderDirty ? actuals.map(a => a.id) : filteredActuals.map(a => a.id);
             await api.put(`/project/${projectId}`, { arrActual: orderToSave });
-            setProjectData({ arrActual: orderToSave });
             setIsOrderDirty(false);
             toast.success("Actual position saved successfully");
         } catch (error: any) {
@@ -748,9 +701,6 @@ export function ProjectActuals({ projectId, active, projectName }: ProjectActual
                         setEditActualForm={setEditActualForm}
                         onEditActual={handleEditActual}
                         onDeleteActual={() => handleDeleteActual(editActualForm.id)}
-                        budgetName={editActualBudgetName}
-                        transactionName={editActualTransactionName}
-                        hasTransaction={editActualHasTransaction}
                     />
 
                     {/* Register to Transaction Modal */}

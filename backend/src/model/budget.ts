@@ -2,6 +2,7 @@ import mongoose, { Document, Schema } from "mongoose";
 
 export interface BudgetDoc extends Document {
     name: string;
+    note: string;
     tags: string[];
     active: boolean;
     type: 'income' | 'expense';

@@ -75,10 +75,6 @@ const projectSchema = new Schema<ProjectDoc>({
         type: [Schema.Types.ObjectId],
         default: []
     },
-    arrAttachment: {
-        type: [Schema.Types.ObjectId],
-        default: []
-    },
     updatedBy: {
         type: Schema.Types.ObjectId,
         ref: 'User',

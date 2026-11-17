@@ -2,8 +2,8 @@ import { Budget } from '../model/budget.js';
 import { Header } from '../model/header.js';
 import { Project } from '../model/project.js';
 import { Actual, ActualDoc } from '../model/actual.js';
+import { Transaction } from '../model/transaction.js';
 import { ActualResponse } from '../controller/actual.js';
-import { Transaction, TransactionDoc } from '../model/transaction.js';
 import mongoose from 'mongoose';
 
 
@@ -354,21 +354,21 @@ export async function registerToTransaction(body: RegisterToTransactionRequest):
     }
 
     // Link actual to transaction
-    actual.trx = new mongoose.Types.ObjectId(body.transactionId);
+    actual.trx = body.transactionId as any;
     await actual.save();
 
     // Add actual ID to transaction's arrActual if not already present
-    if (!transaction.arrActual.includes(actual._id)) {
+    if (!transaction.arrActual.includes(actual._id as any)) {
         await Transaction.findByIdAndUpdate(body.transactionId, {
-            $push: { arrActual: actual._id }
+            $push: { arrActual: actual._id as any }
         });
     }
 
     // Add transaction to project's arrTransaction if not already present
-    const project = await Project.findById(actual.project);
-    if (project && !project.arrTransaction.includes(body.transactionId)) {
-        await Project.findByIdAndUpdate(actual.project, {
-            $push: { arrTransaction: body.transactionId }
+    const project = await Project.findById(actual.project as any);
+    if (project && !project.arrTransaction.includes(body.transactionId as any)) {
+        await Project.findByIdAndUpdate(actual.project as any, {
+            $push: { arrTransaction: body.transactionId as any }
         });
     }
 
@@ -405,10 +405,10 @@ export async function cloneToTransaction(body: CloneToTransactionRequest): Promi
         type: actual.type,
         amount: actual.amount,
         project: actual.project,
-        arrActual: [actual._id],
+        arrActual: [actual._id as any],
         exDate: actual.exDate || new Date(),
         assignedTo: actual.assignedTo || undefined,
-        updatedBy: new mongoose.Types.ObjectId(body.updatedBy),
+        updatedBy: body.updatedBy as any,
     });
     await transaction.save();
 
@@ -418,12 +418,12 @@ export async function cloneToTransaction(body: CloneToTransactionRequest): Promi
     });
 
     // Update actual's trx field to point to the new transaction
-    actual.trx = transaction._id;
+    actual.trx = transaction._id as any;
     await actual.save();
 
     // Add actual ID to transaction's arrActual
-    await Transaction.findByIdAndUpdate(transaction._id, {
-        $push: { arrActual: actual._id }
+    await Transaction.findByIdAndUpdate(transaction._id as any, {
+        $push: { arrActual: actual._id as any }
     });
 
     return {
