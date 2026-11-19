@@ -135,14 +135,30 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         setSelectedBudgetIds(newSet);
     };
 
-    const openRegisterActualConfirm = () => {
+    const openRegisterActual = () => {
         const budgetsToRegister = budgets.filter(b => selectedBudgetIds.has(b.id));
-        const budgetsWithNames = budgetsToRegister.map(b => ({
-            budget: b,
-            name: b.name
-        }));
-        setRegisteredBudgets(budgetsWithNames);
-        setIsRegisterActualConfirmOpen(true);
+        
+        if (budgetsToRegister.length === 1) {
+            const budget = budgetsToRegister[0];
+            setEditActualForm({
+                id: '',
+                name: budget.name,
+                amount: budget.amount,
+                exDate: new Date(),
+                tags: budget.tags.join(', '),
+                assignedTo: '',
+                updatedAt: new Date(),
+                updatedBy: ''
+            });
+            setIsEditActualDialogOpen(true);
+        } else {
+            const budgetsWithNames = budgetsToRegister.map(b => ({
+                budget: b,
+                name: b.name
+            }));
+            setRegisteredBudgets(budgetsWithNames);
+            setIsRegisterActualConfirmOpen(true);
+        }
     };
 
     const handleRegisterActualConfirm = async () => {
@@ -460,16 +476,34 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     };
 
     const handleEditActual = async () => {
-        await handleUpdateOperation(
-            actualApi.update,
-            editActualForm.id,
-            {
-                name: editActualForm.name.trim(),
-                amount: editActualForm.amount
-            },
-            "Actual updated successfully",
-            "Failed to update actual"
-        );
+        if (!editActualForm.id) {
+            // Register new actual from budget
+            const budget = budgets.find(b => b.name === editActualForm.name);
+            if (budget) {
+                await handleCreateOperation(
+                    budgetApi.registerActual,
+                    {
+                        budgetId: budget.id,
+                        actualName: editActualForm.name,
+                        updatedBy: 'user123' // TODO: Get actual user
+                    },
+                    "Actual registered successfully",
+                    "Failed to register actual"
+                );
+            }
+        } else {
+            // Update existing actual
+            await handleUpdateOperation(
+                actualApi.update,
+                editActualForm.id,
+                {
+                    name: editActualForm.name.trim(),
+                    amount: editActualForm.amount
+                },
+                "Actual updated successfully",
+                "Failed to update actual"
+            );
+        }
         setIsEditActualDialogOpen(false);
         resetActualForm();
     };
@@ -671,7 +705,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
                                                 {selectedCount === 1 && (
-                                                    <DropdownMenuItem onClick={openRegisterActualConfirm}>
+                                                    <DropdownMenuItem onClick={openRegisterActual}>
                                                         Register Actual
                                                     </DropdownMenuItem>
                                                 )}
