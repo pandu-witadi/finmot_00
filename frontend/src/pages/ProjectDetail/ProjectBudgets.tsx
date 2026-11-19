@@ -20,6 +20,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { formatNumber, getTypeLabel, parseTags } from "@/utils/formatters";
+import { formatDate } from "@/utils/dateFormatters";
 
 interface ProjectBudgetsProps {
     projectId: string;
@@ -107,7 +108,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     const [selectedBudgetIds, setSelectedBudgetIds] = useState<Set<string>>(new Set<string>());
     const [isRegisterActualConfirmOpen, setIsRegisterActualConfirmOpen] = useState(false);
     const [registeredBudgets, setRegisteredBudgets] = useState<{budget: Budget, name: string}[]>([]);
-    const [actuals, setActuals] = useState<{[budgetId: string]: {id: string, name: string, amount: number}[]}>({});
+    const [actuals, setActuals] = useState<{[budgetId: string]: {id: string, name: string, amount: number, exDate: Date}[]}>({});
     const [isEditActualDialogOpen, setIsEditActualDialogOpen] = useState(false);
     const [editActualForm, setEditActualForm] = useState<EditActualForm>({
         id: '',
@@ -298,7 +299,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             setBudgets(sortedBudgets);
             
             const actualsData = Array.isArray(actualsRes.data) ? actualsRes.data : [];
-            const actualsMap: {[budgetId: string]: {id: string, name: string, amount: number}[]} = {};
+            const actualsMap: {[budgetId: string]: {id: string, name: string, amount: number, exDate: Date}[]} = {};
             actualsData.forEach((actual: any) => {
                 if (actual.budget) {
                     if (!actualsMap[actual.budget]) {
@@ -307,7 +308,8 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                     actualsMap[actual.budget].push({
                         id: actual.id,
                         name: actual.name,
-                        amount: actual.amount
+                        amount: actual.amount,
+                        exDate: actual.exDate ? new Date(actual.exDate) : new Date()
                     });
                 }
             });
@@ -679,13 +681,6 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                     </span>
                                     <span className="text-xs">{formatNumber(headerTotal)}</span>
                                 </div>
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground ml-6">
-                                    {associatedBudgets.length > 0 && Array.from(selectedBudgetIds).some(id => associatedBudgets.some(b => b.id === id)) && (
-                                        <span className="text-xs text-muted-foreground">
-                                            {Array.from(selectedBudgetIds).filter(id => associatedBudgets.some(b => b.id === id)).length} selected
-                                        </span>
-                                    )}
-                                </div>
                             </div>
                         </div>
                         <div className="flex gap-2">
@@ -788,12 +783,13 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                 onChange={() => {}}
                             />
                         </TableHead>
-                        <TableHead className="w-[45%] px-2 text-left border-b border-gray-200 bg-cyan-50">Name</TableHead>
-                        <TableHead className="w-[25%] px-2 text-left border-b border-gray-200 bg-cyan-50">Tags</TableHead>
-                        <TableHead className="w-[12.5%] px-2 text-center border-b border-gray-200 bg-cyan-50">t</TableHead>
-                        <TableHead className="text-right w-[12.5%] border-b border-gray-200 bg-cyan-50">Amount</TableHead>
-                        <TableHead className="text-left w-[40%] border-l-2 border-border bg-cyan-50">actName</TableHead>
-                        <TableHead className="text-right w-[20%] bg-cyan-50">actAmount</TableHead>
+                        <TableHead className="w-[35%] px-2 text-left border-b border-gray-200 bg-cyan-50">Name</TableHead>
+                        <TableHead className="w-[18%] px-2 text-left border-b border-gray-200 bg-cyan-50">Tags</TableHead>
+                        <TableHead className="w-[9%] px-2 text-center border-b border-gray-200 bg-cyan-50">t</TableHead>
+                        <TableHead className="text-right w-[9%] border-b border-gray-200 bg-cyan-50">Amount</TableHead>
+                        <TableHead className="text-left w-[28%] border-l-2 border-border bg-cyan-50">actName</TableHead>
+                        <TableHead className="text-right w-[10%] bg-cyan-50">actAmount</TableHead>
+                        <TableHead className="text-left w-[11%] bg-cyan-50">actDate</TableHead>
                     </TableRow>
                 </TableHeader>
                 <SortableContext items={associatedBudgets.map((b) => b.id)} strategy={verticalListSortingStrategy}>
@@ -946,9 +942,9 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         return (
             <BudgetSortableRow key={rowKey} id={rowKey} disabled={!isDraggable}>
                 {index === 0 && sharedCells}
-                <TableCell className={`w-[40%] text-left ${lastRowClass} border-l-2 border-border border-b border-gray-200`}>
+                <TableCell className={`w-[28%] text-left ${lastRowClass} border-l-2 border-border border-b border-gray-200`}>
                     <span 
-                        className="text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground hover:underline cursor-pointer" 
+                        className="text-xs text-muted-foreground hover:underline cursor-pointer" 
                         title={actual?.name}
                         onClick={(e) => {
                             e.stopPropagation();
@@ -961,9 +957,14 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                         {actual?.name}
                     </span>
                 </TableCell>
-                <TableCell className={`w-[20%] text-right ${lastRowClass} border-b border-gray-200`}>
+                <TableCell className={`w-[10%] text-right ${lastRowClass} border-b border-gray-200`}>
                     <span className="text-xs text-muted-foreground">
                         {formatNumber(actual?.amount || 0)}
+                    </span>
+                </TableCell>
+                <TableCell className={`w-[11%] text-left ${lastRowClass} border-b border-gray-200`}>
+                    <span className="text-xs text-muted-foreground">
+                        {formatDate(actual?.exDate || new Date())}
                     </span>
                 </TableCell>
             </BudgetSortableRow>
