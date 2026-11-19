@@ -9,6 +9,7 @@ import {
     createProject,
     updateProject,
     deleteProject,
+    checkProjectDeletion,
     CreateProjectRequest,
     UpdateProjectRequest,
     GetProjectsQuery
@@ -107,6 +108,21 @@ const projectRoute = async (app: FastifyInstance): Promise<void> => {
                 reply.code(204).send();
             } catch (error) {
                 reply.code(500).send({ error: 'Failed to delete project' });
+            }
+        }
+    );
+
+    app.get(
+        '/project/:id/deletion-status',
+        async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply): Promise<void> => {
+            try {
+                const status = await checkProjectDeletion(request.params.id);
+                if (!status) {
+                    return reply.code(404).send({ error: 'Project not found' });
+                }
+                reply.code(200).send(status);
+            } catch (error) {
+                reply.code(500).send({ error: 'Failed to check deletion status' });
             }
         }
     );

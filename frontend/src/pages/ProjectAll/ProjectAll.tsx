@@ -4,12 +4,13 @@ import { ProjectTableRow } from "./ProjectTableRow";
 import { useProjects } from "./useProjects";
 import { ProjectHeader } from "@/components/ProjectHeader";
 import { Table, TableBody } from "@/components/ui/table";
-import { RefreshCw, Search, Calendar, X } from "lucide-react";
+import { RefreshCw, Calendar, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
-import { Label } from "@/components/ui/label";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { toast } from "react-hot-toast";
 
 export function ProjectAll() {
     const {
@@ -27,6 +28,7 @@ export function ProjectAll() {
         isAllSelected,
         confirmDeleteIds,
         showConfirmDialog,
+        deletionStatus,
         filters,
         setFilter,
         clearFilters,
@@ -79,13 +81,71 @@ export function ProjectAll() {
                 columns={columns}
             />
 
-            <FiltersSection
-                filters={filters}
-                projects={projects}
-                clearFilters={clearFilters}
-                setFilter={setFilter}
-            />
-
+            <div className="rounded-md border border-border bg-card">
+                <div className="flex flex-wrap items-center gap-3 p-3">
+                    <Input
+                        placeholder="Name"
+                        value={filters.search}
+                        onChange={(e) => setFilter('search', e.target.value)}
+                        className="h-8 w-24"
+                    />
+                    <Input
+                        placeholder="Tags"
+                        value={filters.tags.join(', ')}
+                        onChange={(e) => {
+                            const tags = e.target.value
+                                .split(/\s*,\s*/)
+                                .map(t => t.trim())
+                                .filter(t => t.length > 0);
+                            setFilter('tags', tags);
+                        }}
+                        className="h-8 w-24"
+                    />
+                    <div className="relative">
+                        <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <select
+                            className="h-8 pl-9 pr-8 rounded-md border border-input bg-background text-xs outline-none focus:ring-2 focus:ring-ring focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50"
+                            value={filters.year || ''}
+                            onChange={(e) => setFilter('year', e.target.value ? parseInt(e.target.value) : null)}
+                        >
+                            <option value="">All years</option>
+                            {projects.map(p => new Date(p.stDate).getFullYear())
+                                .filter((value, index, self) => self.indexOf(value) === index)
+                                .sort((a, b) => b - a)
+                                .map(year => (
+                                    <option key={year} value={year}>{year}</option>
+                                ))}
+                        </select>
+                    </div>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild={true}>
+                            <div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background px-3 py-1.5 hover:bg-accent hover:text-accent-foreground h-8 px-3 cursor-pointer">
+                                Type: {filters.type === null || filters.type === '' ? 'All' : filters.type === 'project' ? 'Project' : filters.type === 'routine' ? 'Routine' : 'Other'}
+                            </div>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setFilter('type', null)}>
+                                All
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setFilter('type', 'project')}>
+                                Project
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setFilter('type', 'routine')}>
+                                Routine
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setFilter('type', 'other')}>
+                                Other
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                    {(filters.search || filters.year || filters.type || filters.tags.length > 0) && (
+                        <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 px-2 text-xs">
+                            <X className="h-3 w-3" />
+                        </Button>
+                    )}
+                </div>
+            </div>
+            
             <div className="rounded-md border">
                 <Table className=" [&_tr[data-state=selected]_td]:bg-muted/30">
                     <ProjectTableHeader 
@@ -120,138 +180,31 @@ export function ProjectAll() {
                 title={confirmDeleteIds && confirmDeleteIds.length === 1 
                     ? `Are you sure you want to delete this project?`
                     : `Are you sure you want to delete ${confirmDeleteIds?.length || 0} projects?`}
-                description={confirmDeleteIds && confirmDeleteIds.length === 1
-                    ? "This action cannot be undone. The project will be permanently removed from the system."
-                    : "This action cannot be undone. The selected projects will be permanently removed from the system."}
+                description={(() => {
+                    if (!confirmDeleteIds) return "";
+                    
+                    // Check if any project cannot be deleted
+                    const cannotDelete: string[] = [];
+                    const canDeleteCount = confirmDeleteIds.length;
+                    
+                    for (const id of confirmDeleteIds) {
+                        const status = deletionStatus[id];
+                        if (status && !status.canDelete) {
+                            cannotDelete.push(id);
+                        }
+                    }
+                    
+                    if (cannotDelete.length > 0) {
+                        return `Cannot delete ${cannotDelete.length} project(s) due to existing data. ${canDeleteCount - cannotDelete.length} project(s) can be deleted.`;
+                    }
+                    
+                    return confirmDeleteIds.length === 1
+                        ? "This action cannot be undone. The project will be permanently removed from the system."
+                        : "This action cannot be undone. The selected projects will be permanently removed from the system.";
+                })()}
                 confirmText="Yes, delete"
                 cancelText="Cancel"
             />
-        </div>
-    );
-}
-
-function FiltersSection({ filters, projects, clearFilters, setFilter }: { filters: any; projects: any[]; clearFilters: () => void; setFilter: (key: string, value: any) => void }) {
-    return (
-        <div className="rounded-md border p-4 space-y-4 bg-muted/30">
-            <div className="flex items-center justify-between">
-                {(filters.search || filters.year || filters.type || filters.tags.length > 0) && (
-                    <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 px-2 text-xs">
-                        <X className="h-3 w-3 mr-1" />
-                        Clear
-                    </Button>
-                )}
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <SearchFilter filters={filters} setFilter={setFilter} />
-                <YearFilter filters={filters} projects={projects} setFilter={setFilter} />
-                <TypeFilter filters={filters} setFilter={setFilter} />
-                <TagsFilter filters={filters} setFilter={setFilter} />
-            </div>
-        </div>
-    );
-}
-
-function SearchFilter({ filters, setFilter }: { filters: any; setFilter: (key: string, value: any) => void }) {
-    return (
-        <div className="space-y-2">
-            <Label htmlFor="search" className="text-xs font-medium">Search</Label>
-            <div className="relative">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                    id="search"
-                    placeholder="Code, name, note..."
-                    className="pl-9 h-9 text-sm"
-                    value={filters.search}
-                    onChange={(e) => setFilter('search', e.target.value)}
-                />
-            </div>
-        </div>
-    );
-}
-
-function YearFilter({ filters, projects, setFilter }: { filters: any; projects: any[]; setFilter: (key: string, value: any) => void }) {
-    const uniqueYears = useMemo(() => {
-        return projects.map(p => new Date(p.stDate).getFullYear())
-            .filter((value, index, self) => self.indexOf(value) === index)
-            .sort((a, b) => b - a);
-    }, [projects]);
-
-    return (
-        <div className="space-y-2">
-            <Label htmlFor="year" className="text-xs font-medium">Year</Label>
-            <div className="relative">
-                <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <select
-                    id="year"
-                    className="h-9 px-3 pl-9 pr-8 rounded-md border border-input bg-background text-sm outline-none focus:ring-2 focus:ring-ring focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50"
-                    value={filters.year || ''}
-                    onChange={(e) => setFilter('year', e.target.value ? parseInt(e.target.value) : null)}
-                >
-                    <option value="">All years</option>
-                    {uniqueYears.map(year => (
-                        <option key={year} value={year}>{year}</option>
-                    ))}
-                </select>
-            </div>
-        </div>
-    );
-}
-
-function TypeFilter({ filters, setFilter }: { filters: any; setFilter: (key: string, value: any) => void }) {
-    return (
-        <div className="space-y-2">
-            <Label htmlFor="type" className="text-xs font-medium">Type</Label>
-            <select
-                id="type"
-                className="h-9 px-3 rounded-md border border-input bg-background text-sm outline-none focus:ring-2 focus:ring-ring focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50"
-                value={filters.type || ''}
-                onChange={(e) => setFilter('type', e.target.value === '' ? null : e.target.value)}
-            >
-                <option value="">All types</option>
-                <option value="project">Project</option>
-                <option value="routine">Routine</option>
-                <option value="other">Other</option>
-            </select>
-        </div>
-    );
-}
-
-function TagsFilter({ filters, setFilter }: { filters: any; setFilter: (key: string, value: any) => void }) {
-    return (
-        <div className="space-y-2">
-            <Label htmlFor="tags" className="text-xs font-medium">Tags</Label>
-            <Input
-                id="tags"
-                placeholder="Comma-separated tags..."
-                className="h-9 text-sm"
-                value={filters.tags.join(', ')}
-                onChange={(e) => {
-                    const tags = e.target.value
-                        .split(/\s*,\s*/)
-                        .map(t => t.trim())
-                        .filter(t => t.length > 0);
-                    setFilter('tags', tags);
-                }}
-            />
-            {filters.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1">
-                    {filters.tags.map((tag: string, i: number) => (
-                        <span key={i} className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-xs">
-                            {tag}
-                            <button
-                                onClick={() => {
-                                    const newTags = filters.tags.filter((_, idx) => idx !== i);
-                                    setFilter('tags', newTags);
-                                }}
-                                className="ml-1 text-muted-foreground hover:text-foreground"
-                            >
-                                ×
-                            </button>
-                        </span>
-                    ))}
-                </div>
-            )}
         </div>
     );
 }

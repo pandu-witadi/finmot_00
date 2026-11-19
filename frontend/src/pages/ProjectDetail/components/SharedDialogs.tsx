@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+// import { Switch } from "@/components/ui/switch";  // DEBUG - commented out
 import { Button } from "@/components/ui/button";
 import { formatNumber } from "@/utils/formatters";
 import { Header } from "../types";
@@ -23,19 +24,37 @@ function FormRow({ label, htmlFor, children }: { label: string; htmlFor: string;
     );
 }
 
+// DEBUG - using simple select instead of Switch
 function TypeSelect({ id, value, onChange }: { id: string; value: string; onChange: (v: string) => void }) {
     return (
         <select
             id={id}
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2"
+            className="flex h-10 w-32 rounded-md border border-input bg-background px-3 py-2"
         >
-            <option value="income">in</option>
-            <option value="expense">ex</option>
+            <option value="income">Income</option>
+            <option value="expense">Expense</option>
         </select>
     );
 }
+
+// function TypeSwitch({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+//     const isChecked = value === "income";
+//     return (
+//         <div className="flex items-center gap-4">
+//             <Label htmlFor="headerType" className="text-green-700 font-medium">Income</Label>
+//             <Switch
+//                 id="headerType"
+//                 checked={isChecked}
+//                 onCheckedChange={(checked) => onChange(checked ? "income" : "expense")}
+//                 className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-300"
+//                 size="long"
+//             />
+//             <Label htmlFor="headerType" className="text-gray-600 font-medium">Expense</Label>
+//         </div>
+//     );
+// }
 
 function AmountInput({ id, value, onChange }: { id: string; value: number; onChange: (v: string) => void }) {
     return (
@@ -80,15 +99,13 @@ export function HeaderAddDialog({ isOpen, onOpenChange, headerForm, setHeaderFor
                             placeholder="Enter header name"
                         />
                     </FormRow>
-                    <div className="grid grid-cols-2 gap-4">
-                        <FormRow label="Type" htmlFor="headerType">
+                    <FormRow label="Type" htmlFor="headerType">
                             <TypeSelect
                                 id="headerType"
                                 value={headerForm.type}
                                 onChange={(v) => setHeaderForm(prev => ({ ...prev, type: v as 'income' | 'expense' }))}
                             />
                         </FormRow>
-                    </div>
                     <FormRow label="Tags (comma-separated)" htmlFor="headerTags">
                         <Input
                             id="headerTags"
@@ -100,7 +117,9 @@ export function HeaderAddDialog({ isOpen, onOpenChange, headerForm, setHeaderFor
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-                    <Button onClick={onAddHeader}>Add Header</Button>
+                    <Button onClick={onAddHeader} className="bg-blue-500 hover:bg-blue-600 text-white shadow-sm">
+                        + header
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -193,15 +212,13 @@ export function BudgetAddDialog({ isOpen, onOpenChange, headers, selectedHeaderI
                             placeholder="Enter budget name"
                         />
                     </FormRow>
-                    <div className="grid grid-cols-2 gap-4">
-                        <FormRow label="Type" htmlFor="budgetType">
+                    <FormRow label="Type" htmlFor="budgetType">
                             <TypeSelect
                                 id="budgetType"
                                 value={budgetForm.type}
                                 onChange={(v) => setBudgetForm(prev => ({ ...prev, type: v as 'income' | 'expense' }))}
                             />
                         </FormRow>
-                        <FormRow label="Amount" htmlFor="budgetAmount">
                             <AmountInput
                                 id="budgetAmount"
                                 value={budgetForm.amount}
@@ -259,15 +276,13 @@ export function BudgetEditDialog({ isOpen, onOpenChange, editBudgetForm, setEdit
                             placeholder="Enter budget name"
                         />
                     </FormRow>
-                    <div className="grid grid-cols-2 gap-4">
-                        <FormRow label="Type" htmlFor="editBudgetType">
+                    <FormRow label="Type" htmlFor="editBudgetType">
                             <TypeSelect
                                 id="editBudgetType"
                                 value={editBudgetForm.type}
                                 onChange={(v) => setEditBudgetForm(prev => ({ ...prev, type: v as 'income' | 'expense' }))}
                             />
                         </FormRow>
-                        <FormRow label="Amount" htmlFor="editBudgetAmount">
                             <AmountInput
                                 id="editBudgetAmount"
                                 value={editBudgetForm.amount}

@@ -75,6 +75,10 @@ const projectSchema = new Schema<ProjectDoc>({
         type: [Schema.Types.ObjectId],
         default: []
     },
+     arrPicture: {
+        type: [String],
+        default: []
+    },
     updatedBy: {
         type: Schema.Types.ObjectId,
         ref: 'User',

@@ -55,7 +55,7 @@ export function ProjectTableRow({ project, index, isSelected, onSelect, onRowCli
             <td className="h-12 px-4 align-middle">
                 <div className="flex flex-col gap-0.5">
                     {project.tags.map((tag, idx) => (
-                        <span key={idx} className="inline-flex items-center rounded bg-secondary px-2 py-0.5 text-xs">
+                        <span key={idx} className="inline-flex items-center rounded px-2 py-0.5 text-xs text-muted-foreground">
                             {tag}
                         </span>
                     ))}

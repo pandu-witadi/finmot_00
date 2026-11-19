@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Button } from "@/components/ui/button";
 
 interface HeaderForm {
@@ -50,20 +51,24 @@ export function HeaderAddDialog({
                             placeholder="Enter header name"
                         />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="grid gap-2">
+                    <div className="grid gap-2">
                             <Label htmlFor="headerType">Type</Label>
-                            <select
+                            <RadioGroup
                                 id="headerType"
                                 value={headerForm.type}
-                                onChange={e => setHeaderForm(prev => ({ ...prev, type: e.target.value as 'income' | 'expense' }))}
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2"
+                                onValueChange={(value) => setHeaderForm(prev => ({ ...prev, type: value as 'income' | 'expense' }))}
+                                className="flex gap-6 w-fit"
                             >
-                                <option value="income">in</option>
-                                <option value="expense">ex</option>
-                            </select>
+                                <div className="flex items-center gap-3">
+                                    <RadioGroupItem value="income" id="headerType-income" />
+                                    <Label htmlFor="headerType-income" className="text-green-700 font-medium">Income</Label>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <RadioGroupItem value="expense" id="headerType-expense" />
+                                    <Label htmlFor="headerType-expense" className="text-red-400 font-medium">Expense</Label>
+                                </div>
+                            </RadioGroup>
                         </div>
-                    </div>
                     <div className="grid gap-2">
                         <Label htmlFor="headerTags">Tags (comma-separated)</Label>
                         <Input
@@ -78,8 +83,8 @@ export function HeaderAddDialog({
                     <Button variant="outline" onClick={() => onOpenChange(false)}>
                         Cancel
                     </Button>
-                    <Button onClick={onAddHeader}>
-                        Add Header
+                    <Button onClick={onAddHeader} className="bg-blue-500 hover:bg-blue-600 text-white shadow-sm">
+                        + header
                     </Button>
                 </DialogFooter>
             </DialogContent>

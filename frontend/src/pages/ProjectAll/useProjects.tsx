@@ -21,6 +21,10 @@ export interface Project {
     endDate: string | null
     updatedBy: string
     createdAt: string
+    arrHeader: string[]
+    arrBudget: string[]
+    arrActual: string[]
+    arrTransaction: string[]
 }
 
 export function getProjectYearMonth(project: Project): string {
@@ -46,6 +50,8 @@ export interface UseProjectsReturn {
     isAllSelected: boolean
     confirmDeleteIds: string[] | null
     showConfirmDialog: boolean
+    deletionStatus: Record<string, { canDelete: boolean; blockedBy: string[] }>
+    fetchDeletionStatus: (id: string) => Promise<void>
     filters: {
         search: string
         year: number | null
@@ -62,6 +68,10 @@ export function useProjects(): UseProjectsReturn {
     const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set())
     const [isLoading, setIsLoading] = useState(true)
     const [confirmDeleteIds, setConfirmDeleteIds] = useState<string[] | null>(null)
+    const [deletionStatus, setDeletionStatus] = useState<Record<string, { canDelete: boolean; blockedBy: string[] }>>({})
+    const [searchNameTerm, setSearchNameTerm] = useState("")
+    const [searchTagTerm, setSearchTagTerm] = useState("")
+    const [filterType, setFilterType] = useState<'all' | 'project' | 'routine' | 'other'>('all')
     const [filters, setFilters] = useState({
         search: '',
         year: null as number | null,
@@ -70,10 +80,31 @@ export function useProjects(): UseProjectsReturn {
     })
     const navigate = useNavigate()
 
+    const fetchDeletionStatus = useCallback(async (id: string) => {
+        try {
+            const response = await projectApi.getDeletionStatus(id)
+            setDeletionStatus(prev => ({
+                ...prev,
+                [id]: response.data
+            }))
+        } catch (error: any) {
+            // If project not found or other error, treat as can delete
+            setDeletionStatus(prev => ({
+                ...prev,
+                [id]: { canDelete: true, blockedBy: [] }
+            }))
+        }
+    }, [])
+
     const fetchProjects = useCallback(async () => {
         try {
             const response = await projectApi.getAll()
-            setProjects(response.data)
+            const projects = response.data
+            setProjects(projects)
+
+            // Fetch deletion status for all projects
+            const statusPromises = projects.map((p: Project) => fetchDeletionStatus(p.id))
+            await Promise.all(statusPromises)
         } catch (error: any) {
             const errorMessage = error?.response?.data?.error || error?.message || "Failed to load projects"
             toast.error(errorMessage)
@@ -85,16 +116,47 @@ export function useProjects(): UseProjectsReturn {
         } finally {
             setIsLoading(false)
         }
-    }, [navigate])
+    }, [navigate, fetchDeletionStatus])
 
     useEffect(() => {
         fetchProjects()
     }, [fetchProjects])
 
-    const handleDelete = useCallback((ids: string | string[]) => {
+    const handleDelete = useCallback(async (ids: string | string[]) => {
         const idsArray = Array.isArray(ids) ? ids : [ids]
+        
+        // Check deletion status for each project
+        const toDelete: string[] = []
+        const blocked: Record<string, string[]> = {}
+        
+        for (const id of idsArray) {
+            const status = deletionStatus[id]
+            if (status && !status.canDelete) {
+                blocked[id] = status.blockedBy
+            } else {
+                toDelete.push(id)
+            }
+        }
+        
+        // If any projects are blocked, show error for those
+        if (Object.keys(blocked).length > 0) {
+            for (const [id, blockedBy] of Object.entries(blocked)) {
+                toast.error(`Cannot delete project: ${blockedBy.join(', ')}`)
+            }
+            // Clear the selection for blocked projects
+            setSelectedProjects(prev => {
+                const next = new Set(prev)
+                for (const id of Object.keys(blocked)) {
+                    next.delete(id)
+                }
+                return next
+            })
+            setConfirmDeleteIds(null)
+            return
+        }
+        
         setConfirmDeleteIds(idsArray)
-    }, [])
+    }, [deletionStatus, setSelectedProjects])
 
     const executeDelete = useCallback(async (ids: string[]) => {
         try {
@@ -163,12 +225,15 @@ export function useProjects(): UseProjectsReturn {
             type: null,
             tags: []
         })
+        setSearchNameTerm("")
+        setSearchTagTerm("")
     }, [])
 
     // Filter projects based on search criteria
     useEffect(() => {
         let result = projects
 
+        // Search by code, name, note
         if (filters.search) {
             const searchLower = filters.search.toLowerCase()
             result = result.filter(p =>
@@ -178,6 +243,15 @@ export function useProjects(): UseProjectsReturn {
             )
         }
 
+        // Name search (simplified like actuals)
+        if (searchNameTerm) {
+            const nameLower = searchNameTerm.toLowerCase()
+            result = result.filter(p =>
+                p.name.toLowerCase().includes(nameLower)
+            )
+        }
+
+        // Year filter
         if (filters.year) {
             result = result.filter(p => {
                 const projectYear = new Date(p.stDate).getFullYear()
@@ -185,18 +259,28 @@ export function useProjects(): UseProjectsReturn {
             })
         }
 
-        if (filters.type) {
+        // Type filter (simplified)
+        if (filters.type && filters.type !== 'all') {
             result = result.filter(p => p.typ === filters.type)
         }
 
+        // Tags search
         if (filters.tags.length > 0) {
             result = result.filter(p =>
                 filters.tags.some(tag => p.tags.includes(tag))
             )
         }
 
+        // Tags filter (simplified like actuals)
+        if (searchTagTerm) {
+            const tagLower = searchTagTerm.toLowerCase()
+            result = result.filter(p =>
+                p.tags.some(tag => tag.toLowerCase().includes(tagLower))
+            )
+        }
+
         setFilteredProjects(result)
-    }, [projects, filters])
+    }, [projects, filters, searchNameTerm, filterType, searchTagTerm])
 
     return {
         projects,
@@ -214,6 +298,12 @@ export function useProjects(): UseProjectsReturn {
         isAllSelected,
         confirmDeleteIds,
         showConfirmDialog,
+        deletionStatus,
+        fetchDeletionStatus,
+        searchNameTerm,
+        setSearchNameTerm,
+        searchTagTerm,
+        setSearchTagTerm,
         filters,
         setFilter,
         clearFilters,

@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Button } from "@/components/ui/button";
 
 interface EditHeaderForm {
@@ -51,20 +52,24 @@ export function HeaderEditDialog({
                             placeholder="Enter header name"
                         />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="grid gap-2">
+                    <div className="grid gap-2">
                             <Label htmlFor="editHeaderType">Type</Label>
-                            <select
+                            <RadioGroup
                                 id="editHeaderType"
                                 value={editHeaderForm.type}
-                                onChange={e => setEditHeaderForm(prev => ({ ...prev, type: e.target.value as 'income' | 'expense' }))}
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2"
+                                onValueChange={(value) => setEditHeaderForm(prev => ({ ...prev, type: value as 'income' | 'expense' }))}
+                                className="flex gap-6 w-fit"
                             >
-                                <option value="income">in</option>
-                                <option value="expense">ex</option>
-                            </select>
+                                <div className="flex items-center gap-3">
+                                    <RadioGroupItem value="income" id="editHeaderType-income" />
+                                    <Label htmlFor="editHeaderType-income" className="text-green-700 font-medium">Income</Label>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <RadioGroupItem value="expense" id="editHeaderType-expense" />
+                                    <Label htmlFor="editHeaderType-expense" className="text-red-400 font-medium">Expense</Label>
+                                </div>
+                            </RadioGroup>
                         </div>
-                    </div>
                     <div className="grid gap-2">
                         <Label htmlFor="editHeaderTags">Tags (comma-separated)</Label>
                         <Input

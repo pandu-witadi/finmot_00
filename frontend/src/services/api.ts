@@ -60,6 +60,7 @@ export const projectApi = {
     create: (data: any) => api.post(`/project`, data),
     update: (id: string, data: any) => api.put(`/project/${id}`, data),
     delete: (id: string) => api.delete(`/project/${id}`),
+    getDeletionStatus: (id: string) => api.get(`/project/${id}/deletion-status`),
 };
 
 export const headerApi = {

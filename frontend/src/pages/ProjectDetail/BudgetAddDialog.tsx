@@ -64,32 +64,39 @@ export function BudgetAddDialog({
                             placeholder="Enter budget name"
                         />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="budgetType">Type</Label>
-                            <select
-                                id="budgetType"
-                                value={budgetForm.type}
-                                onChange={e => setBudgetForm(prev => ({ ...prev, type: e.target.value as 'income' | 'expense' }))}
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2"
+                    <div className="grid gap-2">
+                        <Label>Type</Label>
+                        <div className="flex gap-2">
+                            <Button
+                                type="button"
+                                variant={budgetForm.type === 'income' ? 'default' : 'outline'}
+                                onClick={() => setBudgetForm(prev => ({ ...prev, type: 'income' }))}
+                                className={`flex-1 h-9 text-xs ${budgetForm.type === 'income' ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'text-green-600 hover:text-green-700'}`}
                             >
-                                <option value="income">in</option>
-                                <option value="expense">ex</option>
-                            </select>
+                                Income
+                            </Button>
+                            <Button
+                                type="button"
+                                variant={budgetForm.type === 'expense' ? 'default' : 'outline'}
+                                onClick={() => setBudgetForm(prev => ({ ...prev, type: 'expense' }))}
+                                className={`flex-1 h-9 text-xs ${budgetForm.type === 'expense' ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'text-red-600 hover:text-red-700'}`}
+                            >
+                                Expense
+                            </Button>
                         </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="budgetAmount">Amount</Label>
-                            <Input
-                                id="budgetAmount"
-                                type="text"
-                                value={formatNumber(budgetForm.amount)}
-                                onChange={e => {
-                                    const rawValue = e.target.value.replace(/\./g, '');
-                                    setBudgetForm(prev => ({ ...prev, amount: parseFloat(rawValue) || 0 }));
-                                }}
-                                placeholder="0"
-                            />
-                        </div>
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="budgetAmount">Amount</Label>
+                        <Input
+                            id="budgetAmount"
+                            type="text"
+                            value={formatNumber(budgetForm.amount)}
+                            onChange={e => {
+                                const rawValue = e.target.value.replace(/\./g, '');
+                                setBudgetForm(prev => ({ ...prev, amount: parseFloat(rawValue) || 0 }));
+                            }}
+                            placeholder="0"
+                        />
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="budgetTags">Tags (comma-separated)</Label>

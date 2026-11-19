@@ -61,9 +61,9 @@ export function ProjectHeader({ onAddProject, onDeleteSelected, selectedProjects
             </div>
 
             <div className="flex items-center gap-2 ml-auto">
-                {/* Column Visibility Toggle */}
+                {/* Filter by Type */}
                 <DropdownMenu>
-                    <DropdownMenuTrigger render={<Button variant="outline" className="h-8 px-3"><span>Columns</span></Button>}>
+                    <DropdownMenuTrigger render={<Button variant="outline" className="h-8 px-3"><span>Filter by Type</span></Button>}>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
                         <DropdownMenuGroup>

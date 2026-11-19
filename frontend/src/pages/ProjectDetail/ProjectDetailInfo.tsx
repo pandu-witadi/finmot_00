@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 
 interface ProjectDetailInfoProps {
@@ -132,7 +133,7 @@ export function ProjectDetailInfo({ project, onSave }: ProjectDetailInfoProps) {
         <>
             {renderViewMode(project, getUserName, setIsEditing)}
             <Dialog open={isEditing} onOpenChange={handleClose}>
-                <DialogContent>
+                <DialogContent className="sm:max-w-[60rem]">
                     <DialogHeader>
                         <DialogTitle>Edit Project</DialogTitle>
                         <DialogDescription>
@@ -156,7 +157,33 @@ export function ProjectDetailInfo({ project, onSave }: ProjectDetailInfoProps) {
 
 function renderEditForm(project: any, formData: any, handleChange: (field: string, value: any) => void, handleSave: () => void, setIsEditing: (v: boolean) => void) {
     return (
-        <div className="grid gap-4 py-4">
+        <div className="grid gap-6 py-4">
+            <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                    <Label htmlFor="editActive" className="whitespace-nowrap">Active</Label>
+                    <Switch
+                        id="editActive"
+                        checked={formData.active}
+                        onCheckedChange={(checked) => handleChange('active', checked)}
+                        className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-red-500"
+                    />
+                    <span className={`text-sm font-medium ${formData.active ? 'text-green-700' : 'text-red-600'}`}>
+                        {formData.active ? 'Yes' : 'No'}
+                    </span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Label htmlFor="editDone" className="whitespace-nowrap">Done</Label>
+                    <Switch
+                        id="editDone"
+                        checked={formData.done}
+                        onCheckedChange={(checked) => handleChange('done', checked)}
+                        className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-red-500"
+                    />
+                    <span className={`text-sm font-medium ${formData.done ? 'text-green-700' : 'text-red-600'}`}>
+                        {formData.done ? 'Yes' : 'No'}
+                    </span>
+                </div>
+            </div>
             <div className="col-span-2">
                 <Label htmlFor="editCode">Code</Label>
                 <Input
@@ -177,7 +204,7 @@ function renderEditForm(project: any, formData: any, handleChange: (field: strin
                     className="w-full"
                 />
             </div>
-            <div>
+            <div className="col-span-2">
                 <Label htmlFor="editTyp">Type</Label>
                 <select
                     id="editTyp"
@@ -190,49 +217,27 @@ function renderEditForm(project: any, formData: any, handleChange: (field: strin
                     <option value="other">Other</option>
                 </select>
             </div>
-            <div>
-                <Label htmlFor="editActive">Active</Label>
-                <select
-                    id="editActive"
-                    value={formData.active ? 'true' : 'false'}
-                    onChange={(e) => handleChange('active', e.target.value === 'true')}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2"
-                >
-                    <option value="true">Yes</option>
-                    <option value="false">No</option>
-                </select>
-            </div>
-            <div>
-                <Label htmlFor="editDone">Done</Label>
-                <select
-                    id="editDone"
-                    value={formData.done ? 'true' : 'false'}
-                    onChange={(e) => handleChange('done', e.target.value === 'true')}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2"
-                >
-                    <option value="true">Yes</option>
-                    <option value="false">No</option>
-                </select>
-            </div>
-            <div>
-                <Label htmlFor="editStDate">Start Date</Label>
-                <Input
-                    id="editStDate"
-                    type="date"
-                    value={formData.stDate ? new Date(formData.stDate).toISOString().split('T')[0] : ''}
-                    onChange={(e) => handleChange('stDate', e.target.value ? new Date(e.target.value) : null)}
-                    className="w-full"
-                />
-            </div>
-            <div>
-                <Label htmlFor="editEndDate">End Date</Label>
-                <Input
-                    id="editEndDate"
-                    type="date"
-                    value={formData.endDate ? new Date(formData.endDate).toISOString().split('T')[0] : ''}
-                    onChange={(e) => handleChange('endDate', e.target.value)}
-                    className="w-full"
-                />
+            <div className="grid grid-cols-2 gap-6">
+                <div>
+                    <Label htmlFor="editStDate" className="mb-1">Start Date</Label>
+                    <Input
+                        id="editStDate"
+                        type="date"
+                        value={formData.stDate ? new Date(formData.stDate).toISOString().split('T')[0] : ''}
+                        onChange={(e) => handleChange('stDate', e.target.value ? new Date(e.target.value) : null)}
+                        className="w-full text-left"
+                    />
+                </div>
+                <div>
+                    <Label htmlFor="editEndDate" className="mb-1 text-right">End Date</Label>
+                    <Input
+                        id="editEndDate"
+                        type="date"
+                        value={formData.endDate ? new Date(formData.endDate).toISOString().split('T')[0] : ''}
+                        onChange={(e) => handleChange('endDate', e.target.value)}
+                        className="w-full text-right"
+                    />
+                </div>
             </div>
             <div className="col-span-2">
                 <Label htmlFor="editNote">Note</Label>
@@ -266,57 +271,65 @@ function renderViewMode(project: any, getUserName: (userId: string) => string, s
                     <h2 className="text-2xl font-semibold">Project Information</h2>
                     <button
                         onClick={() => setIsEditing(true)}
-                        className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+                        className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
                     >
                         Edit
                     </button>
                 </div>
                 <div className="grid grid-cols-2 gap-6">
                     <div>
-                        <p className="text-base text-base font-medium text-muted-foreground">Code</p>
-                        <p className="text-base font-medium">{project.code}</p>
+                        <p className="text-sm font-medium text-muted-foreground mb-1">Code</p>
+                        <p className="text-lg font-semibold">{project.code}</p>
                     </div>
                     <div>
-                        <p className="text-base text-base font-medium text-muted-foreground">Name</p>
-                        <p className="text-base font-medium">{project.name}</p>
+                        <p className="text-sm font-medium text-muted-foreground mb-1">Name</p>
+                        <p className="text-lg font-semibold">{project.name}</p>
                     </div>
                     <div>
-                        <p className="text-base text-base font-medium text-muted-foreground">Type</p>
-                        <p className="text-base font-medium capitalize">{project.typ}</p>
+                        <p className="text-sm font-medium text-muted-foreground mb-1">Type</p>
+                        <p className="text-lg font-semibold capitalize">{project.typ}</p>
                     </div>
                     <div>
-                        <p className="text-base text-base font-medium text-muted-foreground">Status</p>
-                        <div className="flex gap-2">
+                        <p className="text-sm font-medium text-muted-foreground mb-1">Status</p>
+                        <div className="flex flex-wrap gap-2">
                             {project.active && (
-                                <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-800">
+                                <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-sm font-semibold text-green-800 ring-1 ring-green-200">
+                                    <span className="mr-1.5 h-2 w-2 rounded-full bg-green-500"></span>
                                     Active
                                 </span>
                             )}
                             {project.done && (
-                                <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-800">
+                                <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-800 ring-1 ring-emerald-200">
+                                    <span className="mr-1.5 h-2 w-2 rounded-full bg-emerald-500"></span>
                                     Completed
+                                </span>
+                            )}
+                            {!project.active && !project.done && (
+                                <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-sm font-semibold text-gray-800 ring-1 ring-gray-200">
+                                    <span className="mr-1.5 h-2 w-2 rounded-full bg-gray-400"></span>
+                                    In Progress
                                 </span>
                             )}
                         </div>
                     </div>
                     <div>
-                        <p className="text-base text-base font-medium text-muted-foreground">Start Date</p>
-                        <p className="text-base font-medium">{new Date(project.stDate).toLocaleDateString()}</p>
+                        <p className="text-sm font-medium text-muted-foreground mb-1">Start Date</p>
+                        <p className="text-lg font-semibold">{project.stDate ? new Date(project.stDate).toLocaleDateString() : 'N/A'}</p>
                     </div>
                     <div>
-                        <p className="text-base text-base font-medium text-muted-foreground">End Date</p>
-                        <p className="text-base font-medium">{project.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A'}</p>
+                        <p className="text-sm font-medium text-muted-foreground mb-1">End Date</p>
+                        <p className="text-lg font-semibold">{project.endDate ? new Date(project.endDate).toLocaleDateString() : 'Ongoing'}</p>
                     </div>
                     <div className="col-span-2">
-                        <p className="text-base text-base font-medium text-muted-foreground">Note</p>
-                        <p className="text-base font-medium">{project.note || 'No note'}</p>
+                        <p className="text-sm font-medium text-muted-foreground mb-2">Note</p>
+                        <p className="text-base text-muted-foreground leading-relaxed">{project.note || <span className="italic opacity-60">No note</span>}</p>
                     </div>
                     <div className="col-span-2">
-                        <p className="text-base text-base font-medium text-muted-foreground">Tags</p>
-                        <div className="flex flex-wrap gap-1 mt-1">
+                        <p className="text-sm font-medium text-muted-foreground mb-2">Tags</p>
+                        <div className="flex flex-wrap gap-2">
                             {project.tags.length > 0 ? (
                                 project.tags.map((tag: string, i: number) => (
-                                    <span key={i} className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-xs">
+                                    <span key={i} className="inline-flex items-center rounded-lg bg-secondary/10 px-3 py-1.5 text-sm font-medium text-secondary-foreground">
                                         {tag}
                                     </span>
                                 ))
@@ -325,9 +338,9 @@ function renderViewMode(project: any, getUserName: (userId: string) => string, s
                             )}
                         </div>
                     </div>
-                    <div className="col-span-2">
-                        <p className="text-base text-base font-medium text-muted-foreground">Updated By</p>
-                        <p className="text-base font-medium">{project.updatedBy ? getUserName(project.updatedBy) : 'N/A'}</p>
+                    <div className="col-span-2 pt-4 border-t">
+                        <p className="text-sm font-medium text-muted-foreground">Last Updated</p>
+                        <p className="text-sm">{project.updatedBy ? getUserName(project.updatedBy) : 'N/A'}</p>
                     </div>
                 </div>
             </div>

@@ -1,4 +1,8 @@
 import { Project } from '../model/project.js';
+import { Header } from '../model/header.js';
+import { Budget } from '../model/budget.js';
+import { Actual } from '../model/actual.js';
+import { Transaction } from '../model/transaction.js';
 
 export interface ProjectResponse {
     id: string;
@@ -17,6 +21,12 @@ export interface ProjectResponse {
     arrTransaction: string[];
     updatedBy: string;
     createdAt: Date;
+}
+
+export interface ProjectDeletionStatus {
+    id: string;
+    canDelete: boolean;
+    blockedBy: string[];
 }
 
 export interface CreateProjectRequest {
@@ -255,4 +265,51 @@ export async function updateProject(id: string, body: UpdateProjectRequest): Pro
 export async function deleteProject(id: string): Promise<boolean> {
     const result = await Project.findByIdAndDelete(id);
     return result !== null;
+}
+
+export async function checkProjectDeletion(id: string): Promise<ProjectDeletionStatus | null> {
+    const project = await Project.findById(id);
+    if (!project) {
+        return null;
+    }
+
+    const blockedBy: string[] = [];
+
+    // Check arrHeader
+    if (project.arrHeader && project.arrHeader.length > 0) {
+        const headerCount = await Header.countDocuments({ _id: { $in: project.arrHeader } });
+        if (headerCount > 0) {
+            blockedBy.push(`Header (${headerCount} records)`);
+        }
+    }
+
+    // Check arrBudget
+    if (project.arrBudget && project.arrBudget.length > 0) {
+        const budgetCount = await Budget.countDocuments({ _id: { $in: project.arrBudget } });
+        if (budgetCount > 0) {
+            blockedBy.push(`Budget (${budgetCount} records)`);
+        }
+    }
+
+    // Check arrActual
+    if (project.arrActual && project.arrActual.length > 0) {
+        const actualCount = await Actual.countDocuments({ _id: { $in: project.arrActual } });
+        if (actualCount > 0) {
+            blockedBy.push(`Actual (${actualCount} records)`);
+        }
+    }
+
+    // Check arrTransaction
+    if (project.arrTransaction && project.arrTransaction.length > 0) {
+        const transactionCount = await Transaction.countDocuments({ _id: { $in: project.arrTransaction } });
+        if (transactionCount > 0) {
+            blockedBy.push(`Transaction (${transactionCount} records)`);
+        }
+    }
+
+    return {
+        id: project._id.toString(),
+        canDelete: blockedBy.length === 0,
+        blockedBy,
+    };
 }
