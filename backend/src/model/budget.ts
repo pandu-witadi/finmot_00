@@ -4,7 +4,7 @@ export interface BudgetDoc extends Document {
     name: string;
     note: string;
     tags: string[];
-    active: boolean;
+    done: boolean;
     type: 'income' | 'expense';
     amount: number;
     project: Schema.Types.ObjectId;
@@ -31,9 +31,9 @@ const budgetSchema = new Schema<BudgetDoc>({
         default: "",
         trim: true
     },
-    active: {
+    done: {
         type: Boolean,
-        default: true
+        default: false
     },
     type: {
         type: String,

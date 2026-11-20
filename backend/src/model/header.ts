@@ -3,7 +3,7 @@ import mongoose, { Document, Schema } from "mongoose";
 export interface HeaderDoc extends Document {
     name: string;
     tags: string[];
-    active: boolean;
+    done: boolean;
     type: 'income' | 'expense';
     project: Schema.Types.ObjectId;
     arrBudget: Schema.Types.ObjectId[];
@@ -22,9 +22,9 @@ const headerSchema = new Schema<HeaderDoc>({
         type: [String],
         default: []
     },
-    active: {
+    done: {
         type: Boolean,
-        default: true
+        default: false
     },
     type: {
         type: String,

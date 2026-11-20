@@ -24,6 +24,7 @@ interface ActualEditDialogProps {
     budgetName?: string;
     transactionName?: string;
     hasTransaction?: boolean;
+    isNew?: boolean;
 }
 
 export function ActualEditDialog({
@@ -36,9 +37,10 @@ export function ActualEditDialog({
     budgetName,
     transactionName,
     hasTransaction,
+    isNew = false,
 }: ActualEditDialogProps) {
     const [users, setUsers] = useState<{id: string, name: string}[]>([]);
-    const [viewMode, setViewMode] = useState(true);
+    const [viewMode, setViewMode] = useState(!isNew);
 
     useEffect(() => {
         if (isOpen) {

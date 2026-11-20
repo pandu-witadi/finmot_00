@@ -8,6 +8,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { formatNumber, getTypeLabel } from "@/utils/formatters";
 import { formatDateTime } from "@/utils/dateFormatters";
 import { useState, useEffect } from "react";
@@ -83,6 +84,27 @@ export function BudgetEditDialog({
                 <div className="py-4">
                     {viewMode ? (
                         <div className="space-y-4">
+                            {viewMode ? (
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        {editBudgetForm.done ? (
+                                            <span className="text-xs px-2 py-0.5 rounded bg-green-100 text-green-700 font-medium">Done: true</span>
+                                        ) : (
+                                            <span className="text-xs px-2 py-0.5 rounded bg-red-100 text-red-700 font-medium">Done: false</span>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-2">
+                                    <Switch
+                                        id="editBudgetDone"
+                                        checked={editBudgetForm.done}
+                                        onCheckedChange={(checked) => setEditBudgetForm(prev => ({ ...prev, done: checked }))}
+                                        className={editBudgetForm.done ? "bg-green-600 data-[state=checked]:bg-green-600" : ""}
+                                    />
+                                </div>
+                            )}
+                            
                             <div className="space-y-1">
                                 <Label className="text-sm font-medium text-muted-foreground">Name</Label>
                                 <div className="text-lg font-semibold">{editBudgetForm.name}</div>
@@ -156,6 +178,15 @@ export function BudgetEditDialog({
                         </div>
                     ) : (
                         <div className="grid gap-4">
+                            <div className="flex items-center gap-2">
+                                <Label htmlFor="editBudgetDone" className="text-xs font-medium">Done</Label>
+                                <Switch
+                                    id="editBudgetDone"
+                                    checked={editBudgetForm.done}
+                                    onCheckedChange={(checked) => setEditBudgetForm(prev => ({ ...prev, done: checked }))}
+                                    className={editBudgetForm.done ? "bg-green-600 data-[state=checked]:bg-green-600" : ""}
+                                />
+                            </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="editBudgetName">Name</Label>
                                 <Input

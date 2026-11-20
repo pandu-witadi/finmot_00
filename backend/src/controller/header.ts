@@ -6,7 +6,7 @@ export interface HeaderResponse {
     id: string;
     name: string;
     tags: string[];
-    active: boolean;
+    done: boolean;
     type: 'income' | 'expense';
     project: string;
     arrBudget: string[];
@@ -18,7 +18,7 @@ export interface HeaderResponse {
 export interface CreateHeaderRequest {
     name: string;
     tags?: string[];
-    active?: boolean;
+    done?: boolean;
     type: 'income' | 'expense';
     project: string;
     arrBudget?: string[];
@@ -29,7 +29,7 @@ export interface CreateHeaderRequest {
 export interface UpdateHeaderRequest {
     name?: string;
     tags?: string[];
-    active?: boolean;
+    done?: boolean;
     type?: 'income' | 'expense';
     project?: string;
     arrBudget?: string[];
@@ -39,7 +39,7 @@ export interface UpdateHeaderRequest {
 
 export interface HeaderFilter {
     project?: string;
-    active?: boolean;
+    done?: boolean;
     type?: 'income' | 'expense';
     tags?: string[];
     search?: string;
@@ -62,7 +62,7 @@ function headerToResponse(header: any): HeaderResponse {
         id: header._id.toString(),
         name: header.name,
         tags: header.tags,
-        active: header.active,
+        done: header.done,
         type: header.type,
         project: header.project.toString(),
         arrBudget: header.arrBudget.map((id: any) => id.toString()),
@@ -90,8 +90,8 @@ export async function getAllHeaders(query?: GetHeadersQuery): Promise<HeaderResp
             mongoQuery.project = new mongoose.Types.ObjectId(filter.project);
         }
 
-        if (filter.active !== undefined) {
-            mongoQuery.active = filter.active;
+        if (filter.done !== undefined) {
+            mongoQuery.done = filter.done;
         }
 
         if (filter.type !== undefined) {
@@ -162,7 +162,7 @@ export async function createHeader(body: CreateHeaderRequest): Promise<HeaderRes
     const header = new Header({
         name: body.name.trim(),
         tags: body.tags ?? [],
-        active: body.active ?? true,
+        done: body.done ?? false,
         type: body.type,
         project: body.project,
         arrBudget: body.arrBudget ?? [],
@@ -190,8 +190,8 @@ export async function updateHeader(id: string, body: UpdateHeaderRequest): Promi
         updateFields.tags = body.tags;
     }
 
-    if (body.active !== undefined) {
-        updateFields.active = body.active;
+    if (body.done !== undefined) {
+        updateFields.done = body.done;
     }
 
     if (body.type !== undefined) {

@@ -10,6 +10,7 @@ import { BudgetAddDialog } from "./BudgetAddDialog";
 import { HeaderEditDialog } from "./HeaderEditDialog";
 import { BudgetEditDialog } from "./BudgetEditDialog";
 import { ActualEditDialog } from "./ActualEditDialog";
+import { ActualRegisterDialog } from "./ActualRegisterDialog";
 import { Header } from "./useBudgetHeaders";
 import { Budget } from "./useBudgets";
 import { EditBudgetForm, BudgetForm, EditActualForm } from "./types";
@@ -21,6 +22,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { formatNumber, getTypeLabel, parseTags } from "@/utils/formatters";
 import { formatDate } from "@/utils/dateFormatters";
+import { CheckSquare, Square } from "lucide-react";
 
 interface ProjectBudgetsProps {
     projectId: string;
@@ -106,8 +108,13 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
 
     const [expandedHeaders, setExpandedHeaders] = useState<Set<string>>(new Set<string>());
     const [selectedBudgetIds, setSelectedBudgetIds] = useState<Set<string>>(new Set<string>());
-    const [isRegisterActualConfirmOpen, setIsRegisterActualConfirmOpen] = useState(false);
-    const [registeredBudgets, setRegisteredBudgets] = useState<{budget: Budget, name: string}[]>([]);
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+    const [budgetsToDelete, setBudgetsToDelete] = useState<string[]>([]);
+    const [isRegisterMultipleConfirmOpen, setIsRegisterMultipleConfirmOpen] = useState(false);
+    const [budgetsToRegister, setBudgetsToRegister] = useState<Budget[]>([]);
+    const [multipleExDate, setMultipleExDate] = useState<Date>(new Date());
+    const [isRegisterActualDialogOpen, setIsRegisterActualDialogOpen] = useState(false);
+    const [budgetToRegister, setBudgetToRegister] = useState<Budget | null>(null);
     const [actuals, setActuals] = useState<{[budgetId: string]: {id: string, name: string, amount: number, exDate: Date}[]}>({});
     const [isEditActualDialogOpen, setIsEditActualDialogOpen] = useState(false);
     const [editActualForm, setEditActualForm] = useState<EditActualForm>({
@@ -141,52 +148,69 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         
         if (budgetsToRegister.length === 1) {
             const budget = budgetsToRegister[0];
-            setEditActualForm({
-                id: '',
-                name: budget.name,
-                amount: budget.amount,
-                exDate: new Date(),
-                tags: budget.tags.join(', '),
-                assignedTo: '',
-                updatedAt: new Date(),
-                updatedBy: ''
-            });
-            setIsEditActualDialogOpen(true);
+            setBudgetToRegister(budget);
+            setIsRegisterActualDialogOpen(true);
         } else {
-            const budgetsWithNames = budgetsToRegister.map(b => ({
-                budget: b,
-                name: b.name
-            }));
-            setRegisteredBudgets(budgetsWithNames);
-            setIsRegisterActualConfirmOpen(true);
+            // For multiple budgets, open confirmation dialog with exDate field
+            setBudgetsToRegister(budgetsToRegister);
+            setIsRegisterMultipleConfirmOpen(true);
         }
     };
 
-    const handleRegisterActualConfirm = async () => {
+    const handleRegisterMultipleBudgets = async (budgetsToRegister: Budget[], exDate: Date) => {
         try {
-            const registerActualPromises = registeredBudgets.map(async (item) => {
-                const budget = budgets.find(b => b.id === item.budget.id);
-                if (!budget) return null;
-                
-                await budgetApi.registerActual({
+            const registerPromises = budgetsToRegister.map(async (budget) => {
+                return await budgetApi.registerActual({
                     budgetId: budget.id,
-                    actualName: item.name,
-                    updatedBy: 'user123' // TODO: Get actual user
+                    actualName: budget.name,
+                    updatedBy: 'user123',
+                    exDate: exDate
                 });
-                
-                return budget;
             });
             
-            const registers = await Promise.all(registerActualPromises);
-            const count = registers.filter(b => b !== null).length;
-            toast.success(`Successfully registered ${count} budget${count !== 1 ? 's' : ''}`);
+            const actualsCreated = await Promise.all(registerPromises);
+            toast.success(`Successfully registered ${actualsCreated.length} actuals`);
             
-            setIsRegisterActualConfirmOpen(false);
-            setRegisteredBudgets([]);
+            setIsRegisterMultipleConfirmOpen(false);
+            setBudgetsToRegister([]);
             setSelectedBudgetIds(new Set<string>());
             await loadData();
         } catch (error: any) {
             const errorMessage = error?.response?.data?.error || "Failed to register budgets";
+            toast.error(errorMessage);
+        }
+    };
+
+    const handleDeleteSelectedBudgets = async () => {
+        try {
+            // Filter out budgets that have actuals
+            const budgetsWithActuals = budgetsToDelete.filter(budgetId => {
+                const budget = budgets.find(b => b.id === budgetId);
+                return budget && actuals[budgetId] && actuals[budgetId].length > 0;
+            });
+            
+            if (budgetsWithActuals.length > 0) {
+                const budgetNames = budgetsWithActuals.map(budgetId => {
+                    const budget = budgets.find(b => b.id === budgetId);
+                    return budget?.name || budgetId;
+                });
+                toast.error(`Cannot delete ${budgetsWithActuals.length} budget(s) with actuals: ${budgetNames.join(', ')}`);
+                return;
+            }
+            
+            const deletePromises = budgetsToDelete.map(async (budgetId) => {
+                await budgetApi.delete(budgetId);
+            });
+            
+            await Promise.all(deletePromises);
+            toast.success(`Successfully deleted ${budgetsToDelete.length} budget${budgetsToDelete.length !== 1 ? 's' : ''}`);
+            
+            setIsDeleteConfirmOpen(false);
+            setBudgetsToDelete([]);
+            setSelectedBudgetIds(new Set<string>());
+            await loadData();
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.error || "Failed to delete budgets";
             toast.error(errorMessage);
         }
     };
@@ -249,8 +273,29 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     };
 
     const resetHeaderForm = () => setEditHeaderForm({ id: '', name: '', type: 'expense', tags: '' });
-    const resetBudgetForm = () => setEditBudgetForm({ id: '', name: '', note: '', type: 'expense', amount: 0, tags: '', updatedAt: new Date(), updatedBy: '' });
+    const resetBudgetForm = () => setEditBudgetForm({ id: '', name: '', note: '', type: 'expense', amount: 0, tags: '', done: false, updatedAt: new Date(), updatedBy: '' });
     const resetActualForm = () => setEditActualForm({ id: '', name: '', amount: 0, exDate: new Date(), tags: [], assignedTo: '', updatedAt: new Date(), updatedBy: '' });
+
+    const handleRegisterActual = async (data: {
+        budgetId: string;
+        actualName: string;
+        exDate: Date;
+        updatedBy: string;
+    }) => {
+        try {
+            await budgetApi.registerActual({
+                budgetId: data.budgetId,
+                actualName: data.actualName,
+                updatedBy: data.updatedBy,
+                exDate: data.exDate
+            });
+            toast.success("Actual registered successfully");
+            await loadData();
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.error || "Failed to register actual";
+            toast.error(errorMessage);
+        }
+    };
 
     const handleUpdateOperation = async (
         updateFn: (id: string, data: any) => Promise<any>,
@@ -286,6 +331,8 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             setHeaders(headers);
             
             const budgetsData = Array.isArray(budgetsRes.data) ? budgetsRes.data : [];
+            // Debug: log budget data to see done field
+            console.log('Budgets data:', budgetsData.slice(0, 2).map(b => ({ id: b.id, name: b.name, done: b.done, active: b.active })));
             const sortedBudgets = budgetsData.sort((a, b) => {
                 const headerA = headers.find(h => h.id === a.header);
                 const headerB = headers.find(h => h.id === b.header);
@@ -335,7 +382,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                 type: headerForm.type,
                 tags: parseTags(headerForm.tags),
                 project: projectId,
-                active: true
+                done: false
             },
             "Header added successfully",
             "Failed to add header"
@@ -365,7 +412,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                 tags: parseTags(budgetForm.tags),
                 project: projectId,
                 header: selectedHeaderId,
-                active: true
+                done: false
             },
             "Budget added successfully",
             "Failed to add budget"
@@ -423,8 +470,18 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     };
 
     const openEditBudget = (budget: Budget) => {
-        // Navigate to budget detail page
-        navigate(`/budgets/${budget.id}`);
+        setEditBudgetForm({
+            id: budget.id,
+            name: budget.name,
+            note: budget.note || '',
+            type: budget.type,
+            amount: budget.amount,
+            tags: budget.tags.join(', '),
+            done: budget.done,
+            updatedAt: budget.updatedAt ? new Date(budget.updatedAt) : new Date(),
+            updatedBy: budget.updatedBy || ''
+        });
+        setIsEditBudgetDialogOpen(true);
     };
 
     const handleDeleteBudget = async (budgetId: string) => {
@@ -451,7 +508,8 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                 tags: editBudgetForm.tags
                     .split(/\s*,\s*/)
                     .map(t => t.trim())
-                    .filter(t => t.length > 0)
+                    .filter(t => t.length > 0),
+                done: editBudgetForm.done
             },
             "Budget updated successfully",
             "Failed to update budget"
@@ -487,7 +545,8 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                     {
                         budgetId: budget.id,
                         actualName: editActualForm.name,
-                        updatedBy: 'user123' // TODO: Get actual user
+                        updatedBy: 'user123',
+                        exDate: editActualForm.exDate
                     },
                     "Actual registered successfully",
                     "Failed to register actual"
@@ -688,7 +747,6 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                 (() => {
                                     const selectedCount = Array.from(selectedBudgetIds).filter(id => associatedBudgets.some(b => b.id === id)).length;
                                     const selectedBudgets = budgets.filter(b => selectedBudgetIds.has(b.id));
-                                    const hasDelete = selectedBudgets.some(b => b.active);
                                     return (
                                         <DropdownMenu>
                                             <DropdownMenuTrigger>
@@ -704,14 +762,13 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                         Register Actual
                                                     </DropdownMenuItem>
                                                 )}
-                                                {hasDelete && (
-                                                    <DropdownMenuItem onClick={() => {
-                                                        const selectedInHeader = Array.from(selectedBudgetIds).filter(id => associatedBudgets.some(b => b.id === id));
-                                                        toast.success("Delete action would delete " + selectedInHeader.length + " budgets in this header");
-                                                    }}>
-                                                        Delete
-                                                    </DropdownMenuItem>
-                                                )}
+                                                <DropdownMenuItem onClick={() => {
+                                                    const selectedInHeader = Array.from(selectedBudgetIds).filter(id => associatedBudgets.some(b => b.id === id));
+                                                    setBudgetsToDelete(selectedInHeader);
+                                                    setIsDeleteConfirmOpen(true);
+                                                }}>
+                                                    Delete
+                                                </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     );
@@ -785,7 +842,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                         </TableHead>
                         <TableHead className="w-[35%] px-2 text-left border-b border-gray-200 bg-cyan-50">Name</TableHead>
                         <TableHead className="w-[18%] px-2 text-left border-b border-gray-200 bg-cyan-50">Tags</TableHead>
-                        <TableHead className="w-[9%] px-2 text-center border-b border-gray-200 bg-cyan-50">t</TableHead>
+                        <TableHead className="w-[12%] px-2 text-center border-b border-gray-200 bg-cyan-50">stat</TableHead>
                         <TableHead className="text-right w-[9%] border-b border-gray-200 bg-cyan-50">Amount</TableHead>
                         <TableHead className="text-left w-[28%] border-l-2 border-border bg-cyan-50">actName</TableHead>
                         <TableHead className="text-right w-[10%] bg-cyan-50">actAmount</TableHead>
@@ -857,12 +914,17 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                             <span className="text-sm text-muted-foreground">—</span>
                         )}
                     </TableCell>
-                    <TableCell className="w-[12.5%] px-2 text-center border-b border-gray-200">
-                        <span className={`text-xs px-2 py-0.5 rounded ${
-                            budget.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                        }`}>
-                            {getTypeLabel(budget.type)}
-                        </span>
+                    <TableCell className="w-[12%] px-2 text-center border-b border-gray-200">
+                        <div className="flex items-center justify-center gap-1">
+                            <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${budget.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                {budget.type === 'income' ? 'i' : 'e'}
+                            </span>
+                            {budget.done ? (
+                                <CheckSquare className="w-5 h-5 text-green-700 fill-green-100" />
+                            ) : (
+                                <Square className="w-5 h-5 text-red-700" />
+                            )}
+                        </div>
                     </TableCell>
                     <TableCell className="w-[12.5%] text-right border-b border-gray-200">
                         <span className="text-xs">
@@ -922,12 +984,17 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                         <span className="text-sm text-muted-foreground">—</span>
                     )}
                 </TableCell>
-                <TableCell rowSpan={budgetActuals.length} className="w-[12.5%] px-2 text-center border-b border-gray-200">
-                    <span className={`text-xs px-2 py-0.5 rounded ${
-                        budget.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                    }`}>
-                        {getTypeLabel(budget.type)}
-                    </span>
+                <TableCell rowSpan={budgetActuals.length} className="w-[12%] px-2 text-center border-b border-gray-200">
+                    <div className="flex items-center justify-center gap-1">
+                        <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${budget.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            {budget.type === 'income' ? 'i' : 'e'}
+                        </span>
+                        {budget.done ? (
+                            <CheckSquare className="w-5 h-5 text-green-700 fill-green-100" />
+                        ) : (
+                            <Square className="w-5 h-5 text-red-700" />
+                        )}
+                    </div>
                 </TableCell>
                 <TableCell rowSpan={budgetActuals.length} className="w-[12.5%] text-right border-b border-gray-200">
                     <span className="text-xs">
@@ -971,43 +1038,101 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         );
     };
 
-    const renderRegisterActualConfirmDialog = () => (
-        <Dialog open={isRegisterActualConfirmOpen} onOpenChange={setIsRegisterActualConfirmOpen}>
+    const renderRegisterMultipleConfirmDialog = () => (
+        <Dialog open={isRegisterMultipleConfirmOpen} onOpenChange={setIsRegisterMultipleConfirmOpen}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Register Budget to Actual</DialogTitle>
+                    <DialogTitle>Register Budgets to Actual</DialogTitle>
                     <DialogDescription>
-                        This will create Actual records for {registeredBudgets.length} selected budget(s). Each Actual will copy the name, type, amount, and tags from the Budget.
+                        This will create Actual records for {budgetsToRegister.length} selected budget(s).
                     </DialogDescription>
                 </DialogHeader>
-                <div className="py-4">
+                <div className="py-4 space-y-4">
+                    <div className="p-4 bg-muted rounded-lg">
+                        <label className="text-sm font-medium">Execution Date (exDate)</label>
+                        <input
+                            type="date"
+                            className="w-full mt-2 px-3 py-2 border border-input bg-background rounded-md"
+                            value={multipleExDate.toISOString().split('T')[0]}
+                            onChange={(e) => setMultipleExDate(new Date(e.target.value))}
+                        />
+                        <p className="text-xs text-muted-foreground mt-2">
+                            All {budgetsToRegister.length} budgets will use this execution date.
+                        </p>
+                    </div>
                     <div className="space-y-2">
-                        {registeredBudgets.map((item, index) => (
+                        {budgetsToRegister.map((budget, index) => (
                             <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                                 <div>
-                                    <div className="font-medium">{item.name}</div>
+                                    <div className="font-medium">{budget.name}</div>
                                     <div className="text-sm text-muted-foreground">
-                                        {item.budget.type === 'income' ? 'Income' : 'Expense'} - {formatNumber(item.budget.amount)}
+                                        {budget.type === 'income' ? 'Income' : 'Expense'} - {formatNumber(budget.amount)}
                                     </div>
                                 </div>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
-                                    <path d="m12 3 1.912 5.513a2 2 0 0 0 2.549 1.532l5.508-.918a2 2 0 0 1 2.49 2.49l-.918 5.508a2 2 0 0 0 1.532 2.549l5.513 1.912a2 2 0 0 1 0 3.824l-5.513 1.912a2 2 0 0 0-1.532 2.549l.918 5.508a2 2 0 0 1-2.49 2.49l-5.508-.918a2 2 0 0 0-2.549 1.532l-1.912 5.513a2 2 0 0 1-3.824 0l-1.912-5.513a2 2 0 0 0-2.549-1.532l-5.508.918a2 2 0 0 1-2.49-2.49l.918-5.508a2 2 0 0 0-1.532-2.549l-5.513-1.912a2 2 0 0 1 0-3.824l5.513-1.912a2 2 0 0 0 1.532-2.549l-.918-5.508a2 2 0 0 1 2.49-2.49l5.508.918a2 2 0 0 0 2.549-1.532L12 3Z"/>
-                                </svg>
                             </div>
                         ))}
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsRegisterActualConfirmOpen(false)}>
+                    <Button variant="outline" onClick={() => {
+                        setIsRegisterMultipleConfirmOpen(false);
+                        setBudgetsToRegister([]);
+                    }}>
                         Cancel
                     </Button>
-                    <Button onClick={handleRegisterActualConfirm}>
-                        Register Actual {registeredBudgets.length} budget{registeredBudgets.length !== 1 ? 's' : ''}
+                    <Button onClick={() => handleRegisterMultipleBudgets(budgetsToRegister, multipleExDate)}>
+                        Register Actual {budgetsToRegister.length} budget{budgetsToRegister.length !== 1 ? 's' : ''}
                     </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
     );
+
+    const renderDeleteConfirmDialog = () => {
+        const budgetsWithActuals = budgetsToDelete.filter(budgetId => {
+            const budget = budgets.find(b => b.id === budgetId);
+            return budget && actuals[budgetId] && actuals[budgetId].length > 0;
+        });
+        const deletableCount = budgetsToDelete.length - budgetsWithActuals.length;
+        
+        return (
+            <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Delete Budgets</DialogTitle>
+                        <DialogDescription>
+                            {budgetsWithActuals.length > 0 && (
+                                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                    <p className="text-sm text-yellow-800 font-medium">
+                                        Cannot delete {budgetsWithActuals.length} budget(s) with actuals
+                                    </p>
+                                    <p className="text-xs text-yellow-700 mt-1">
+                                        Only {deletableCount} budget(s) without actuals will be deleted
+                                    </p>
+                                </div>
+                            )}
+                            {deletableCount > 0 ? (
+                                <p>Are you sure you want to delete {deletableCount} budget{deletableCount !== 1 ? 's' : ''}?</p>
+                            ) : (
+                                <p>No budgets can be deleted. All selected budgets have actuals.</p>
+                            )}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => {
+                            setIsDeleteConfirmOpen(false);
+                            setBudgetsToDelete([]);
+                        }}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={handleDeleteSelectedBudgets} disabled={deletableCount === 0}>
+                            Delete {deletableCount} budget{deletableCount !== 1 ? 's' : ''}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        );
+    };
 
     return (
         <div className="space-y-8">
@@ -1065,9 +1190,29 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                 setEditActualForm={setEditActualForm}
                 onEditActual={handleEditActual}
                 onDeleteActual={() => handleDeleteActual(editActualForm.id)}
+                isNew={!editActualForm.id}
             />
 
-            {renderRegisterActualConfirmDialog()}
+            <ActualRegisterDialog
+                isOpen={isRegisterActualDialogOpen}
+                onOpenChange={setIsRegisterActualDialogOpen}
+                budget={budgetToRegister || {
+                    id: '',
+                    name: '',
+                    note: '',
+                    type: 'expense' as 'income' | 'expense',
+                    amount: 0,
+                    tags: [],
+                    project: '',
+                    header: '',
+                    arrActual: [],
+                    done: false
+                }}
+                onRegisterActual={handleRegisterActual}
+            />
+
+            {renderRegisterMultipleConfirmDialog()}
+            {renderDeleteConfirmDialog()}
         </div>
     );
 }

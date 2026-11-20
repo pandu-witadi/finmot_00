@@ -34,7 +34,7 @@ export interface BudgetResponse {
     name: string;
     note: string;
     tags: string[];
-    active: boolean;
+    done: boolean;
     type: 'income' | 'expense';
     amount: number;
     project: string;
@@ -50,6 +50,7 @@ export interface RegisterActualRequest {
     budgetId: string;
     actualName: string;
     updatedBy: string;
+    exDate?: Date;
 }
 
 export interface CloneToTransactionRequest {
@@ -68,7 +69,7 @@ export interface CreateBudgetRequest {
     name: string;
     note?: string;
     tags?: string[];
-    active?: boolean;
+    done?: boolean;
     type: 'income' | 'expense';
     amount: number;
     project: string;
@@ -82,7 +83,7 @@ export interface UpdateBudgetRequest {
     name?: string;
     note?: string;
     tags?: string[];
-    active?: boolean;
+    done?: boolean;
     type?: 'income' | 'expense';
     amount?: number;
     project?: string;
@@ -94,7 +95,7 @@ export interface UpdateBudgetRequest {
 
 export interface BudgetFilter {
     project?: string;
-    active?: boolean;
+    done?: boolean;
     type?: 'income' | 'expense';
     tags?: string[];
     search?: string;
@@ -118,7 +119,7 @@ function budgetToResponse(budget: any): BudgetResponse {
         name: budget.name,
         note: budget.note || '',
         tags: budget.tags,
-        active: budget.active,
+        done: budget.done,
         type: budget.type,
         amount: budget.amount,
         project: budget.project.toString(),
@@ -149,8 +150,8 @@ export async function getAllBudgets(query?: GetBudgetsQuery): Promise<BudgetResp
             mongoQuery.project = new mongoose.Types.ObjectId(filter.project);
         }
 
-        if (filter.active !== undefined) {
-            mongoQuery.active = filter.active;
+        if (filter.done !== undefined) {
+            mongoQuery.done = filter.done;
         }
 
         if (filter.type !== undefined) {
@@ -194,7 +195,7 @@ export async function createBudget(body: CreateBudgetRequest): Promise<BudgetRes
         name: body.name.trim(),
         note: body.note ?? '',
         tags: body.tags ?? [],
-        active: body.active ?? true,
+        done: body.done ?? false,
         type: body.type,
         amount: body.amount,
         project: new mongoose.Types.ObjectId(body.project),
@@ -236,8 +237,8 @@ export async function updateBudget(id: string, body: UpdateBudgetRequest): Promi
         updateFields.tags = body.tags;
     }
 
-    if (body.active !== undefined) {
-        updateFields.active = body.active;
+    if (body.done !== undefined) {
+        updateFields.done = body.done;
     }
 
     if (body.type !== undefined) {
@@ -317,13 +318,13 @@ export async function registerActual(body: RegisterActualRequest): Promise<Actua
         name: body.actualName.trim() || budget.name,
         note: budget.note || '',
         tags: [...budget.tags],
-        active: budget.active,
+        active: true,
         type: budget.type,
         amount: budget.amount,
         project: budget.project,
         budget: budget._id,
         trx: new mongoose.Types.ObjectId("000000000000000000000000"),
-        exDate: new Date(),
+        exDate: body.exDate || new Date(),
         updatedBy: new mongoose.Types.ObjectId(body.updatedBy),
     });
     await actual.save();

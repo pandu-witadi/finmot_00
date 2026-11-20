@@ -6,7 +6,7 @@ export interface Header {
     tags: string[];
     project: string;
     arrBudget: string[];
-    active: boolean;
+    done: boolean;
     [key: string]: any;
 }
 
@@ -20,7 +20,8 @@ export interface Budget {
     project: string;
     header: string;
     arrActual: string[];
-    active: boolean;
+    done?: boolean;
+    active?: boolean;
     [key: string]: any;
 }
 
@@ -62,6 +63,7 @@ export interface EditBudgetForm {
     type: 'income' | 'expense';
     amount: number;
     tags: string;
+    done?: boolean;
     updatedAt?: Date;
     updatedBy?: string;
 }
