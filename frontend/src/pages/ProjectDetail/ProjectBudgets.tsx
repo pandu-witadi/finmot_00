@@ -937,6 +937,9 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                     <TableCell className="w-[20%] text-right border-b border-gray-200">
                         <span className="text-sm text-muted-foreground">—</span>
                     </TableCell>
+                    <TableCell className="w-[11%] text-left border-b border-gray-200">
+                        <span className="text-xs text-muted-foreground">-</span>
+                    </TableCell>
                 </BudgetSortableRow>
             );
         }
@@ -1031,7 +1034,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                 </TableCell>
                 <TableCell className={`w-[11%] text-left ${lastRowClass} border-b border-gray-200`}>
                     <span className="text-xs text-muted-foreground">
-                        {formatDate(actual?.exDate || new Date())}
+                        {actual?.exDate ? formatDate(actual.exDate) : '-'}
                     </span>
                 </TableCell>
             </BudgetSortableRow>

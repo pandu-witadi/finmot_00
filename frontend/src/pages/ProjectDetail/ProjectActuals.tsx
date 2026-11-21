@@ -371,6 +371,41 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
         }
     };
 
+    const handleRegisterSelectedToTransaction = async () => {
+        if (selectedActualIds.size === 0) {
+            toast.error("No actuals selected");
+            return;
+        }
+
+        if (!selectedTransactionId) {
+            toast.error("Please select a transaction");
+            return;
+        }
+
+        if (selectedActualIds.size > 1 && !window.confirm(`Register ${selectedActualIds.size} selected actual(s) to the same transaction?`)) {
+            return;
+        }
+
+        try {
+            await Promise.all(Array.from(selectedActualIds).map(actualId => 
+                budgetApi.registerToTransaction({
+                    actualId: actualId,
+                    transactionId: selectedTransactionId,
+                })
+            ));
+            toast.success(`${selectedActualIds.size} actual(s) registered to transaction successfully`);
+            setSelectedActualIds(new Set<string>());
+            setIsRegisterToTransactionModalOpen(false);
+            setSelectedProjectId(null);
+            setTransactionsForSelectedProject([]);
+            setSelectedTransactionId(null);
+            await loadData();
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.error || "Failed to register actuals to transaction";
+            toast.error(errorMessage);
+        }
+    };
+
     const handleAssignTo = async () => {
         if (selectedActualIds.size === 0) return;
 
@@ -480,6 +515,18 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                                         loadUsers();
                                     }}>
                                         Assign to User
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => {
+                                        setIsRegisterToTransactionModalOpen(true);
+                                        setSelectedProjectId(null);
+                                        setTransactionsForSelectedProject([]);
+                                        setSelectedTransactionId(null);
+                                        if (projectId) {
+                                            setSelectedProjectId(projectId);
+                                            loadTransactionsForProject(projectId);
+                                        }
+                                    }} disabled={selectedActualIds.size === 0}>
+                                        Register to Transaction
                                     </DropdownMenuItem>
                                     <div className="border-b border-border" />
                                     <DropdownMenuItem onClick={handleDeleteSelected} className="text-red-600 hover:text-red-700 hover:bg-red-50">
@@ -773,12 +820,8 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                                     Cancel
                                 </Button>
                                 <Button 
-                                    onClick={() => {
-                                        if (selectedTransactionId) {
-                                            handleRegisterToTransaction(Array.from(selectedActualIds)[0]);
-                                        }
-                                    }}
-                                    disabled={!selectedTransactionId}
+                                    onClick={handleRegisterSelectedToTransaction}
+                                    disabled={!selectedTransactionId || selectedActualIds.size === 0}
                                 >
                                     Register
                                 </Button>

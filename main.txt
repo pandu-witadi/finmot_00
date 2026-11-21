@@ -1,0 +1,29 @@
+# connection floe
+
+- project have :
+	- arrHeader : array of headers
+	- arrBudget : array of budgets
+	- arrActual : array of actuals
+	- arrTransaction : array of transactions
+	- arrPicture : array of attached pictures
+
+- header :
+	- project : a link to its parent project
+
+- budget :
+	- project : a link to its parent project
+	- arrActual : array of actuals
+	
+
+- actual : 
+	- project : a link to its parent project
+	- budget :  a link to parent budget
+	- transaction :  a link to parent budget
+	 
+
+
+- transaction : 
+	- project : a link to its parent project
+	- arrActual : array of actuals
+	- arrPicture : array of attached pictures
+	
