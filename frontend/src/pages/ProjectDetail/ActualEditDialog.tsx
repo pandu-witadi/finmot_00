@@ -109,20 +109,6 @@ export function ActualEditDialog({
                             </div>
                             
                             <div className="space-y-1">
-                                <Label className="text-xs text-muted-foreground">Assigned to</Label>
-                                <div className="text-sm">
-                                    {editActualForm.assignedTo && editActualForm.assignedTo !== "000000000000000000000000" ? (
-                                        (() => {
-                                            const user = users.find(u => String(u.id) === String(editActualForm.assignedTo));
-                                            return user ? <span className="font-medium">{user.name}</span> : <span className="text-muted-foreground">{editActualForm.assignedTo}</span>;
-                                        })()
-                                    ) : (
-                                        <span className="text-muted-foreground">—</span>
-                                    )}
-                                </div>
-                            </div>
-                            
-                            <div className="space-y-1">
                                 <Label className="text-xs text-muted-foreground">Note</Label>
                                 <div className="text-sm text-muted-foreground whitespace-pre-wrap">
                                     {editActualForm.note || '—'}
@@ -205,16 +191,6 @@ export function ActualEditDialog({
                                     type="date"
                                     value={new Date(editActualForm.exDate).toISOString().split('T')[0]}
                                     onChange={e => setEditActualForm(prev => ({ ...prev, exDate: new Date(e.target.value) }))}
-                                />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="editActualNote">Note</Label>
-                                <textarea
-                                    id="editActualNote"
-                                    value={editActualForm.note || ''}
-                                    onChange={e => setEditActualForm(prev => ({ ...prev, note: e.target.value }))}
-                                    className="flex h-20 w-full rounded-md border border-input bg-background px-3 py-2 resize-none"
-                                    placeholder="Enter note"
                                 />
                             </div>
                             <div className="grid gap-2">

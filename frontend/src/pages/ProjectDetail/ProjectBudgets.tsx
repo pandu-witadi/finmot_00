@@ -115,6 +115,9 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     const [multipleExDate, setMultipleExDate] = useState<Date>(new Date());
     const [isRegisterActualDialogOpen, setIsRegisterActualDialogOpen] = useState(false);
     const [budgetToRegister, setBudgetToRegister] = useState<Budget | null>(null);
+    const [isCloneToActualConfirmOpen, setIsCloneToActualConfirmOpen] = useState(false);
+    const [budgetsToClone, setBudgetsToClone] = useState<Budget[]>([]);
+    const [cloneExDate, setCloneExDate] = useState<Date>(new Date());
     const [actuals, setActuals] = useState<{[budgetId: string]: {id: string, name: string, amount: number, exDate: Date}[]}>({});
     const [isEditActualDialogOpen, setIsEditActualDialogOpen] = useState(false);
     const [editActualForm, setEditActualForm] = useState<EditActualForm>({
@@ -157,6 +160,12 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         }
     };
 
+    const openCloneToActual = () => {
+        const budgetsToClone = budgets.filter(b => selectedBudgetIds.has(b.id));
+        setBudgetsToClone(budgetsToClone);
+        setIsCloneToActualConfirmOpen(true);
+    };
+
     const handleRegisterMultipleBudgets = async (budgetsToRegister: Budget[], exDate: Date) => {
         try {
             const registerPromises = budgetsToRegister.map(async (budget) => {
@@ -177,6 +186,35 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             await loadData();
         } catch (error: any) {
             const errorMessage = error?.response?.data?.error || "Failed to register budgets";
+            toast.error(errorMessage);
+        }
+    };
+
+    const handleCloneToActual = async (budgetsToClone: Budget[], exDate: Date) => {
+        try {
+            const clonePromises = budgetsToClone.map(async (budget) => {
+                return await actualApi.create({
+                    name: budget.name,
+                    amount: budget.amount,
+                    exDate: exDate,
+                    tags: budget.tags,
+                    type: budget.type,
+                    project: budget.project,
+                    budget: budget.id,
+                    assignedTo: '',
+                    note: budget.note || ''
+                });
+            });
+            
+            await Promise.all(clonePromises);
+            toast.success(`Successfully cloned ${budgetsToClone.length} budget(s) to actual(s)`);
+            
+            setIsCloneToActualConfirmOpen(false);
+            setBudgetsToClone([]);
+            setSelectedBudgetIds(new Set<string>());
+            await loadData();
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.error || "Failed to clone budgets to actuals";
             toast.error(errorMessage);
         }
     };
@@ -757,18 +795,21 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
-                                                {selectedCount === 1 && (
+                                                <>
                                                     <DropdownMenuItem onClick={openRegisterActual}>
                                                         Register Actual
                                                     </DropdownMenuItem>
-                                                )}
-                                                <DropdownMenuItem onClick={() => {
-                                                    const selectedInHeader = Array.from(selectedBudgetIds).filter(id => associatedBudgets.some(b => b.id === id));
-                                                    setBudgetsToDelete(selectedInHeader);
-                                                    setIsDeleteConfirmOpen(true);
-                                                }}>
-                                                    Delete
-                                                </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={openCloneToActual}>
+                                                        Clone to Actual
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => {
+                                                        const selectedInHeader = Array.from(selectedBudgetIds).filter(id => associatedBudgets.some(b => b.id === id));
+                                                        setBudgetsToDelete(selectedInHeader);
+                                                        setIsDeleteConfirmOpen(true);
+                                                    }}>
+                                                        Delete
+                                                    </DropdownMenuItem>
+                                                </>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     );
@@ -828,7 +869,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             <Table className="table-fixed">
                 <TableHeader>
                     <TableRow>
-                        <TableHead className="w-10 px-2 text-left bg-cyan-50">
+                        <TableHead className="w-10 px-2 py-3 text-left bg-cyan-50 hover:bg-muted">
                             <input
                                 type="checkbox"
                                 className="h-4 w-4 accent-primary"
@@ -840,13 +881,13 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                                 onChange={() => {}}
                             />
                         </TableHead>
-                        <TableHead className="w-[35%] px-2 text-left border-b border-gray-200 bg-cyan-50">Name</TableHead>
-                        <TableHead className="w-[18%] px-2 text-left border-b border-gray-200 bg-cyan-50">Tags</TableHead>
-                        <TableHead className="w-[12%] px-2 text-center border-b border-gray-200 bg-cyan-50">stat</TableHead>
-                        <TableHead className="text-right w-[9%] border-b border-gray-200 bg-cyan-50">Amount</TableHead>
-                        <TableHead className="text-left w-[28%] border-l-2 border-border bg-cyan-50">actName</TableHead>
-                        <TableHead className="text-right w-[10%] bg-cyan-50">actAmount</TableHead>
-                        <TableHead className="text-left w-[11%] bg-cyan-50">actDate</TableHead>
+                        <TableHead className="w-[35%] px-2 text-left border-b border-gray-200 bg-cyan-50 hover:bg-muted">Name</TableHead>
+                        <TableHead className="w-[18%] px-2 text-left border-b border-gray-200 bg-cyan-50 hover:bg-muted">Tags</TableHead>
+                        <TableHead className="w-[12%] px-2 text-center border-b border-gray-200 bg-cyan-50 hover:bg-muted">stat</TableHead>
+                        <TableHead className="text-right w-[9%] border-b border-gray-200 bg-cyan-50 hover:bg-muted">Amount</TableHead>
+                        <TableHead className="text-left w-[28%] border-l-2 border-border bg-cyan-50 hover:bg-muted">actName</TableHead>
+                        <TableHead className="text-right w-[10%] bg-cyan-50 hover:bg-muted">actAmount</TableHead>
+                        <TableHead className="text-left w-[11%] bg-cyan-50 hover:bg-muted">actDate</TableHead>
                     </TableRow>
                 </TableHeader>
                 <SortableContext items={associatedBudgets.map((b) => b.id)} strategy={verticalListSortingStrategy}>
@@ -873,7 +914,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         if (!hasActuals) {
             return (
                 <BudgetSortableRow key={budget.id} id={budget.id} disabled={false}>
-                    <TableCell className="px-2 text-left">
+                    <TableCell className="w-10 px-2 py-3 text-left hover:bg-muted">
                         <input
                             type="checkbox"
                             className="h-4 w-4 accent-primary"
@@ -885,7 +926,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                             onChange={() => {}}
                         />
                     </TableCell>
-                    <TableCell className="w-[45%] px-2 text-left border-b border-gray-200">
+                    <TableCell className="w-[45%] px-2 text-left border-b border-gray-200 hover:bg-muted">
                         <div className="flex items-center gap-2">
                             <span
                                 className="cursor-pointer hover:underline font-medium"
@@ -901,7 +942,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                             </span>
                         </div>
                     </TableCell>
-                    <TableCell className="w-[25%] px-2 text-left border-b border-gray-200">
+                    <TableCell className="w-[25%] px-2 text-left border-b border-gray-200 hover:bg-muted">
                         {budget.tags && budget.tags.length > 0 ? (
                             <div className="flex flex-col gap-0.5">
                                 {budget.tags.map((tag, idx) => (
@@ -914,7 +955,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                             <span className="text-sm text-muted-foreground">—</span>
                         )}
                     </TableCell>
-                    <TableCell className="w-[12%] px-2 text-center border-b border-gray-200">
+                    <TableCell className="w-[12%] px-2 text-center border-b border-gray-200 hover:bg-muted">
                         <div className="flex items-center justify-center gap-1">
                             <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${budget.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                                 {budget.type === 'income' ? 'i' : 'e'}
@@ -926,18 +967,18 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                             )}
                         </div>
                     </TableCell>
-                    <TableCell className="w-[12.5%] text-right border-b border-gray-200">
+                    <TableCell className="w-[12.5%] text-right border-b border-gray-200 hover:bg-muted">
                         <span className="text-xs">
                             {formatNumber(budget.amount)}
                         </span>
                     </TableCell>
-                    <TableCell className="w-[40%] text-left border-b border-gray-200 border-l-2 border-border">
+                    <TableCell className="w-[40%] text-left border-b border-gray-200 border-l-2 border-border hover:bg-muted">
                         <span className="text-sm text-muted-foreground">—</span>
                     </TableCell>
-                    <TableCell className="w-[20%] text-right border-b border-gray-200">
+                    <TableCell className="w-[20%] text-right border-b border-gray-200 hover:bg-muted">
                         <span className="text-sm text-muted-foreground">—</span>
                     </TableCell>
-                    <TableCell className="w-[11%] text-left border-b border-gray-200">
+                    <TableCell className="w-[11%] text-left border-b border-gray-200 hover:bg-muted">
                         <span className="text-xs text-muted-foreground">-</span>
                     </TableCell>
                 </BudgetSortableRow>
@@ -946,7 +987,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
 
         const sharedCells = (
             <>
-                <TableCell rowSpan={budgetActuals.length} className="px-2 text-left">
+                <TableCell rowSpan={budgetActuals.length} className="w-10 px-2 text-left hover:bg-muted">
                     <input
                         type="checkbox"
                         className="h-4 w-4 accent-primary"
@@ -958,7 +999,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                         onChange={() => {}}
                     />
                 </TableCell>
-                <TableCell rowSpan={budgetActuals.length} className="w-[45%] px-2 text-left border-b border-gray-200">
+                <TableCell rowSpan={budgetActuals.length} className="w-[45%] px-2 text-left border-b border-gray-200 hover:bg-muted">
                     <div className="flex items-center gap-2">
                         <span
                             className="cursor-pointer hover:underline font-medium"
@@ -974,7 +1015,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                         </span>
                     </div>
                 </TableCell>
-                <TableCell rowSpan={budgetActuals.length} className="w-[25%] px-2 text-left border-b border-gray-200">
+                <TableCell rowSpan={budgetActuals.length} className="w-[25%] px-2 text-left border-b border-gray-200 hover:bg-muted">
                     {budget.tags && budget.tags.length > 0 ? (
                         <div className="flex flex-col gap-0.5">
                             {budget.tags.map((tag, idx) => (
@@ -987,7 +1028,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                         <span className="text-sm text-muted-foreground">—</span>
                     )}
                 </TableCell>
-                <TableCell rowSpan={budgetActuals.length} className="w-[12%] px-2 text-center border-b border-gray-200">
+                <TableCell rowSpan={budgetActuals.length} className="w-[12%] px-2 text-center border-b border-gray-200 hover:bg-muted">
                     <div className="flex items-center justify-center gap-1">
                         <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${budget.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                             {budget.type === 'income' ? 'i' : 'e'}
@@ -999,7 +1040,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                         )}
                     </div>
                 </TableCell>
-                <TableCell rowSpan={budgetActuals.length} className="w-[12.5%] text-right border-b border-gray-200">
+                <TableCell rowSpan={budgetActuals.length} className="w-[12.5%] text-right border-b border-gray-200 hover:bg-muted">
                     <span className="text-xs">
                         {formatNumber(budget.amount)}
                     </span>
@@ -1012,7 +1053,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         return (
             <BudgetSortableRow key={rowKey} id={rowKey} disabled={!isDraggable}>
                 {index === 0 && sharedCells}
-                <TableCell className={`w-[28%] text-left ${lastRowClass} border-l-2 border-border border-b border-gray-200`}>
+                <TableCell className={`w-[28%] text-left ${lastRowClass} border-l-2 border-border border-b border-gray-200 hover:bg-muted`}>
                     <span 
                         className="text-xs text-muted-foreground hover:underline cursor-pointer" 
                         title={actual?.name}
@@ -1027,12 +1068,12 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                         {actual?.name}
                     </span>
                 </TableCell>
-                <TableCell className={`w-[10%] text-right ${lastRowClass} border-b border-gray-200`}>
+                <TableCell className={`w-[10%] text-right ${lastRowClass} border-b border-gray-200 hover:bg-muted`}>
                     <span className="text-xs text-muted-foreground">
                         {formatNumber(actual?.amount || 0)}
                     </span>
                 </TableCell>
-                <TableCell className={`w-[11%] text-left ${lastRowClass} border-b border-gray-200`}>
+                <TableCell className={`w-[11%] text-left ${lastRowClass} border-b border-gray-200 hover:bg-muted`}>
                     <span className="text-xs text-muted-foreground">
                         {actual?.exDate ? formatDate(actual.exDate) : '-'}
                     </span>
@@ -1085,6 +1126,56 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                     </Button>
                     <Button onClick={() => handleRegisterMultipleBudgets(budgetsToRegister, multipleExDate)}>
                         Register Actual {budgetsToRegister.length} budget{budgetsToRegister.length !== 1 ? 's' : ''}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+
+    const renderCloneToActualConfirmDialog = () => (
+        <Dialog open={isCloneToActualConfirmOpen} onOpenChange={setIsCloneToActualConfirmOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Clone Budgets to Actual</DialogTitle>
+                    <DialogDescription>
+                        This will create Actual records for {budgetsToClone.length} selected budget(s) by copying key fields.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4 space-y-4">
+                    <div className="p-4 bg-muted rounded-lg">
+                        <label className="text-sm font-medium">Execution Date (exDate)</label>
+                        <input
+                            type="date"
+                            className="w-full mt-2 px-3 py-2 border border-input bg-background rounded-md"
+                            value={cloneExDate.toISOString().split('T')[0]}
+                            onChange={(e) => setCloneExDate(new Date(e.target.value))}
+                        />
+                        <p className="text-xs text-muted-foreground mt-2">
+                            All {budgetsToClone.length} budgets will use this execution date for the cloned actuals.
+                        </p>
+                    </div>
+                    <div className="space-y-2">
+                        {budgetsToClone.map((budget, index) => (
+                            <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                                <div>
+                                    <div className="font-medium">{budget.name}</div>
+                                    <div className="text-sm text-muted-foreground">
+                                        {budget.type === 'income' ? 'Income' : 'Expense'} - {formatNumber(budget.amount)}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => {
+                        setIsCloneToActualConfirmOpen(false);
+                        setBudgetsToClone([]);
+                    }}>
+                        Cancel
+                    </Button>
+                    <Button onClick={() => handleCloneToActual(budgetsToClone, cloneExDate)}>
+                        Clone to Actual {budgetsToClone.length} budget{budgetsToClone.length !== 1 ? 's' : ''}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -1215,6 +1306,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             />
 
             {renderRegisterMultipleConfirmDialog()}
+            {renderCloneToActualConfirmDialog()}
             {renderDeleteConfirmDialog()}
         </div>
     );

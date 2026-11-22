@@ -8,16 +8,34 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
-export function ActualDetail() {
+interface User {
+    id: string;
+    name: string;
+    email: string;
+}
+
+const filterUsers = (users: User[], searchTerm: string): User[] => {
+    if (!users || users.length === 0) return [];
+    return users.filter(user =>
+        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+};
+
+function ActualDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
     const [actual, setActual] = useState<any>(null);
     const [budget, setBudget] = useState<any>(null);
-    const [users, setUsers] = useState<{id: string, name: string}[]>([]);
+    const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [editMode, setEditMode] = useState(false);
     const [editForm, setEditForm] = useState<Partial<any>>({});
+    const [isAssignToModalOpen, setIsAssignToModalOpen] = useState(false);
+    const [assignToSearchTerm, setAssignToSearchTerm] = useState("");
+    const [selectedAssignToUser, setSelectedAssignToUser] = useState<string>("");
 
     useEffect(() => {
         if (id) {
@@ -60,6 +78,25 @@ export function ActualDetail() {
             console.debug("Failed to load users:", error);
         }
     };
+
+    const handleOpenAssignToModal = () => {
+        setSelectedAssignToUser(editForm.assignedTo || "");
+        setAssignToSearchTerm("");
+        setIsAssignToModalOpen(true);
+    };
+
+    const handleAssignToUserSelect = (userId: string) => {
+        setSelectedAssignToUser(userId);
+    };
+
+    const handleAssignToUserSave = () => {
+        setEditForm({ ...editForm, assignedTo: selectedAssignToUser });
+        setIsAssignToModalOpen(false);
+        setAssignToSearchTerm("");
+        setSelectedAssignToUser("");
+    };
+
+    const filteredUsers = filterUsers(users, assignToSearchTerm);
 
     const handleSave = async () => {
         if (!id || !editForm.name) {
@@ -298,11 +335,20 @@ export function ActualDetail() {
                                 
                                 <div>
                                     <Label>Assigned to</Label>
-                                    <Input
-                                        value={editForm.assignedTo || ''}
-                                        onChange={(e) => setEditForm({ ...editForm, assignedTo: e.target.value })}
-                                        className="mt-1"
-                                    />
+                                    <div className="flex gap-2 mt-1">
+                                        <Input
+                                            value={editForm.assignedTo ? getUserById(editForm.assignedTo) : ""}
+                                            readOnly
+                                            className="flex-1"
+                                            placeholder="Click search button to select"
+                                        />
+                                        <Button type="button" variant="outline" onClick={handleOpenAssignToModal} className="h-9 w-9 px-2">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-search">
+                                                <circle cx="11" cy="11" r="8" />
+                                                <path d="m21 21-4.3-4.3" />
+                                            </svg>
+                                        </Button>
+                                    </div>
                                 </div>
 
                                 <div className="pt-4 border-t flex gap-2">
@@ -317,6 +363,70 @@ export function ActualDetail() {
                         )}
                     </CardContent>
                 </Card>
+
+                {/* Assign to User Modal */}
+                <Dialog open={isAssignToModalOpen} onOpenChange={setIsAssignToModalOpen}>
+                    <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+                        <DialogHeader>
+                            <DialogTitle>Assign to User</DialogTitle>
+                        </DialogHeader>
+                        
+                        <div className="flex-1 overflow-hidden flex flex-col">
+                            <div className="p-3 border-b">
+                                <Input
+                                    placeholder="Search users..."
+                                    value={assignToSearchTerm}
+                                    onChange={(e) => setAssignToSearchTerm(e.target.value)}
+                                    className="h-8"
+                                />
+                            </div>
+                            
+                            <div className="flex-1 overflow-auto p-2 space-y-1">
+                                {users.length === 0 ? (
+                                    <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
+                                        Loading users...
+                                    </div>
+                                ) : (
+                                    filteredUsers.map(user => (
+                                        <div
+                                            key={user.id}
+                                            onClick={() => handleAssignToUserSelect(user.id)}
+                                            className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-accent ${selectedAssignToUser === user.id ? 'bg-accent' : ''}`}
+                                        >
+                                            <div className={`w-4 h-4 border rounded flex items-center justify-center ${selectedAssignToUser === user.id ? 'border-primary bg-primary text-primary-foreground' : 'border-input'}`}>
+                                                {selectedAssignToUser === user.id && (
+                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                )}
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="font-medium text-sm">{user.name}</div>
+                                                <div className="text-xs text-muted-foreground">{user.email}</div>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                        
+                        <DialogFooter>
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setIsAssignToModalOpen(false);
+                                    setAssignToSearchTerm("");
+                                    setSelectedAssignToUser(editForm.assignedTo || "");
+                                }}
+                            >
+                                Cancel
+                            </Button>
+                            <Button onClick={handleAssignToUserSave} disabled={!selectedAssignToUser}>
+                                Select User
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
         </div>
     );

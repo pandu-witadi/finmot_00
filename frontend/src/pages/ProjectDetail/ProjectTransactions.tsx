@@ -46,7 +46,7 @@ function TransactionSortableRow({ id, children, disabled }: { id: string; childr
     };
 
     return (
-        <tr ref={setNodeRef} style={style} {...attributes} {...listeners} className={disabled ? '' : 'cursor-move hover:bg-muted/50 border-b border-border'}>
+        <tr ref={setNodeRef} style={style} {...attributes} {...listeners} className={disabled ? '' : 'cursor-move border-b border-border'}>
             {children}
         </tr>
     );
@@ -437,7 +437,7 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
                             <Table className="table-fixed">
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="w-[5%] bg-cyan-50">
+                                        <TableHead className="w-[5%] bg-cyan-50 hover:bg-cyan-100">
                                             <input
                                                 type="checkbox"
                                                 className="h-4 w-4 accent-primary"
@@ -445,13 +445,13 @@ export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
                                                 onChange={toggleSelectAll}
                                             />
                                         </TableHead>
-                                        <TableHead className="w-[25%] bg-cyan-50">Name</TableHead>
-                                        <TableHead className="w-[12%] bg-cyan-50">Tags</TableHead>
-                                        <TableHead className="w-[4%] text-center bg-cyan-50">t</TableHead>
-                                        <TableHead className="w-[13%] text-right bg-cyan-50">Amount</TableHead>
-                                        <TableHead className="w-[6%] text-right bg-cyan-50">exDate</TableHead>
-                                        <TableHead className="w-[9%] bg-cyan-50">asgTo</TableHead>
-                                        <TableHead className="w-[25%] border-l-2 border-border bg-cyan-50">actual</TableHead>
+                                        <TableHead className="w-[25%] bg-cyan-50 hover:bg-cyan-100">Name</TableHead>
+                                        <TableHead className="w-[12%] bg-cyan-50 hover:bg-cyan-100">Tags</TableHead>
+                                        <TableHead className="w-[4%] text-center bg-cyan-50 hover:bg-cyan-100">t</TableHead>
+                                        <TableHead className="w-[13%] text-right bg-cyan-50 hover:bg-cyan-100">Amount</TableHead>
+                                        <TableHead className="w-[6%] text-right bg-cyan-50 hover:bg-cyan-100">exDate</TableHead>
+                                        <TableHead className="w-[9%] bg-cyan-50 hover:bg-cyan-100">asgTo</TableHead>
+                                        <TableHead className="w-[25%] border-l-2 border-border bg-cyan-50 hover:bg-cyan-100">actual</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -669,7 +669,7 @@ function renderTransactionRow(
 
     return (
         <TransactionSortableRow key={transactionId} id={transactionId} disabled={!isDraggable}>
-            <TableCell className="w-[5%] px-2 py-3">
+            <TableCell className="w-[5%] px-2 py-3 hover:bg-muted/50">
                 <input
                     type="checkbox"
                     className="h-4 w-4 accent-primary"
@@ -680,7 +680,7 @@ function renderTransactionRow(
                     }}
                 />
             </TableCell>
-            <TableCell className="w-[25%] font-medium py-3">
+            <TableCell className="w-[25%] font-medium py-3 hover:bg-muted/50">
                 <div className="flex items-center gap-2">
                     <span
                         className="cursor-pointer hover:underline font-medium"
@@ -696,7 +696,7 @@ function renderTransactionRow(
                     </span>
                 </div>
             </TableCell>
-            <TableCell className="w-[12%] text-sm py-3">
+            <TableCell className="w-[12%] text-sm py-3 hover:bg-muted/50">
                 {transaction.tags.length > 0 ? (
                     <div className="flex flex-col gap-0.5">
                         {transaction.tags.map((tag: string, idx: number) => (
@@ -709,25 +709,25 @@ function renderTransactionRow(
                     <span className="text-muted-foreground">—</span>
                 )}
             </TableCell>
-            <TableCell className="w-[4%] text-center py-3">
+            <TableCell className="w-[4%] text-center py-3 hover:bg-muted/50">
                 <span className={`text-xs px-2 py-0.5 rounded ${
                     transaction.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                 }`}>
                     {getTypeLabel(transaction.type)}
                 </span>
             </TableCell>
-            <TableCell className="w-[13%] text-right py-3">
+            <TableCell className="w-[13%] text-right py-3 hover:bg-muted/50">
                 <span className="text-xs font-medium">
                     {formatNumber(transaction.amount)}
                 </span>
             </TableCell>
-            <TableCell className="w-[6%] text-right text-sm text-muted-foreground py-3">
+            <TableCell className="w-[6%] text-right text-sm text-muted-foreground py-3 hover:bg-muted/50">
                 {transaction.exDate ? <span className="text-xs">{formatDate(transaction.exDate)}</span> : '—'}
             </TableCell>
-            <TableCell className="w-[9%] text-sm text-muted-foreground py-3">
+            <TableCell className="w-[9%] text-sm text-muted-foreground py-3 hover:bg-muted/50">
                 {transaction.assignedTo ? getUserById(transaction.assignedTo) : '—'}
             </TableCell>
-            <TableCell className={`w-[25%] text-sm border-l-2 border-border py-3 ${hasActuals ? 'text-primary' : 'text-muted-foreground'}`}>
+            <TableCell className={`w-[25%] text-sm border-l-2 border-border py-3 ${hasActuals ? 'text-primary' : 'text-muted-foreground'} hover:bg-muted/50`}>
                 {hasActuals ? (
                     <div className="flex flex-col">
                         {actuals.map((item, idx) => (
