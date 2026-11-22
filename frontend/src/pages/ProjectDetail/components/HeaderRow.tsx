@@ -2,10 +2,11 @@ import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableRow, TableHead, TableHeader } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { formatNumber, getTypeLabel } from "@/utils/formatters";
+import { formatNumber } from "@/utils/formatters";
 import { Header, Budget, Actual } from "../types";
 import { toast } from "react-hot-toast";
 import { BudgetRow as BudgetRowComponent } from "./BudgetRow";
+import { TypeBadge } from "./TypeBadge";
 
 interface HeaderRowProps {
     header: Header;
@@ -89,12 +90,8 @@ export function HeaderRow({
                         </button>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground ml-6">
-                        <span className={`text-xs px-2 py-0.5 rounded ${
-                            header.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                        }`}>
-                            {getTypeLabel(header.type)}
-                        </span>
-                        <span>{formatNumber(headerTotal)}</span>
+                        <TypeBadge type={header.type} variant="circle" />
+                        <span className="font-medium">{formatNumber(headerTotal)}</span>
                         {someSelected && (
                             <span className="ml-2 text-xs text-muted-foreground">
                                 {Array.from(selectedBudgetIds).filter(id => associatedBudgets.some(b => b.id === id)).length} selected
@@ -163,9 +160,7 @@ export function HeaderRow({
             </CardHeader>
             <CardContent className={!isExpanded ? 'p-0' : ''}>
                 {!isExpanded ? (
-                    <div className="py-4 text-center text-sm text-muted-foreground">
-                        Click chevron to show budgets
-                    </div>
+                    <div className="py-1"></div>
                 ) : (
                     <Table className="table-fixed">
                         <TableHeader>

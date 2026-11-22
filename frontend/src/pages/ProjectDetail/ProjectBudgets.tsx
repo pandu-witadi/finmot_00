@@ -22,7 +22,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { formatNumber, getTypeLabel, parseTags } from "@/utils/formatters";
 import { formatDate } from "@/utils/dateFormatters";
-import { CheckSquare, Square } from "lucide-react";
+import { TypeBadge } from "./components/TypeBadge";
+import { DoneBadge } from "./components/DoneBadge";
 
 interface ProjectBudgetsProps {
     projectId: string;
@@ -94,6 +95,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         type: 'expense' as 'income' | 'expense',
         amount: 0,
         tags: '',
+        done: false,
         updatedAt: new Date(),
         updatedBy: ''
     });
@@ -369,8 +371,6 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             setHeaders(headers);
             
             const budgetsData = Array.isArray(budgetsRes.data) ? budgetsRes.data : [];
-            // Debug: log budget data to see done field
-            console.log('Budgets data:', budgetsData.slice(0, 2).map(b => ({ id: b.id, name: b.name, done: b.done, active: b.active })));
             const sortedBudgets = budgetsData.sort((a, b) => {
                 const headerA = headers.find(h => h.id === a.header);
                 const headerB = headers.find(h => h.id === b.header);
@@ -852,9 +852,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                     </CardHeader>
                     <CardContent className={!expandedHeaders.has(header.id) ? 'p-0' : ''}>
                         {!expandedHeaders.has(header.id) ? (
-                            <div className="py-4 text-center text-sm text-muted-foreground">
-                                Click chevron to show budgets
-                            </div>
+                            <div className="py-1"></div>
                         ) : (
                             <BudgetTable header={header} associatedBudgets={associatedBudgets} />
                         )}
@@ -957,14 +955,8 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                     </TableCell>
                     <TableCell className="w-[12%] px-2 text-center border-b border-gray-200 hover:bg-muted">
                         <div className="flex items-center justify-center gap-1">
-                            <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${budget.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                {budget.type === 'income' ? 'i' : 'e'}
-                            </span>
-                            {budget.done ? (
-                                <CheckSquare className="w-5 h-5 text-green-700 fill-green-100" />
-                            ) : (
-                                <Square className="w-5 h-5 text-red-700" />
-                            )}
+                            <TypeBadge type={budget.type} />
+                            <DoneBadge done={budget.done} />
                         </div>
                     </TableCell>
                     <TableCell className="w-[12.5%] text-right border-b border-gray-200 hover:bg-muted">
@@ -1030,14 +1022,8 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                 </TableCell>
                 <TableCell rowSpan={budgetActuals.length} className="w-[12%] px-2 text-center border-b border-gray-200 hover:bg-muted">
                     <div className="flex items-center justify-center gap-1">
-                        <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${budget.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                            {budget.type === 'income' ? 'i' : 'e'}
-                        </span>
-                        {budget.done ? (
-                            <CheckSquare className="w-5 h-5 text-green-700 fill-green-100" />
-                        ) : (
-                            <Square className="w-5 h-5 text-red-700" />
-                        )}
+                        <TypeBadge type={budget.type} />
+                        <DoneBadge done={budget.done} />
                     </div>
                 </TableCell>
                 <TableCell rowSpan={budgetActuals.length} className="w-[12.5%] text-right border-b border-gray-200 hover:bg-muted">

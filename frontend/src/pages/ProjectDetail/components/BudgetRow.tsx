@@ -1,9 +1,10 @@
 import { TableRow, TableCell } from "@/components/ui/table";
-import { formatNumber, getTypeLabel } from "@/utils/formatters";
+import { formatNumber } from "@/utils/formatters";
 import { Budget } from "../types";
 import { Actual } from "../types";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { TypeBadge } from "./TypeBadge";
 
 interface BudgetRowProps {
     budget: Budget;
@@ -66,12 +67,8 @@ export function BudgetRow({ budget, actuals = [], selected, onToggleSelect, onOp
                     </div>
                 </TableCell>
                 <TableCell className="w-[12.5%] px-2 text-center">
-                    <span className={`text-xs px-2 py-0.5 rounded ${
-                        budget.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                    }`}>
-                        {getTypeLabel(budget.type)}
-                    </span>
-                </TableCell>
+                        <TypeBadge type={budget.type} size="sm" />
+                    </TableCell>
                 <TableCell className="w-[12.5%] text-right border-r border-green-300">
                     <span className="text-sm">{formatNumber(budget.amount)}</span>
                 </TableCell>

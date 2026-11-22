@@ -27,9 +27,9 @@ const transactionSchema = new Schema<TransactionDoc>({
         type: [String],
         default: []
     },
-    active: {
+    done: {
         type: Boolean,
-        default: true
+        default: false
     },
     note: {
         type: String,

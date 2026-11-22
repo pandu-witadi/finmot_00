@@ -234,6 +234,11 @@ export async function deleteHeader(id: string): Promise<boolean> {
         return false;
     }
 
+    // Check if header has associated budgets
+    if (header.arrBudget && header.arrBudget.length > 0) {
+        throw new Error(`Cannot delete header. ${header.arrBudget.length} budget(s) still reference this header. Please remove them first.`);
+    }
+
     // Remove header ID from arrHeader in the project
     if (header.project) {
         await Project.findByIdAndUpdate(header.project, {

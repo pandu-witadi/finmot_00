@@ -289,6 +289,11 @@ export async function deleteBudget(id: string): Promise<boolean> {
         return false;
     }
 
+    // Check if budget has associated actuals
+    if (budget.arrActual && budget.arrActual.length > 0) {
+        throw new Error(`Cannot delete budget. ${budget.arrActual.length} actual(s) are registered. Please delete or unassign them first.`);
+    }
+
     // Remove budget ID from arrBudget in the referenced header
     if (budget.header) {
         await Header.findByIdAndUpdate(budget.header, {

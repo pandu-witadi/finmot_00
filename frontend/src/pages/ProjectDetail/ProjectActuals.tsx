@@ -20,10 +20,12 @@ import { Actual } from "./useActuals";
 import { ActualEditDialog } from "./ActualEditDialog";
 import { EditActualForm } from "./types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { formatNumber, getTypeLabel, parseTags } from "@/utils/formatters";
+import { formatNumber, parseTags } from "@/utils/formatters";
 import { formatDate } from "@/utils/dateFormatters";
 import { filterActualsBySearch, filterActualsByType, sortActualsByDate, calculateTotalAmount } from "./actuals-filters";
 import { filterUsers } from "./actuals-users";
+import { TypeBadge } from "./components/TypeBadge";
+import { DoneBadge } from "./components/DoneBadge";
 
 interface ProjectActualsProps {
     projectId: string;
@@ -637,7 +639,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                                         <TableHead className="w-[20%] bg-cyan-50 hover:bg-muted">Name</TableHead>
                                         <TableHead className="w-[10%] bg-cyan-50 hover:bg-muted">Tags</TableHead>
                                         <TableHead className="w-[10%] bg-cyan-50 hover:bg-muted">Header</TableHead>
-                                        <TableHead className="w-[6%] text-center bg-cyan-50 hover:bg-muted">t</TableHead>
+                                        <TableHead className="w-[6%] text-center bg-cyan-50 hover:bg-muted">stat</TableHead>
                                         <TableHead className="w-[10%] text-right bg-cyan-50 hover:bg-muted">Amount</TableHead>
                                         <TableHead className="w-[6%] text-right bg-cyan-50 hover:bg-muted">exDate</TableHead>
                                         <TableHead className="w-[7%] bg-cyan-50 hover:bg-muted">asgTo</TableHead>
@@ -692,11 +694,10 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                                                 {actual.headerName}
                                             </TableCell>
                                             <TableCell className="text-center py-3 hover:bg-muted">
-                                                <span className={`text-xs px-2 py-0.5 rounded ${
-                                                    actual.budgetType === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                                                }`}>
-                                                    {getTypeLabel(actual.budgetType)}
-                                                </span>
+                                                <div className="flex items-center justify-center gap-1">
+                                                    <TypeBadge type={actual.budgetType} variant="circle" />
+                                                    <DoneBadge done={actual.done} />
+                                                </div>
                                             </TableCell>
                                             <TableCell className="w-[12%] text-right py-3 hover:bg-muted">
                                                 <span className="text-xs font-medium">

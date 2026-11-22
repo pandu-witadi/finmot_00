@@ -32,9 +32,9 @@ const actualSchema = new Schema<ActualDoc>({
         default: "",
         trim: true
     },
-    active: {
+    done: {
         type: Boolean,
-        default: true
+        default: false
     },
     type: {
         type: String,
@@ -56,10 +56,9 @@ const actualSchema = new Schema<ActualDoc>({
         ref: 'Budget',
         required: true
     },
-    trx: {
+    transaction: {
         type: Schema.Types.ObjectId,
         ref: 'Transaction',
-        required: true
     },
     assignedTo: {
         type: Schema.Types.ObjectId,

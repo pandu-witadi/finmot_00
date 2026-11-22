@@ -6,7 +6,7 @@ import { About } from '@/pages/About';
 import { UserAll } from '@/pages/UserAll/index';
 import { UserAdd } from '@/pages/UserAll/UserAdd';
 import { UserDetail } from '@/pages/UserDetail/index';
-import { ActualDetail } from '@/pages/ActualDetail';
+import ActualDetail from '@/pages/ActualDetail';
 import { BudgetDetail } from '@/pages/BudgetDetail';
 import { ProjectAll, ProjectAdd } from '@/pages/ProjectAll/index';
 import { ProjectDetail } from '@/pages/ProjectDetail/index';
