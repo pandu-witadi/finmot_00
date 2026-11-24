@@ -6,6 +6,7 @@
 // - drag-and-drop utilities
 
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 
 import { toast } from "react-hot-toast";
 import { DndContext, DragEndEvent } from "@dnd-kit/core";
@@ -16,12 +17,13 @@ import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableRow, TableHead, TableHeader } from "@/components/ui/table";
-import { transactionApi } from "@/services/api";
+import { transactionApi, actualApi, api } from "@/services/api";
 import { Transaction } from "./useTransactions";
 import { EditTransactionForm, TransactionForm } from "./types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { formatNumber, parseTags } from "@/utils/formatters";
+import { formatDate } from "@/utils/dateFormatters";
 import { TypeBadge } from "./components/TypeBadge";
 import { DoneBadge } from "./components/DoneBadge";
 
@@ -67,6 +69,7 @@ function TransactionSortableRow({ id, children, disabled }: { id: string; childr
 export function TabTransactions({ projectId }: TabTransactionsProps) {
     // Core data state: transactions
     const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [actualsByTransaction, setActualsByTransaction] = useState<{[transactionId: string]: {id: string, name: string, amount: number, exDate: Date, projectName: string, projectId: string}[]}>({});
     const [isLoading, setIsLoading] = useState(true);
 
     // Dialog open/close state management for various operations
@@ -163,12 +166,42 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
 
     const loadData = async () => {
         try {
-            const transactionsRes = await transactionApi.getAllByProject(projectId);
+            const [transactionsRes, actualsRes, projectsRes] = await Promise.all([
+                transactionApi.getAllByProject(projectId),
+                actualApi.getAllByProject(projectId),
+                api.get('/project')
+            ]);
+            
             const transactionsData = Array.isArray(transactionsRes.data) ? transactionsRes.data : [];
             const sortedTransactions = transactionsData.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
             setTransactions(sortedTransactions);
+            
+            // Create projects map for quick lookup
+            const projectsData = Array.isArray(projectsRes.data) ? projectsRes.data : [];
+            const projectsMap = new Map(projectsData.map((p: any) => [String(p._id || p.id), p.name]));
+            
+            // Group actuals by transaction ID for quick lookup
+            const actualsData = Array.isArray(actualsRes.data) ? actualsRes.data : [];
+            const actualsMap: {[transactionId: string]: {id: string, name: string, amount: number, exDate: Date, projectName: string, projectId: string}[]} = {};
+            actualsData.forEach((actual: any) => {
+                if (actual.transaction) {
+                    const projectName = projectsMap.get(String(actual.project)) || '';
+                    if (!actualsMap[actual.transaction]) {
+                        actualsMap[actual.transaction] = [];
+                    }
+                    actualsMap[actual.transaction].push({
+                        id: actual._id || actual.id,
+                        name: actual.name,
+                        amount: actual.amount,
+                        exDate: actual.exDate,
+                        projectName: projectName,
+                        projectId: String(actual.project)
+                    });
+                }
+            });
+            setActualsByTransaction(actualsMap);
         } catch (error: any) {
-            const errorMessage = error?.response?.data?.error || "Failed to load transactions";
+            const errorMessage = error?.response?.data?.error || "Failed to load data";
             toast.error(errorMessage);
         } finally {
             setIsLoading(false);
@@ -360,8 +393,80 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
     // TRANSACTION TABLE RENDERERS
     // =============================================================================
 
-    // Render a single transaction row - handles transactions without actuals
+    // Render a single transaction row - handles transactions with actuals
     const renderTransactionRow = (transaction: Transaction) => {
+        const transactionActuals = actualsByTransaction[transaction.id] || [];
+        
+        // If no actuals, show single row with placeholders
+        if (transactionActuals.length === 0) {
+            return (
+                <TransactionSortableRow key={transaction.id} id={transaction.id} disabled={false}>
+                    <TableCell className="w-10 px-2 py-3 text-left hover:bg-muted">
+                        <input
+                            type="checkbox"
+                            className="h-4 w-4 accent-primary"
+                            checked={selectedTransactionIds.has(transaction.id)}
+                            onPointerDown={(e) => {
+                                e.stopPropagation();
+                                toggleSelectTransaction(transaction.id);
+                            }}
+                            onChange={() => {}}
+                        />
+                    </TableCell>
+                    <TableCell className="w-[45%] px-2 text-left border-b border-gray-200 hover:bg-muted">
+                        <div className="flex items-center gap-2">
+                            <span
+                                className="cursor-pointer hover:underline font-medium"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    openEditTransaction(transaction);
+                                }}
+                                onPointerDown={(e) => {
+                                    e.stopPropagation();
+                                }}
+                            >
+                                {transaction.name}
+                            </span>
+                        </div>
+                    </TableCell>
+                    <TableCell className="w-[25%] px-2 text-left border-b border-gray-200 hover:bg-muted">
+                        {transaction.tags && transaction.tags.length > 0 ? (
+                            <div className="flex flex-col gap-0.5">
+                                {transaction.tags.map((tag, idx) => (
+                                    <span key={idx} className="text-xs">
+                                        {tag}
+                                    </span>
+                                ))}
+                            </div>
+                        ) : (
+                            <span className="text-sm text-muted-foreground">—</span>
+                        )}
+                    </TableCell>
+                    <TableCell className="w-[12%] px-2 text-center border-b border-gray-200 hover:bg-muted">
+                        <div className="flex items-center justify-center gap-1">
+                            <TypeBadge type={transaction.type} />
+                            <DoneBadge done={transaction.active} />
+                        </div>
+                    </TableCell>
+                    <TableCell className="w-[12.5%] text-right border-b border-gray-200 hover:bg-muted">
+                        <span className="text-xs">
+                            {formatNumber(transaction.amount)}
+                        </span>
+                    </TableCell>
+                    <TableCell className="w-[40%] text-left border-b border-gray-200 border-l-2 border-border hover:bg-muted">
+                        <span className="text-sm text-muted-foreground">—</span>
+                    </TableCell>
+                    <TableCell className="w-[20%] text-right border-b border-gray-200 hover:bg-muted">
+                        <span className="text-sm text-muted-foreground">—</span>
+                    </TableCell>
+                    <TableCell className="w-[11%] text-left border-b border-gray-200 hover:bg-muted">
+                        <span className="text-xs text-muted-foreground">-</span>
+                    </TableCell>
+                </TransactionSortableRow>
+            );
+        }
+        
+        // Render single row with first actual (drag-drop compatible)
         return (
             <TransactionSortableRow key={transaction.id} id={transaction.id} disabled={false}>
                 <TableCell className="w-10 px-2 py-3 text-left hover:bg-muted">
@@ -417,13 +522,45 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
                     </span>
                 </TableCell>
                 <TableCell className="w-[40%] text-left border-b border-gray-200 border-l-2 border-border hover:bg-muted">
-                    <span className="text-sm text-muted-foreground">—</span>
+                    <div className="flex flex-col gap-0.5">
+                        {transactionActuals.slice(0, 3).map((actual) => (
+                            <div key={actual.id} className="flex flex-col">
+                                <span className="text-xs">{actual.name}</span>
+                                {actual.projectName && (
+                                    <Link
+                                        to={`/projects/${actual.projectId}?tab=actuals`}
+                                        className="text-[10px] italic text-muted-foreground hover:underline"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        {actual.projectName}
+                                    </Link>
+                                )}
+                            </div>
+                        ))}
+                        {transactionActuals.length > 3 && (
+                            <span className="text-xs text-muted-foreground">
+                                +{transactionActuals.length - 3} more
+                            </span>
+                        )}
+                    </div>
                 </TableCell>
                 <TableCell className="w-[20%] text-right border-b border-gray-200 hover:bg-muted">
-                    <span className="text-sm text-muted-foreground">—</span>
+                    <div className="flex flex-col items-end gap-0.5">
+                        {transactionActuals.slice(0, 3).map((actual) => (
+                            <span key={actual.id} className="text-xs">
+                                {formatNumber(actual.amount)}
+                            </span>
+                        ))}
+                    </div>
                 </TableCell>
                 <TableCell className="w-[11%] text-left border-b border-gray-200 hover:bg-muted">
-                    <span className="text-xs text-muted-foreground">-</span>
+                    <div className="flex flex-col gap-0.5">
+                        {transactionActuals.slice(0, 3).map((actual) => (
+                            <span key={actual.id} className="text-xs">
+                                {formatDate(actual.exDate)}
+                            </span>
+                        ))}
+                    </div>
                 </TableCell>
             </TransactionSortableRow>
         );

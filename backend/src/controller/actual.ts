@@ -263,11 +263,9 @@ export async function cloneToTransaction(body: CloneToTransactionRequest): Promi
     const transaction = new Transaction({
         name: body.transactionName.trim() || actual.name,
         tags: [...actual.tags],
-        active: actual.active,
         type: actual.type,
         amount: actual.amount,
         project: actual.project,
-        arrActual: [actual._id as any],
         exDate: actual.exDate || new Date(),
         assignedTo: actual.assignedTo || undefined,
         updatedBy: body.updatedBy as any,
@@ -277,11 +275,6 @@ export async function cloneToTransaction(body: CloneToTransactionRequest): Promi
     // Add transaction ID to project's arrTransaction
     await Project.findByIdAndUpdate(actual.project, {
         $push: { arrTransaction: transaction._id }
-    });
-
-    // Add actual ID to project's arrActual (since clone creates new actual)
-    await Project.findByIdAndUpdate(actual.project, {
-        $push: { arrActual: actual._id }
     });
 
     // Update actual's transaction field to point to the new transaction
@@ -299,7 +292,6 @@ export async function cloneToTransaction(body: CloneToTransactionRequest): Promi
             id: transaction._id.toString(),
             name: transaction.name,
             tags: transaction.tags,
-            active: transaction.active,
             type: transaction.type,
             amount: transaction.amount,
             project: transaction.project.toString(),

@@ -55,12 +55,6 @@ export interface RegisterActualRequest {
     actualTags?: string[];
 }
 
-export interface CloneToTransactionRequest {
-    actualId: string;
-    trxName: string;
-    updatedBy: string;
-}
-
 export interface RegisterToTransactionRequest {
     actualId: string;
     transactionId: string;
@@ -276,37 +270,6 @@ export async function updateBudget(id: string, body: UpdateBudgetRequest): Promi
     return budgetToResponse(budget);
 }
 
-export async function deleteBudget(id: string): Promise<boolean> {
-    // Find the budget first to get its references
-    const budget = await Budget.findById(id);
-    if (!budget) {
-        return false;
-    }
-
-    // Check if budget has associated actuals
-    if (budget.arrActual && budget.arrActual.length > 0) {
-        throw new Error(`Cannot delete budget. ${budget.arrActual.length} actual(s) are registered. Please delete or unassign them first.`);
-    }
-
-    // Remove budget ID from arrBudget in the referenced header
-    if (budget.header) {
-        await Header.findByIdAndUpdate(budget.header, {
-            $pull: { arrBudget: id }
-        });
-    }
-
-    // Remove budget ID from arrBudget in the project
-    if (budget.project) {
-        await Project.findByIdAndUpdate(budget.project, {
-            $pull: { arrBudget: id }
-        });
-    }
-
-    // Delete the budget
-    const result = await Budget.findByIdAndDelete(id);
-    return result !== null;
-}
-
 export async function registerActual(body: RegisterActualRequest): Promise<ActualResponse> {
     const budget = await Budget.findById(body.budgetId);
     if (!budget) {
@@ -392,56 +355,33 @@ export async function registerToTransaction(body: RegisterToTransactionRequest):
     };
 }
 
-export async function cloneToTransaction(body: CloneToTransactionRequest): Promise<{actual: ActualResponse, transaction: any}> {
-    const actual = await Actual.findById(body.actualId);
-    if (!actual) {
-        throw new Error('Actual not found');
+export async function deleteBudget(id: string): Promise<boolean> {
+    // Find the budget first to get its references
+    const budget = await Budget.findById(id);
+    if (!budget) {
+        return false;
     }
 
-    // Create a new transaction
-    const transaction = new Transaction({
-        name: body.trxName.trim() || actual.name,
-        tags: [...actual.tags],
-        active: actual.active,
-        type: actual.type,
-        amount: actual.amount,
-        project: actual.project,
-        arrActual: [actual._id as any],
-        exDate: actual.exDate || new Date(),
-        assignedTo: actual.assignedTo || undefined,
-        updatedBy: body.updatedBy as any,
-    });
-    await transaction.save();
+    // Check if budget has associated actuals
+    if (budget.arrActual && budget.arrActual.length > 0) {
+        throw new Error(`Cannot delete budget. ${budget.arrActual.length} actual(s) are registered. Please delete or unassign them first.`);
+    }
 
-    // Add transaction ID to project's arrTransaction
-    await Project.findByIdAndUpdate(actual.project, {
-        $push: { arrTransaction: transaction._id }
-    });
+    // Remove budget ID from arrBudget in the referenced header
+    if (budget.header) {
+        await Header.findByIdAndUpdate(budget.header, {
+            $pull: { arrBudget: id }
+        });
+    }
 
-    // Update actual's transaction field to point to the new transaction
-    actual.transaction = transaction._id as any;
-    await actual.save();
+    // Remove budget ID from arrBudget in the project
+    if (budget.project) {
+        await Project.findByIdAndUpdate(budget.project, {
+            $pull: { arrBudget: id }
+        });
+    }
 
-    // Add actual ID to transaction's arrActual
-    await Transaction.findByIdAndUpdate(transaction._id as any, {
-        $push: { arrActual: actual._id as any }
-    });
-
-    return {
-        actual: actualToResponse(actual),
-        transaction: {
-            id: transaction._id.toString(),
-            name: transaction.name,
-            tags: transaction.tags,
-            active: transaction.active,
-            type: transaction.type,
-            amount: transaction.amount,
-            project: transaction.project.toString(),
-            arrActual: [actual._id.toString()],
-            exDate: transaction.exDate,
-            assignedTo: transaction.assignedTo ? transaction.assignedTo.toString() : "000000000000000000000000",
-            updatedBy: transaction.updatedBy.toString(),
-            createdAt: transaction.createdAt,
-        },
-    };
+    // Delete the budget
+    const result = await Budget.findByIdAndDelete(id);
+    return result !== null;
 }

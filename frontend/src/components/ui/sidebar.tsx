@@ -24,8 +24,8 @@ import { PanelLeftIcon } from "lucide-react"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
-const SIDEBAR_WIDTH = "13rem"
-const SIDEBAR_WIDTH_MOBILE = "16rem"
+const SIDEBAR_WIDTH = "11.7rem"
+const SIDEBAR_WIDTH_MOBILE = "14.4rem"
 const SIDEBAR_WIDTH_ICON = "2.5rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 
