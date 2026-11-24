@@ -18,6 +18,9 @@ export interface ProjectDoc extends Document {
     createdAt: Date;
 }
 
+
+
+
 const projectSchema = new Schema<ProjectDoc>({
     code: {
         type: String,
@@ -58,6 +61,21 @@ const projectSchema = new Schema<ProjectDoc>({
     endDate: {
         type: Date
     },
+    finance : {
+        budget: {
+            income: Number,
+            expense: Number
+        },
+        actual: {
+            income: Number,
+            expense: Number
+        },
+        transaction: {
+            income: Number,
+            expense: Number
+        }
+    },
+
     arrHeader: {
         type: [Schema.Types.ObjectId],
         ref: 'Header',

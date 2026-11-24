@@ -1,10 +1,22 @@
+// Core dependencies: 
+// - React hooks for state management, 
+// - router navigation, 
+// - API services, 
+// - UI components, 
+// - drag-and-drop utilities
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { headerApi, budgetApi, projectApi, actualApi } from "@/services/api";
 import { toast } from "react-hot-toast";
+import { DndContext, DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableRow, TableHead, TableHeader } from "@/components/ui/table";
+import { headerApi, budgetApi, projectApi, actualApi } from "@/services/api";
 import { HeaderAddDialog } from "./HeaderAddDialog";
 import { BudgetAddDialog } from "./BudgetAddDialog";
 import { HeaderEditDialog } from "./HeaderEditDialog";
@@ -14,10 +26,6 @@ import { ActualRegisterDialog } from "./ActualRegisterDialog";
 import { Header } from "./useBudgetHeaders";
 import { Budget } from "./useBudgets";
 import { EditBudgetForm, BudgetForm, EditActualForm } from "./types";
-import { DndContext, DragEndEvent } from "@dnd-kit/core";
-import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { formatNumber, getTypeLabel, parseTags } from "@/utils/formatters";
@@ -25,11 +33,27 @@ import { formatDate } from "@/utils/dateFormatters";
 import { TypeBadge } from "./components/TypeBadge";
 import { DoneBadge } from "./components/DoneBadge";
 
-interface ProjectBudgetsProps {
+
+// =============================================================================
+// TabBudgets Component
+// =============================================================================
+// Manages budget headers and budgets for a project with drag-and-drop reordering
+// Supports:
+// - Header CRUD operations (create, read, update, delete)
+// - Budget CRUD operations with drag-and-drop sorting within headers
+// - Actual record registration from budgets (single and bulk)
+// - Actual record cloning from budgets
+// - Bulk budget selection with batch operations (register, clone, delete)
+// - Position persistence for headers and budgets via API
+
+// Props interface for TabBudgets component
+// projectId: The ID of the project whose budgets are being managed
+interface TabBudgetsProps {
     projectId: string;
 }
 
-// Header Sortable Item
+// Header Sortable Item - Enables drag-and-drop reordering of budget headers
+// Uses DnD Kit's useSortable hook with disabled state when header is expanded
 function HeaderSortableItem({ id, children, isExpanded }: { id: string; children: React.ReactNode; isExpanded: boolean }) {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
         id,
@@ -48,7 +72,8 @@ function HeaderSortableItem({ id, children, isExpanded }: { id: string; children
     );
 }
 
-// Budget Row Sortable Item
+// Budget Row Sortable Item - Enables drag-and-drop reordering of budget rows within a header
+// Uses DnD Kit's useSortable hook with optional disabled state for rows with actuals
 function BudgetSortableRow({ id, children, disabled }: { id: string; children: React.ReactNode; disabled?: boolean }) {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id, disabled });
 
@@ -64,17 +89,27 @@ function BudgetSortableRow({ id, children, disabled }: { id: string; children: R
     );
 }
 
-export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
+
+// =============================================================================
+// MAIN COMPONENT: TabBudgets
+// Manages budget headers and budgets with drag-and-drop reordering, CRUD operations,
+// and actual registration/creation functionality
+export function TabBudgets({ projectId }: TabBudgetsProps) {
     const navigate = useNavigate();
+
+    // Core data state: headers, budgets, and actuals mapped by budget ID
     const [headers, setHeaders] = useState<Header[]>([]);
     const [budgets, setBudgets] = useState<Budget[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+
+    // Dialog open/close state management for various operations
     const [isAddHeaderDialogOpen, setIsAddHeaderDialogOpen] = useState(false);
     const [isEditHeaderDialogOpen, setIsEditHeaderDialogOpen] = useState(false);
     const [isAddBudgetDialogOpen, setIsAddBudgetDialogOpen] = useState(false);
     const [isEditBudgetDialogOpen, setIsEditBudgetDialogOpen] = useState(false);
     const [selectedHeaderId, setSelectedHeaderId] = useState<string | null>(null);
 
+    // Form state for creating and editing headers
     const [headerForm, setHeaderForm] = useState({
         name: '',
         type: 'expense' as 'income' | 'expense',
@@ -88,6 +123,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         tags: ''
     });
 
+    // Form state for creating and editing budgets
     const [editBudgetForm, setEditBudgetForm] = useState<EditBudgetForm>({
         id: '',
         name: '',
@@ -108,19 +144,30 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         tags: ''
     });
 
+    // UI state for UI interactions: expanded headers, selected budgets, delete confirmations
     const [expandedHeaders, setExpandedHeaders] = useState<Set<string>>(new Set<string>());
     const [selectedBudgetIds, setSelectedBudgetIds] = useState<Set<string>>(new Set<string>());
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
     const [budgetsToDelete, setBudgetsToDelete] = useState<string[]>([]);
+
+    // Multiple budget operations state (register actuals with shared date, clone to actuals)
     const [isRegisterMultipleConfirmOpen, setIsRegisterMultipleConfirmOpen] = useState(false);
     const [budgetsToRegister, setBudgetsToRegister] = useState<Budget[]>([]);
     const [multipleExDate, setMultipleExDate] = useState<Date>(new Date());
+
+    // Single budget registration state
     const [isRegisterActualDialogOpen, setIsRegisterActualDialogOpen] = useState(false);
     const [budgetToRegister, setBudgetToRegister] = useState<Budget | null>(null);
+
+    // Clone to actual confirmation state
     const [isCloneToActualConfirmOpen, setIsCloneToActualConfirmOpen] = useState(false);
     const [budgetsToClone, setBudgetsToClone] = useState<Budget[]>([]);
     const [cloneExDate, setCloneExDate] = useState<Date>(new Date());
+
+    // Actual records state: maps budget IDs to arrays of actual records
     const [actuals, setActuals] = useState<{[budgetId: string]: {id: string, name: string, amount: number, exDate: Date}[]}>({});
+
+    // Edit actual dialog state
     const [isEditActualDialogOpen, setIsEditActualDialogOpen] = useState(false);
     const [editActualForm, setEditActualForm] = useState<EditActualForm>({
         id: '',
@@ -133,12 +180,18 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         updatedBy: ''
     });
 
+    // =============================================================================
+    // BULK SELECTION HELPERS
+    // =============================================================================
+
+    // Toggle single budget selection in the selectedBudgetIds Set
     const toggleSelectBudget = (budgetId: string) => {
         const newSet = new Set(selectedBudgetIds);
         newSet.has(budgetId) ? newSet.delete(budgetId) : newSet.add(budgetId);
         setSelectedBudgetIds(newSet);
     };
 
+    // Toggle select all budgets in the current list (select/deselect all)
     const toggleSelectAllBudgets = (budgets: {id: string}[]) => {
         const allSelected = budgets.length > 0 && budgets.every(b => selectedBudgetIds.has(b.id));
         const newSet = new Set(selectedBudgetIds);
@@ -148,6 +201,17 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         setSelectedBudgetIds(newSet);
     };
 
+    // Calculate total amount for a header (sum of all associated budgets)
+    const getHeaderTotal = (header: Header) => {
+        const associatedBudgets = budgets.filter(b => b.header === header.id);
+        return associatedBudgets.reduce((total, budget) => total + budget.amount, 0);
+    };
+
+    // =============================================================================
+    // REGISTER ACTUAL OPERATIONS
+    // =============================================================================
+
+    // Open register actual dialog: single budget opens direct dialog, multiple opens confirmation
     const openRegisterActual = () => {
         const budgetsToRegister = budgets.filter(b => selectedBudgetIds.has(b.id));
         
@@ -162,12 +226,14 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         }
     };
 
+    // Open clone to actual dialog with selected budgets
     const openCloneToActual = () => {
         const budgetsToClone = budgets.filter(b => selectedBudgetIds.has(b.id));
         setBudgetsToClone(budgetsToClone);
         setIsCloneToActualConfirmOpen(true);
     };
 
+    // Register multiple budgets as actual records (creates new actual entries for each budget)
     const handleRegisterMultipleBudgets = async (budgetsToRegister: Budget[], exDate: Date) => {
         try {
             const registerPromises = budgetsToRegister.map(async (budget) => {
@@ -192,6 +258,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         }
     };
 
+    // Clone multiple budgets to actual records (copies budget data to new actual entries)
     const handleCloneToActual = async (budgetsToClone: Budget[], exDate: Date) => {
         try {
             const clonePromises = budgetsToClone.map(async (budget) => {
@@ -221,9 +288,14 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         }
     };
 
+    // =============================================================================
+    // DELETE OPERATIONS
+    // =============================================================================
+
+    // Delete selected budgets (validates no actuals exist before deletion)
     const handleDeleteSelectedBudgets = async () => {
         try {
-            // Filter out budgets that have actuals
+            // Filter out budgets that have actuals - cannot delete budgets with actual records
             const budgetsWithActuals = budgetsToDelete.filter(budgetId => {
                 const budget = budgets.find(b => b.id === budgetId);
                 return budget && actuals[budgetId] && actuals[budgetId].length > 0;
@@ -255,12 +327,15 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         }
     };
 
+    // Load data when projectId changes (effect hook)
     useEffect(() => {
         loadData();
     }, [projectId]);
 
+    // Helper to show native browser confirm dialog
     const showConfirm = (message: string) => window.confirm(message);
 
+    // Generic delete operation wrapper with confirmation, error handling, and auto-reload
     const handleDeleteOperation = async (
         deleteFn: () => Promise<any>,
         successMessage: string,
@@ -278,6 +353,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         }
     };
 
+    // Generic save operation wrapper with confirmation, error handling, and auto-reload
     const handleSaveOperation = async (
         saveFn: () => Promise<any>,
         confirmMessage: string,
@@ -296,6 +372,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         }
     };
 
+    // Generic create operation wrapper with error handling and auto-reload
     const handleCreateOperation = async (
         createFn: (data: any) => Promise<any>,
         data: any,
@@ -312,22 +389,42 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         }
     };
 
+    // =============================================================================
+    // FORM RESET HELPERS
+    // =============================================================================
+
+    // Reset edit header form to default empty state
     const resetHeaderForm = () => setEditHeaderForm({ id: '', name: '', type: 'expense', tags: '' });
+
+    // Reset edit budget form to default empty state
     const resetBudgetForm = () => setEditBudgetForm({ id: '', name: '', note: '', type: 'expense', amount: 0, tags: '', done: false, updatedAt: new Date(), updatedBy: '' });
+
+    // Reset edit actual form to default empty state
     const resetActualForm = () => setEditActualForm({ id: '', name: '', amount: 0, exDate: new Date(), tags: [], assignedTo: '', updatedAt: new Date(), updatedBy: '' });
 
+    // =============================================================================
+    // SINGLE BUDGET OPERATIONS
+    // =============================================================================
+
+    // Register a single budget as an actual record
     const handleRegisterActual = async (data: {
         budgetId: string;
         actualName: string;
         exDate: Date;
         updatedBy: string;
+        actualAmount?: number;
+        actualType?: 'income' | 'expense';
+        actualTags?: string[];
     }) => {
         try {
             await budgetApi.registerActual({
                 budgetId: data.budgetId,
                 actualName: data.actualName,
                 updatedBy: data.updatedBy,
-                exDate: data.exDate
+                exDate: data.exDate,
+                actualAmount: data.actualAmount,
+                actualType: data.actualType,
+                actualTags: data.actualTags
             });
             toast.success("Actual registered successfully");
             await loadData();
@@ -337,6 +434,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         }
     };
 
+    // Generic update operation wrapper with error handling and auto-reload
     const handleUpdateOperation = async (
         updateFn: (id: string, data: any) => Promise<any>,
         id: string,
@@ -354,12 +452,14 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         }
     };
 
+    // Auto-expand all headers when headers are first loaded
     useEffect(() => {
         if (headers.length > 0) {
             setExpandedHeaders(new Set(headers.map((h) => h.id)));
         }
     }, [headers]);
 
+    // Load all data: headers, budgets (sorted by position in header.arrBudget), and actuals (grouped by budget ID)
     const loadData = async () => {
         try {
             const [headersRes, budgetsRes, actualsRes] = await Promise.all([
@@ -367,9 +467,11 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                 budgetApi.getAllByProject(projectId),
                 actualApi.getAllByProject(projectId)
             ]);
+            // Parse and set headers
             const headers = Array.isArray(headersRes.data) ? headersRes.data : [];
             setHeaders(headers);
             
+            // Parse budgets and sort by the position defined in header.arrBudget array
             const budgetsData = Array.isArray(budgetsRes.data) ? budgetsRes.data : [];
             const sortedBudgets = budgetsData.sort((a, b) => {
                 const headerA = headers.find(h => h.id === a.header);
@@ -383,6 +485,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             });
             setBudgets(sortedBudgets);
             
+            // Group actuals by budget ID for quick lookup in the UI
             const actualsData = Array.isArray(actualsRes.data) ? actualsRes.data : [];
             const actualsMap: {[budgetId: string]: {id: string, name: string, amount: number, exDate: Date}[]} = {};
             actualsData.forEach((actual: any) => {
@@ -429,7 +532,13 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         setHeaderForm({ name: '', type: 'expense', tags: '' });
     };
 
+    // =============================================================================
+    // BUDGET OPERATIONS
+    // =============================================================================
+
+    // Add a new budget to the selected header
     const handleAddBudget = async () => {
+        // Validate required fields
         if (!budgetForm.name.trim()) {
             toast.error("Budget name is required");
             return;
@@ -459,6 +568,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         setBudgetForm({ name: '', note: '', type: 'expense', amount: 0, tags: '' });
     };
 
+    // Delete a header (validates no budgets are associated first)
     const handleDeleteHeader = async (id: string) => {
         const header = headers.find(h => h.id === id);
         if (!header) {
@@ -466,6 +576,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             return;
         }
 
+        // Check if any budgets reference this header
         const budgetsUnderHeader = budgets.filter(b => b.header === id);
         
         if (budgetsUnderHeader.length > 0) {
@@ -480,6 +591,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         );
     };
 
+    // Open edit header dialog and populate form with selected header data
     const openEditHeader = (header: Header) => {
         setEditHeaderForm({
             id: header.id,
@@ -507,6 +619,11 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         resetHeaderForm();
     };
 
+    // =============================================================================
+    // BUDGET EDIT OPERATIONS
+    // =============================================================================
+
+    // Open edit budget dialog and populate form with selected budget data
     const openEditBudget = (budget: Budget) => {
         setEditBudgetForm({
             id: budget.id,
@@ -556,11 +673,17 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         resetBudgetForm();
     };
 
+    // =============================================================================
+    // ACTUAL EDIT OPERATIONS
+    // =============================================================================
+
+    // Open edit actual dialog - navigates to actual detail page
     const openEditActual = (actual: {id: string, name: string, amount: number}) => {
         // Navigate to actual detail page
         navigate(`/actuals/${actual.id}`);
     };
 
+    // Delete a single actual record
     const handleDeleteActual = async (actualId: string) => {
         if (!showConfirm("Are you sure you want to delete this actual?")) return;
         await handleDeleteOperation(
@@ -573,6 +696,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         );
     };
 
+    // Handle edit actual - either registers new actual from budget or updates existing actual
     const handleEditActual = async () => {
         if (!editActualForm.id) {
             // Register new actual from budget
@@ -607,6 +731,11 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         resetActualForm();
     };
 
+    // =============================================================================
+    // DRAG AND DROP HANDLERS
+    // =============================================================================
+
+    // Handle drag end for header reordering
     const handleHeaderDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
 
@@ -627,6 +756,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         });
     };
 
+    // Handle drag end for budget row reordering within a header
     const handleBudgetDragEnd = (event: DragEndEvent, headerId: string) => {
         const { active, over } = event;
 
@@ -652,6 +782,11 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         });
     };
 
+    // =============================================================================
+    // SAVE POSITION OPERATIONS
+    // =============================================================================
+
+    // Save the current order of headers to the project
     const handleSaveHeaderPositions = async () => {
         const projectHeaderOrder = headers.map(h => h.id);
         await handleSaveOperation(
@@ -662,6 +797,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         );
     };
 
+    // Save the current order of budgets for a specific header
     const handleSaveBudgetPositions = async (headerId: string) => {
         const header = headers.find(h => h.id === headerId);
         if (!header) {
@@ -684,11 +820,11 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         );
     };
 
-    const getHeaderTotal = (header: Header) => {
-        const headerBudgets = budgets.filter(b => b.header === header.id);
-        return headerBudgets.reduce((sum, b) => sum + (b.type === 'income' ? b.amount : -b.amount), 0);
-    };
+    // =============================================================================
+    // UI RENDERERS
+    // =============================================================================
 
+    // Render the loading spinner while data is being fetched
     if (isLoading) {
         return (
             <div className="flex items-center justify-center py-12">
@@ -697,6 +833,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         );
     }
 
+    // Render the toolbar with Add Header button and Save Header Positions button
     const renderToolbar = () => (
         <div className="flex items-center justify-between">
             <div className="flex gap-2">
@@ -719,6 +856,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         </div>
     );
 
+    // Render a single header card with its budgets table
     const renderHeader = (header: Header) => {
         const associatedBudgets = budgets.filter(b => b.header === header.id);
         const headerTotal = getHeaderTotal(header);
@@ -784,15 +922,15 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                             {associatedBudgets.length > 0 && Array.from(selectedBudgetIds).some(id => associatedBudgets.some(b => b.id === id)) && (
                                 (() => {
                                     const selectedCount = Array.from(selectedBudgetIds).filter(id => associatedBudgets.some(b => b.id === id)).length;
-                                    const selectedBudgets = budgets.filter(b => selectedBudgetIds.has(b.id));
                                     return (
                                         <DropdownMenu>
-                                            <DropdownMenuTrigger>
+                                            <DropdownMenuTrigger render={
                                                 <Button size="sm" type="button" className="h-8 px-3" onClick={(e) => {
                                                     e.stopPropagation();
                                                 }}>
                                                     {selectedCount} selected
                                                 </Button>
+                                            }>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
                                                 <>
@@ -903,9 +1041,17 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         </DndContext>
     );
 
+    // =============================================================================
+    // BUDGET TABLE RENDERERS
+    // =============================================================================
+
+    // Render a single budget row - handles both budgets without actuals and budgets with multiple actuals
+    // When budget has no actuals: renders a single row with full budget info
+    // When budget has actuals: renders multiple rows with shared budget cells using rowSpan
+    // The `index` parameter tracks which actual row is being rendered (0 = first actual)
     const renderBudgetRow = (budget: Budget, actual: {id: string, name: string, amount: number} | null, index: number) => {
         const budgetActuals = actuals[budget.id] || [];
-        const isDraggable = index === 0;
+        const isDraggable = index === 0; // Only first row is draggable when actuals exist
         const rowKey = index === 0 ? budget.id : actual?.id || budget.id;
         const hasActuals = budgetActuals.length > 0;
 
@@ -977,6 +1123,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
             );
         }
 
+        // Shared cells for budget data that spans across all actual rows
         const sharedCells = (
             <>
                 <TableCell rowSpan={budgetActuals.length} className="w-10 px-2 text-left hover:bg-muted">
@@ -1039,6 +1186,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         return (
             <BudgetSortableRow key={rowKey} id={rowKey} disabled={!isDraggable}>
                 {index === 0 && sharedCells}
+                {/* Actual row cells - only rendered when actuals exist */}
                 <TableCell className={`w-[28%] text-left ${lastRowClass} border-l-2 border-border border-b border-gray-200 hover:bg-muted`}>
                     <span 
                         className="text-xs text-muted-foreground hover:underline cursor-pointer" 
@@ -1068,6 +1216,13 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         );
     };
 
+    // =============================================================================
+    // DIALOG RENDERERS
+    // =============================================================================
+
+    // Render confirmation dialog for registering multiple budgets to actual
+// Dialog shows selected budgets list and execution date picker
+// After confirmation, creates actual records for all selected budgets with the same execution date
     const renderRegisterMultipleConfirmDialog = () => (
         <Dialog open={isRegisterMultipleConfirmOpen} onOpenChange={setIsRegisterMultipleConfirmOpen}>
             <DialogContent>
@@ -1118,6 +1273,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         </Dialog>
     );
 
+    // Render confirmation dialog for cloning multiple budgets to actual
     const renderCloneToActualConfirmDialog = () => (
         <Dialog open={isCloneToActualConfirmOpen} onOpenChange={setIsCloneToActualConfirmOpen}>
             <DialogContent>
@@ -1168,6 +1324,7 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         </Dialog>
     );
 
+    // Render delete confirmation dialog with validation for budgets with actuals
     const renderDeleteConfirmDialog = () => {
         const budgetsWithActuals = budgetsToDelete.filter(budgetId => {
             const budget = budgets.find(b => b.id === budgetId);
@@ -1183,12 +1340,12 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                         <DialogDescription>
                             {budgetsWithActuals.length > 0 && (
                                 <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                                    <p className="text-sm text-yellow-800 font-medium">
+                                    <div className="text-sm text-yellow-800 font-medium">
                                         Cannot delete {budgetsWithActuals.length} budget(s) with actuals
-                                    </p>
-                                    <p className="text-xs text-yellow-700 mt-1">
+                                    </div>
+                                    <div className="text-xs text-yellow-700 mt-1">
                                         Only {deletableCount} budget(s) without actuals will be deleted
-                                    </p>
+                                    </div>
                                 </div>
                             )}
                             {deletableCount > 0 ? (
@@ -1214,6 +1371,11 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
         );
     };
 
+    // =============================================================================
+    // MAIN RENDER
+    // =============================================================================
+
+    // Render the main tab content with headers, dialogs, and components
     return (
         <div className="space-y-8">
             {renderToolbar()}
@@ -1273,24 +1435,29 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
                 isNew={!editActualForm.id}
             />
 
+            {/* Render dialog for registering a single budget to actual */}
             <ActualRegisterDialog
                 isOpen={isRegisterActualDialogOpen}
                 onOpenChange={setIsRegisterActualDialogOpen}
-                budget={budgetToRegister || {
+                budget={budgetToRegister || ({
                     id: '',
                     name: '',
                     note: '',
+                    tags: [] as string[],
+                    active: true,
                     type: 'expense' as 'income' | 'expense',
+                    done: false,
                     amount: 0,
-                    tags: [],
                     project: '',
                     header: '',
-                    arrActual: [],
-                    done: false
-                }}
+                    updatedBy: '',
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                } as any)}
                 onRegisterActual={handleRegisterActual}
             />
 
+            {/* Render confirmation dialogs for bulk operations (register multiple, clone to actual, delete) */}
             {renderRegisterMultipleConfirmDialog()}
             {renderCloneToActualConfirmDialog()}
             {renderDeleteConfirmDialog()}
@@ -1298,4 +1465,5 @@ export function ProjectBudgets({ projectId }: ProjectBudgetsProps) {
     );
 }
 
-export default ProjectBudgets;
+// Export TabBudgets component as default for use in routing
+export default TabBudgets;

@@ -4,7 +4,7 @@ interface TypeBadgeProps {
     size?: 'sm' | 'md';
 }
 
-export function TypeBadge({ type, variant = 'pill', size = 'md' }: TypeBadgeProps) {
+export function TypeBadge({ type, variant = 'circle', size = 'md' }: TypeBadgeProps) {
     const sizeClasses = {
         sm: 'text-[10px] px-1.5 py-0.5',
         md: 'text-xs px-2 py-0.5',

@@ -89,6 +89,7 @@ export const actualApi = {
     create: (data: any) => api.post(`/actual`, data),
     update: (id: string, data: any) => api.put(`/actual/${id}`, data),
     delete: (id: string) => api.delete(`/actual/${id}`),
+    cloneToTransaction: (data: any) => api.post(`/actual/clonetotransaction`, data),
 };
 
 export const transactionApi = {
@@ -100,6 +101,7 @@ export const transactionApi = {
         if (offset !== undefined) params.append('offset', String(offset));
         return api.get(`/transaction?${params.toString()}`);
     },
+    getAllByProject: (projectId: string) => api.get(`/transaction?filter=${JSON.stringify({ project: projectId })}`),
     getById: (id: string) => api.get(`/transaction/${id}`),
     create: (data: any) => api.post(`/transaction`, data),
     update: (id: string, data: any) => api.put(`/transaction/${id}`, data),

@@ -10,9 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { formatNumber } from "@/utils/formatters";
-import { formatDate } from "@/utils/dateFormatters";
 import { useState, useEffect } from "react";
-import { userApi, actualApi } from "@/services/api";
+import { Budget } from "./types";
 
 interface ActualRegisterDialogProps {
     isOpen: boolean;
@@ -23,6 +22,9 @@ interface ActualRegisterDialogProps {
         actualName: string;
         exDate: Date;
         updatedBy: string;
+        actualAmount?: number;
+        actualType?: 'income' | 'expense';
+        actualTags?: string[];
     }) => Promise<void>;
 }
 
@@ -48,43 +50,16 @@ export function ActualRegisterDialog({
         }
     }, [isOpen, budget]);
 
-    const loadUsers = async () => {
-        try {
-            const res = await userApi.getAll();
-            if (Array.isArray(res.data)) {
-                setUsers(res.data);
-            }
-        } catch (error: any) {
-            console.debug("Failed to load users:", error);
-        }
-    };
-
     const handleRegister = async () => {
         await onRegisterActual({
             budgetId: budget.id,
             actualName: actualName.trim() || budget.name,
             exDate: exDate,
             updatedBy: 'user123',
+            actualAmount: actualAmount,
+            actualType: actualType,
+            actualTags: actualTags.split(',').map((t: string) => t.trim()).filter((t: string) => t.length > 0)
         });
-        
-        // Also update the actual with amount, type, and tags
-        try {
-            const allActualsRes = await actualApi.getAllByProject(budget.project);
-            const newActuals = allActualsRes.data.filter(
-                (a: any) => a.budget === budget.id
-            );
-            if (newActuals.length > 0) {
-                const latestActual = newActuals[newActuals.length - 1];
-                await actualApi.update(latestActual.id, {
-                    name: actualName.trim() || budget.name,
-                    amount: actualAmount,
-                    type: actualType,
-                    tags: actualTags.split(',').map((t: string) => t.trim()).filter((t: string) => t.length > 0)
-                });
-            }
-        } catch (error: any) {
-            console.debug("Failed to update actual:", error);
-        }
         
         onOpenChange(false);
     };

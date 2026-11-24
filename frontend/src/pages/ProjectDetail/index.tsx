@@ -1,12 +1,14 @@
+// 
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { projectApi } from "@/services/api";
 import { ProjectDetailInfo } from "./ProjectDetailInfo";
-import { ProjectBudgets } from "./ProjectBudgets";
-import { ProjectActuals } from "./ProjectActuals";
-import { ProjectTransactions } from "./ProjectTransactions";
+import { TabBudgets } from "./TabBudgets";
+import { TabActuals } from "./TabActuals";
+import { TabTransactions } from "./TabTransactions";
+
 
 export function ProjectDetail() {
     const { id } = useParams();
@@ -87,15 +89,15 @@ export function ProjectDetail() {
                     </TabsContent>
 
                     <TabsContent value="budgets" className="mt-6">
-                        <ProjectBudgets projectId={id!} />
+                        <TabBudgets projectId={id!} />
                     </TabsContent>
 
                     <TabsContent value="actuals" className="mt-6">
-                        <ProjectActuals active={activeTabParam === "actuals"} key={activeTabParam} projectId={id!} projectName={project.name} />
+                        <TabActuals active={activeTabParam === "actuals"} key={activeTabParam} projectId={id!} projectName={project.name} />
                     </TabsContent>
 
                     <TabsContent value="transactions" className="mt-6">
-                        <ProjectTransactions projectId={id!} projectName={project.name} />
+                        <TabTransactions projectId={id!} />
                     </TabsContent>
                 </Tabs>
             </div>

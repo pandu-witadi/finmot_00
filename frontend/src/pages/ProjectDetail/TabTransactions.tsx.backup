@@ -31,7 +31,7 @@ interface TransactionForm {
     exDate: Date;
 }
 
-interface ProjectTransactionsProps {
+interface TabTransactionsProps {
     projectId: string;
     projectName: string;
 }
@@ -52,7 +52,7 @@ function TransactionSortableRow({ id, children, disabled }: { id: string; childr
     );
 }
 
-export function ProjectTransactions({ projectId }: ProjectTransactionsProps) {
+export function TabTransactions({ projectId }: TabTransactionsProps) {
     const navigate = useNavigate();
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [form, setForm] = useState<TransactionForm>({

@@ -46,6 +46,11 @@ const transactionSchema = new Schema<TransactionDoc>({
         required: true,
         default: 0
     },
+    amountPaid: {
+        type: Number,
+        required: true,
+        default: 0
+    },
     project: {
         type: Schema.Types.ObjectId,
         ref: 'Project',

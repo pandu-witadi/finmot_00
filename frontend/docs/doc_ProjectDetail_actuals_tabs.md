@@ -134,7 +134,7 @@ ProjectDetail/Actuals
 - **Multiple Actuals**: Batch registration to same transaction
 - **Confirmation**: Shown when registering >1 actual
 - **Action**: Calls `budgetApi.registerToTransaction()` per actual
-- **Result**: Links `actual.trx` to `transaction.id`
+- **Result**: Links `actual.transaction` to `transaction.id`
 
 #### Delete
 - **Trigger**: Select 1+ actuals, click "Delete"
@@ -318,7 +318,7 @@ budgetApi.registerToTransaction({
 **Backend Action**:
 1. Find actual by ID
 2. Find transaction by ID
-3. Set `actual.trx = transactionId`
+3. Set `actual.transaction = transactionId`
 4. Add actual to `transaction.arrActual` (if not present)
 5. Add transaction to `project.arrTransaction` (if not present)
 6. Return both updated entities

@@ -200,7 +200,7 @@ ProjectDetail/Budgets
 - **Single Actual**: Direct registration
 - **Multiple Actuals**: Batch registration (same transaction)
 - **Confirmation**: Shown for multiple actuals
-- **Result**: Links actual.trx to transaction.id
+- **Result**: Links actual.transaction to transaction.id
 
 ### Drag and Drop
 

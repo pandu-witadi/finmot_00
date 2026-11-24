@@ -9,9 +9,11 @@ import {
     createActual,
     updateActual,
     deleteActual,
+    cloneToTransaction,
     CreateActualRequest,
     UpdateActualRequest,
-    GetActualsQuery
+    GetActualsQuery,
+    CloneToTransactionRequest
 } from '../controller/actual.js';
 import { verifyToken } from '../utils/jwt.js';
 
@@ -114,6 +116,22 @@ const actualRoute = async (app: FastifyInstance): Promise<void> => {
                 reply.code(204).send();
             } catch (error) {
                 reply.code(500).send({ error: 'Failed to delete actual' });
+            }
+        }
+    );
+
+    app.post(
+        '/actual/clonetotransaction',
+        async (request: FastifyRequest<{ Body: CloneToTransactionRequest }>, reply: FastifyReply): Promise<void> => {
+            try {
+                await verifyAuth(request, reply);
+                const user = (request as any).user;
+                const body = { ...request.body, updatedBy: user.id };
+                const result = await cloneToTransaction(body);
+                reply.code(201).send(result);
+            } catch (error: any) {
+                console.error("Failed to clone actual to transaction:", error);
+                reply.code(500).send({ error: error.message || 'Failed to clone actual to transaction' });
             }
         }
     );

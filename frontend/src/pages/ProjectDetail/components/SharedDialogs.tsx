@@ -189,11 +189,10 @@ interface BudgetAddDialogProps {
     selectedHeaderId: string | null;
     budgetForm: { name: string; note?: string; type: 'income' | 'expense'; amount: number; tags: string };
     setBudgetForm: React.Dispatch<React.SetStateAction<{ name: string; note?: string; type: 'income' | 'expense'; amount: number; tags: string }>>;
-    onSelectHeader: (headerId: string | null) => void;
     onAddBudget: () => void;
 }
 
-export function BudgetAddDialog({ isOpen, onOpenChange, headers, selectedHeaderId, budgetForm, setBudgetForm, onSelectHeader, onAddBudget }: BudgetAddDialogProps) {
+export function BudgetAddDialog({ isOpen, onOpenChange, headers, selectedHeaderId, budgetForm, setBudgetForm, onAddBudget }: BudgetAddDialogProps) {
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent>
@@ -213,19 +212,19 @@ export function BudgetAddDialog({ isOpen, onOpenChange, headers, selectedHeaderI
                         />
                     </FormRow>
                     <FormRow label="Type" htmlFor="budgetType">
-                            <TypeSelect
-                                id="budgetType"
-                                value={budgetForm.type}
-                                onChange={(v) => setBudgetForm(prev => ({ ...prev, type: v as 'income' | 'expense' }))}
-                            />
-                        </FormRow>
-                            <AmountInput
-                                id="budgetAmount"
-                                value={budgetForm.amount}
-                                onChange={(v) => setBudgetForm(prev => ({ ...prev, amount: parseFloat(v) || 0 }))}
-                            />
-                        </FormRow>
-                    </div>
+                        <TypeSelect
+                            id="budgetType"
+                            value={budgetForm.type}
+                            onChange={(v) => setBudgetForm(prev => ({ ...prev, type: v as 'income' | 'expense' }))}
+                        />
+                    </FormRow>
+                    <FormRow label="Amount" htmlFor="budgetAmount">
+                        <AmountInput
+                            id="budgetAmount"
+                            value={budgetForm.amount}
+                            onChange={(v) => setBudgetForm(prev => ({ ...prev, amount: parseFloat(v) || 0 }))}
+                        />
+                    </FormRow>
                     <FormRow label="Tags (comma-separated)" htmlFor="budgetTags">
                         <Input
                             id="budgetTags"
@@ -277,19 +276,19 @@ export function BudgetEditDialog({ isOpen, onOpenChange, editBudgetForm, setEdit
                         />
                     </FormRow>
                     <FormRow label="Type" htmlFor="editBudgetType">
-                            <TypeSelect
-                                id="editBudgetType"
-                                value={editBudgetForm.type}
-                                onChange={(v) => setEditBudgetForm(prev => ({ ...prev, type: v as 'income' | 'expense' }))}
-                            />
-                        </FormRow>
-                            <AmountInput
-                                id="editBudgetAmount"
-                                value={editBudgetForm.amount}
-                                onChange={(v) => setEditBudgetForm(prev => ({ ...prev, amount: parseFloat(v) || 0 }))}
-                            />
-                        </FormRow>
-                    </div>
+                        <TypeSelect
+                            id="editBudgetType"
+                            value={editBudgetForm.type}
+                            onChange={(v) => setEditBudgetForm(prev => ({ ...prev, type: v as 'income' | 'expense' }))}
+                        />
+                    </FormRow>
+                    <FormRow label="Amount" htmlFor="editBudgetAmount">
+                        <AmountInput
+                            id="editBudgetAmount"
+                            value={editBudgetForm.amount}
+                            onChange={(v) => setEditBudgetForm(prev => ({ ...prev, amount: parseFloat(v) || 0 }))}
+                        />
+                    </FormRow>
                     <FormRow label="Tags (comma-separated)" htmlFor="editBudgetTags">
                         <Input
                             id="editBudgetTags"

@@ -51,15 +51,15 @@
 ## Transactions (Linked to Actuals)
 
 ### Register Actual to Transaction
-- Actualtrx field is set to transaction ID
-- Actual ID is pushed totransaction.arrActual
-- Actual ID is pushed toproject.arrTransaction
+- Actual trx field is set to transaction ID
+- Actual ID is pushed to transaction.arrActual
+- Actual ID is pushed to project.arrTransaction
 
 ### Clone Actual to Transaction
-- New transaction is created withproject reference
-- New transaction ID is pushed toproject.arrTransaction
-- Actualtrx field is set to new transaction ID
-- Actual ID is pushed totransaction.arrActual
+- New transaction is created with project reference
+- New transaction ID is pushed to project.arrTransaction
+- Actual trx field is set to new transaction ID
+- Actual ID is pushed to transaction.arrActual
 
 
 
@@ -70,7 +70,7 @@
 |---------------|--------------------------------------|----------------------------------------------------------------------------------------------------|
 | Delete Header |arrBudget.length === 0             | "Cannot delete header. X budget(s) still reference this header. Please remove them first."         |
 | Delete Budget |arrActual.length === 0             | "Cannot delete budget. X actual(s) are registered. Please delete or unassign them first."          |
-| Delete Actual |trx === "000000000000000000000000" | "Cannot delete actual: a transaction is connected to it. Remove the transaction connection first." |
+| Delete Actual |transaction === null | "Cannot delete actual: a transaction is connected to it. Remove the transaction connection first." |
 
 ## Project Array References
 

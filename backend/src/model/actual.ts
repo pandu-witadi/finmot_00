@@ -9,7 +9,7 @@ export interface ActualDoc extends Document {
     amount: number;
     project: Schema.Types.ObjectId;
     budget: Schema.Types.ObjectId;
-    trx: Schema.Types.ObjectId;
+    transaction: Schema.Types.ObjectId | null;
     exDate: Date;
     assignedTo: Schema.Types.ObjectId;
     updatedAt: Date;
@@ -59,10 +59,12 @@ const actualSchema = new Schema<ActualDoc>({
     transaction: {
         type: Schema.Types.ObjectId,
         ref: 'Transaction',
+        default: null
     },
     assignedTo: {
         type: Schema.Types.ObjectId,
         ref: 'User',
+        default: null,
         required: false
     },
     exDate: {
@@ -76,7 +78,7 @@ const actualSchema = new Schema<ActualDoc>({
     updatedBy: {
         type: Schema.Types.ObjectId,
         ref: 'User',
-        required: true
+        default: null,
     },
     createdAt: {
         type: Date,

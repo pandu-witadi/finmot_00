@@ -84,3 +84,43 @@ export interface BudgetWithName {
     budget: Budget;
     name: string;
 }
+
+// Domain types for Project Transactions
+export interface Transaction {
+    id: string;
+    name: string;
+    type: 'income' | 'expense';
+    amount: number;
+    tags: string[];
+    project: string;
+    active: boolean;
+    exDate: Date;
+    assignedTo: string | null;
+    arrActual: string[];
+    position: number;
+    updatedBy: string;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+// Form state types for Transactions
+export interface TransactionForm {
+    name: string;
+    type: 'income' | 'expense';
+    amount: number;
+    tags: string;
+    active: boolean;
+}
+
+export interface EditTransactionForm {
+    id: string;
+    name: string;
+    type: 'income' | 'expense';
+    amount: number;
+    tags: string;
+    active: boolean;
+    exDate: Date;
+    assignedTo: string;
+    updatedAt: Date;
+    updatedBy: string;
+}

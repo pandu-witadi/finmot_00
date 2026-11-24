@@ -1,8 +1,18 @@
+// Core dependencies:
+// - React hooks for state management
+// - router navigation for routing
+// - API services for data fetching
+// - UI components for layout
+// - drag-and-drop utilities for reordering
+
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { headerApi, budgetApi, actualApi, userApi, api, transactionApi } from "@/services/api";
 import { toast } from "react-hot-toast";
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { DndContext, DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -12,10 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableRow, TableHead, TableHeader } from "@/components/ui/table";
-import { DndContext, DragEndEvent } from "@dnd-kit/core";
-import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+
 import { Actual } from "./useActuals";
 import { ActualEditDialog } from "./ActualEditDialog";
 import { EditActualForm } from "./types";
@@ -27,13 +34,18 @@ import { filterUsers } from "./actuals-users";
 import { TypeBadge } from "./components/TypeBadge";
 import { DoneBadge } from "./components/DoneBadge";
 
-interface ProjectActualsProps {
+// Props interface for TabActuals component
+// projectId: The ID of the project whose actuals are being managed
+// active: Whether the tab is currently active
+// projectName: The name of the project
+interface TabActualsProps {
     projectId: string;
     active: boolean;
     projectName: string;
 }
 
-export interface TransactionInfo {
+// TransactionInfo interface for storing transaction details in actuals
+interface TransactionInfo {
     id: string;
     name: string;
     amount: number;
@@ -41,6 +53,16 @@ export interface TransactionInfo {
     project: string;
 }
 
+// ActualWithBudgetInfo interface extends Actual with budget and header information
+// headerName: Name of the header associated with this actual's budget
+// headerId: ID of the header associated with this actual's budget
+// headerOrder: Position of the header in the project's header list
+// budgetType: Type of budget ('income' or 'expense')
+// transaction: Optional transaction information if this actual is linked to a transaction
+// assignedTo: User ID assigned to this actual
+// assignedToName: Display name of the assigned user
+// exDate: Execution date of the actual
+// tags: Array of tags for this actual
 export interface ActualWithBudgetInfo extends Actual {
     headerName: string;
     headerId: string;
@@ -53,12 +75,15 @@ export interface ActualWithBudgetInfo extends Actual {
     tags: string[];
 }
 
-export interface User {
+// User interface for storing user information
+interface User {
     id: string;
     name: string;
     email: string;
 }
 
+// ActualSortableRow component - Enables drag-and-drop reordering of actual rows
+// Uses DnD Kit's useSortable hook
 function ActualSortableRow({ id, children, disabled }: { id: string; children: React.ReactNode; disabled?: boolean }) {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id, disabled });
 
@@ -74,10 +99,16 @@ function ActualSortableRow({ id, children, disabled }: { id: string; children: R
     );
 }
 
-export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
+// =============================================================================\
+// MAIN COMPONENT: TabActuals
+export function TabActuals({ projectId, active }: TabActualsProps) {
     const navigate = useNavigate();
+
+    // Core data state: actuals with budget information, loading state
     const [actuals, setActuals] = useState<ActualWithBudgetInfo[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+
+    // Edit actual dialog state
     const [isEditActualDialogOpen, setIsEditActualDialogOpen] = useState(false);
     const [editActualForm, setEditActualForm] = useState<EditActualForm>({
         id: '',
@@ -90,6 +121,8 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
         updatedAt: new Date(),
         updatedBy: ''
     });
+
+    // UI state for bulk selection and operations
     const [selectedActualIds, setSelectedActualIds] = useState<Set<string>>(new Set<string>());
     const [isAssignToMenuOpen, setIsAssignToMenuOpen] = useState(false);
     const [assignToSearchTerm, setAssignToSearchTerm] = useState("");
@@ -99,18 +132,31 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
     const [searchNameTerm, setSearchNameTerm] = useState("");
     const [searchTagTerm, setSearchTagTerm] = useState("");
     const [searchHeaderTerm, setSearchHeaderTerm] = useState("");
+
+    // Register to Transaction modal state
     const [isRegisterToTransactionModalOpen, setIsRegisterToTransactionModalOpen] = useState(false);
+    const [isCloneToTransactionModalOpen, setIsCloneToTransactionModalOpen] = useState(false);
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const [allProjects, setAllProjects] = useState<{ id: string; name: string }[]>([]);
     const [transactionsForSelectedProject, setTransactionsForSelectedProject] = useState<{ id: string; name: string }[]>([]);
     const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
     const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
+    const [cloneTransactionName, setCloneTransactionName] = useState("");
+
+    // Filter and sort state
     const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
     const [sortByDate, setSortByDate] = useState<'none' | 'asc' | 'desc'>('none');
     const [isOrderDirty, setIsOrderDirty] = useState(false);
 
+    // =============================================================================
+    // DATA LOADING
+    // =============================================================================
+
+    // Load all data: headers, budgets, actuals, transactions, and projects
+    // Also loads project's arrActual order for sorting actuals by user-defined order
     const loadData = async () => {
         try {
+            // Fetch all data in parallel for better performance
             const [headersRes, budgetsRes, actualsRes, transactionsRes, projectsRes] = await Promise.all([
                 headerApi.getAllByProject(projectId),
                 budgetApi.getAllByProject(projectId),
@@ -139,8 +185,8 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
             const budgetsData = Array.isArray(budgetsRes.data) ? budgetsRes.data : [];
             const actualsData = Array.isArray(actualsRes.data) ? actualsRes.data : [];
             const transactionsData = Array.isArray(transactionsRes.data) ? transactionsRes.data : [];
-            
-            // Load users separately - don't fail if this fails
+
+            // Load users separately - don't fail if this fails (optional data)
             const allUsers: User[] = [];
             try {
                 const usersRes = await userApi.getAll();
@@ -152,16 +198,19 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                 console.debug("Failed to load users:", userError);
             }
 
+            // Create projects map for quick lookup
             const projectsMap = new Map(projectsList.map((p: any) => [String(p.id), p.name]));
-            
+
+            // Map actuals with their associated budget, header, and transaction info
             const actualsWithInfo: ActualWithBudgetInfo[] = actualsData.map((actual: any) => {
                 const budget = budgetsData.find(b => b.id === actual.budget);
                 const header = headersData.find(h => h.id === budget?.header);
-                
-                const transaction = actual.trx && actual.trx !== "000000000000000000000000" 
-                    ? transactionsData.find(t => t.id === actual.trx)
+
+                // Find associated transaction if exists
+                const transaction = actual.transaction !== null && actual.transaction !== undefined && actual.transaction !== "000000000000000000000000"
+                    ? transactionsData.find(t => t.id === actual.transaction)
                     : undefined;
-                
+
                 const transactionInfo = transaction ? {
                     id: transaction.id,
                     name: transaction.name,
@@ -169,7 +218,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                     projectName: projectsMap.get(String(transaction.project)) || '',
                     project: String(transaction.project)
                 } : undefined;
-                
+
                 return {
                     ...actual,
                     headerName: header?.name || '',
@@ -182,6 +231,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                 };
             });
 
+            // Sort actuals: first by headerOrder, then by budget order, then by createdAt
             const sortedActuals = actualsWithInfo.sort((a, b) => {
                 if (a.headerOrder !== b.headerOrder) {
                     return a.headerOrder - b.headerOrder;
@@ -196,7 +246,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                 return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
             });
 
-            // Use project's arrActual order if available
+            // Use project's arrActual order if available (user-defined custom order)
             if (projectDataRes?.arrActual && projectDataRes.arrActual.length > 0) {
                 const actualsWithIndex = sortedActuals.map(a => ({
                     actual: a,
@@ -220,6 +270,12 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
         }
     };
 
+    // =============================================================================
+    // FILTERING AND SORTING
+    // =============================================================================
+
+    // Apply filters: search, type, and date sorting
+    // Filters are applied after data is loaded for real-time filtering
     const filteredActuals = sortActualsByDate(
         filterActualsByType(
             filterActualsBySearch(actuals, searchNameTerm, searchTagTerm, searchHeaderTerm, assignToSearchTerm),
@@ -228,14 +284,21 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
         sortByDate
     );
 
+    // Calculate total amount of selected actuals
     const selectedTotalAmount = calculateTotalAmount(actuals, selectedActualIds);
 
+    // =============================================================================
+    // BULK SELECTION HELPERS
+    // =============================================================================
+
+    // Toggle single actual selection
     const toggleSelectActual = (actualId: string) => {
         const newSet = new Set(selectedActualIds);
         newSet.has(actualId) ? newSet.delete(actualId) : newSet.add(actualId);
         setSelectedActualIds(newSet);
     };
 
+    // Toggle select all filtered actuals
     const toggleSelectAll = () => {
         if (selectedActualIds.size === filteredActuals.length) {
             setSelectedActualIds(new Set<string>());
@@ -244,12 +307,18 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
         }
     };
 
+    // Load data when tab becomes active or projectId changes
     useEffect(() => {
         if (active) {
             loadData();
         }
     }, [projectId, active]);
 
+    // =============================================================================
+    // USER MANAGEMENT
+    // =============================================================================
+
+    // Load users (lazy load - only when needed)
     const loadUsers = async () => {
         if (allUsers.length > 0) return;
         setIsLoadingUsers(true);
@@ -264,6 +333,11 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
         }
     };
 
+    // =============================================================================
+    // SINGLE ACTUAL OPERATIONS
+    // =============================================================================
+
+    // Delete a single actual (validates no transaction is connected)
     const handleDeleteActual = async (actualId: string) => {
         const actual = actuals.find(a => a.id === actualId);
         if (actual && actual.transaction !== undefined) {
@@ -285,11 +359,17 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
         }
     };
 
+    // Navigate to actual detail page
     const handleNameClick = (actual: any) => {
         // Navigate to actual detail page
         navigate(`/actuals/${actual.id}`);
     };
 
+    // =============================================================================
+    // BULK ACTUAL OPERATIONS
+    // =============================================================================
+
+    // Delete selected actuals (validates no transactions are connected)
     const handleDeleteSelected = async () => {
         if (selectedActualIds.size === 0) {
             toast.error("No actuals selected");
@@ -297,14 +377,14 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
         }
 
         // Check if any selected actuals have transactions connected
-        const actualsToDelete = Array.from(selectedActualIds).map(id => 
+        const actualsToDelete = Array.from(selectedActualIds).map(id =>
             actuals.find(a => a.id === id)
         ).filter(Boolean) as ActualWithBudgetInfo[];
-        
-        const actualsWithTransaction = actualsToDelete.filter(a => 
+
+        const actualsWithTransaction = actualsToDelete.filter(a =>
             a.transaction !== undefined
         );
-        
+
         if (actualsWithTransaction.length > 0) {
             toast.error(`Cannot delete ${actualsWithTransaction.length} actual(s) because they have transactions connected. Remove the transaction connection first.`);
             return;
@@ -325,15 +405,20 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
         }
     };
 
+    // =============================================================================
+    // TRANSACTION REGISTRATION
+    // =============================================================================
+
+    // Load transactions for a specific project
     const loadTransactionsForProject = async (projectId: string) => {
         setIsLoadingTransactions(true);
         try {
             // Get all transactions for the project
             const transactionsRes = await transactionApi.getAll({ project: projectId });
             const allTransactions = Array.isArray(transactionsRes.data) ? transactionsRes.data : [];
-            
+
             const transactionsList = allTransactions.map((t: any) => ({ id: t._id || t.id, name: t.name }));
-            
+
             setTransactionsForSelectedProject(transactionsList);
         } catch (error: any) {
             toast.error("Failed to load transactions");
@@ -342,6 +427,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
         }
     };
 
+    // Handle project selection in register modal
     const handleProjectSelect = (projectId: string) => {
         setSelectedProjectId(projectId);
         setTransactionsForSelectedProject([]);
@@ -349,6 +435,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
         loadTransactionsForProject(projectId);
     };
 
+    // Register a single actual to a transaction
     const handleRegisterToTransaction = async (actualId: string) => {
         if (!selectedTransactionId) {
             toast.error("Please select a transaction");
@@ -373,6 +460,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
         }
     };
 
+    // Register multiple selected actuals to the same transaction
     const handleRegisterSelectedToTransaction = async () => {
         if (selectedActualIds.size === 0) {
             toast.error("No actuals selected");
@@ -389,7 +477,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
         }
 
         try {
-            await Promise.all(Array.from(selectedActualIds).map(actualId => 
+            await Promise.all(Array.from(selectedActualIds).map(actualId =>
                 budgetApi.registerToTransaction({
                     actualId: actualId,
                     transactionId: selectedTransactionId,
@@ -408,6 +496,72 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
         }
     };
 
+    // =============================================================================
+    // TRANSACTION CLONING
+    // =============================================================================
+
+    // Clone a single actual to a new transaction
+    const handleCloneToTransaction = async (actualId: string) => {
+        if (!cloneTransactionName.trim()) {
+            toast.error("Transaction name is required");
+            return;
+        }
+
+        try {
+            await actualApi.cloneToTransaction({
+                actualId: actualId,
+                transactionName: cloneTransactionName,
+            });
+
+            toast.success("Actual cloned to transaction successfully");
+            setIsCloneToTransactionModalOpen(false);
+            setCloneTransactionName("");
+            await loadData();
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.error || "Failed to clone actual to transaction";
+            toast.error(errorMessage);
+        }
+    };
+
+    // Clone multiple selected actuals to new transactions (one per actual)
+    const handleCloneSelectedToTransaction = async () => {
+        if (selectedActualIds.size === 0) {
+            toast.error("No actuals selected");
+            return;
+        }
+
+        if (!cloneTransactionName.trim()) {
+            toast.error("Transaction name is required");
+            return;
+        }
+
+        if (selectedActualIds.size > 1 && !window.confirm(`Clone ${selectedActualIds.size} selected actual(s) to new transaction(s)?`)) {
+            return;
+        }
+
+        try {
+            await Promise.all(Array.from(selectedActualIds).map(actualId =>
+                actualApi.cloneToTransaction({
+                    actualId: actualId,
+                    transactionName: cloneTransactionName,
+                })
+            ));
+            toast.success(`${selectedActualIds.size} actual(s) cloned to transaction(s) successfully`);
+            setSelectedActualIds(new Set<string>());
+            setIsCloneToTransactionModalOpen(false);
+            setCloneTransactionName("");
+            await loadData();
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.error || "Failed to clone actuals to transaction";
+            toast.error(errorMessage);
+        }
+    };
+
+    // =============================================================================
+    // ACTUAL UPDATE OPERATIONS
+    // =============================================================================
+
+    // Assign selected actuals to a user
     const handleAssignTo = async () => {
         if (selectedActualIds.size === 0) return;
 
@@ -422,7 +576,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
         }
 
         try {
-            await Promise.all(Array.from(selectedActualIds).map(actualId => 
+            await Promise.all(Array.from(selectedActualIds).map(actualId =>
                 actualApi.update(actualId, { assignedTo: Array.from(selectedUsers)[0] })
             ));
             toast.success(`${selectedActualIds.size} actual(s) assigned successfully`);
@@ -436,6 +590,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
         }
     };
 
+    // Update a single actual record
     const handleEditActual = async () => {
         try {
             const tagArray = parseTags(editActualForm.tags);
@@ -457,6 +612,10 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
         }
     };
 
+    // =============================================================================
+    // DRAG AND DROP
+    // =============================================================================
+
     // Only update displayOrder when user clicks save, not on drag
     const handleActualDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
@@ -477,6 +636,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
         setIsOrderDirty(true);
     };
 
+    // Save the current order of actuals to the project
     const handleSavePosition = async () => {
         try {
             const orderToSave = isOrderDirty ? actuals.map(a => a.id) : filteredActuals.map(a => a.id);
@@ -489,6 +649,11 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
         }
     };
 
+    // =============================================================================
+    // UI RENDERERS
+    // =============================================================================
+
+    // Render the loading spinner while data is being fetched
     if (isLoading) {
         return (
             <div className="flex items-center justify-center min-h-screen">
@@ -497,8 +662,14 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
         );
     }
 
+    // Filter users based on search term
     const filteredUsers = filterUsers(allUsers, assignToSearchTerm);
 
+    // =============================================================================
+    // MAIN RENDER
+    // =============================================================================
+
+    // Render the main tab content with actual table and dialogs
     return (
         <div className="space-y-6">
             <Card>
@@ -506,18 +677,20 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                     <div className="flex items-center justify-between">
                         {selectedActualIds.size > 0 && (
                             <DropdownMenu>
-                                <DropdownMenuTrigger>
+                                <DropdownMenuTrigger asChild>
                                     <Button variant="destructive" className="h-8 px-2 text-xs">
                                         ({selectedActualIds.size}) sel
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
+                                    {/* Assign to User menu item */}
                                     <DropdownMenuItem onClick={() => {
                                         setIsAssignToMenuOpen(true);
                                         loadUsers();
                                     }}>
                                         Assign to User
                                     </DropdownMenuItem>
+                                    {/* Register to Transaction menu item */}
                                     <DropdownMenuItem onClick={() => {
                                         setIsRegisterToTransactionModalOpen(true);
                                         setSelectedProjectId(null);
@@ -530,6 +703,18 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                                     }} disabled={selectedActualIds.size === 0}>
                                         Register to Transaction
                                     </DropdownMenuItem>
+                                    {/* Clone to Transaction menu item */}
+                                    <DropdownMenuItem onClick={() => {
+                                        setIsCloneToTransactionModalOpen(true);
+                                        setCloneTransactionName("");
+                                        if (selectedActualIds.size === 1) {
+                                            const actual = actuals.find(a => a.id === Array.from(selectedActualIds)[0]);
+                                            setCloneTransactionName(actual?.name || '');
+                                        }
+                                    }} disabled={selectedActualIds.size === 0}>
+                                        Clone to Transaction
+                                    </DropdownMenuItem>
+                                    {/* Delete menu item */}
                                     <div className="border-b border-border" />
                                     <DropdownMenuItem onClick={handleDeleteSelected} className="text-red-600 hover:text-red-700 hover:bg-red-50">
                                         Delete
@@ -577,6 +762,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                                 />
                             </div>
                             <div className="flex items-center gap-2">
+                                {/* Type filter dropdown */}
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild={true}>
                                         <div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background px-3 py-1.5 hover:bg-accent hover:text-accent-foreground h-8 px-3 cursor-pointer">
@@ -595,6 +781,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                                         </DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
+                                {/* Date sort dropdown */}
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild={true}>
                                         <div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background px-3 py-1.5 hover:bg-accent hover:text-accent-foreground h-8 px-3 cursor-pointer">
@@ -623,6 +810,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                     </div>
                 </CardHeader>
                 <CardContent>
+                    {/* Drag and drop enabled table */}
                     <DndContext onDragEnd={handleActualDragEnd}>
                         <SortableContext items={filteredActuals.map((a) => a.id)} strategy={verticalListSortingStrategy}>
                             <Table>
@@ -695,7 +883,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                                             </TableCell>
                                             <TableCell className="text-center py-3 hover:bg-muted">
                                                 <div className="flex items-center justify-center gap-1">
-                                                    <TypeBadge type={actual.budgetType} variant="circle" />
+                                                    <TypeBadge type={actual.budgetType} />
                                                     <DoneBadge done={actual.done} />
                                                 </div>
                                             </TableCell>
@@ -718,7 +906,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                                                 {actual.transaction ? (
                                                     <div className="flex flex-col">
                                                         <span className="font-medium text-primary">{actual.transaction.name}</span>
-                                                        <Link 
+                                                        <Link
                                                             to={`/projects/${actual.transaction.project}?tab=transactions`}
                                                             className="text-xs italic text-muted-foreground hover:underline"
                                                             onClick={(e) => e.stopPropagation()}
@@ -742,6 +930,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                         </SortableContext>
                     </DndContext>
 
+                    {/* Edit Actual Dialog */}
                     <ActualEditDialog
                         isOpen={isEditActualDialogOpen}
                         onOpenChange={setIsEditActualDialogOpen}
@@ -757,7 +946,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                             <DialogHeader>
                                 <DialogTitle>Register to Transaction</DialogTitle>
                             </DialogHeader>
-                            
+
                             <div className="flex-1 overflow-hidden flex flex-col">
                                 <div className="flex gap-4 h-full">
                                     {/* Projects Column */}
@@ -777,7 +966,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                                             ))}
                                         </div>
                                     </div>
-                                    
+
                                     {/* Transactions Column */}
                                     <div className="flex-1">
                                         <div className="p-3 border-b">
@@ -807,10 +996,10 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <DialogFooter>
-                                <Button 
-                                    variant="outline" 
+                                <Button
+                                    variant="outline"
                                     onClick={() => {
                                         setIsRegisterToTransactionModalOpen(false);
                                         setSelectedProjectId(null);
@@ -820,7 +1009,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                                 >
                                     Cancel
                                 </Button>
-                                <Button 
+                                <Button
                                     onClick={handleRegisterSelectedToTransaction}
                                     disabled={!selectedTransactionId || selectedActualIds.size === 0}
                                 >
@@ -830,6 +1019,53 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                         </DialogContent>
                     </Dialog>
 
+                    {/* Clone to Transaction Modal */}
+                    <Dialog open={isCloneToTransactionModalOpen} onOpenChange={setIsCloneToTransactionModalOpen}>
+                        <DialogContent className="max-w-md">
+                            <DialogHeader>
+                                <DialogTitle>Clone Actual to Transaction</DialogTitle>
+                            </DialogHeader>
+                            <div className="py-4 space-y-4">
+                                <div className="p-4 bg-muted rounded-lg">
+                                    <label className="text-sm font-medium">Transaction Name</label>
+                                    <Input
+                                        className="w-full mt-2"
+                                        placeholder="Enter transaction name"
+                                        value={cloneTransactionName}
+                                        onChange={(e) => setCloneTransactionName(e.target.value)}
+                                        autoFocus
+                                    />
+                                    <p className="text-xs text-muted-foreground mt-2">
+                                        {selectedActualIds.size > 1
+                                            ? `This will create ${selectedActualIds.size} new transaction(s), one for each selected actual.`
+                                            : "This will create a new transaction for the selected actual."}
+                                    </p>
+                                </div>
+                            </div>
+                            <DialogFooter>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                        setIsCloneToTransactionModalOpen(false);
+                                        setCloneTransactionName("");
+                                    }}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    onClick={selectedActualIds.size === 1
+                                        ? () => handleCloneToTransaction(Array.from(selectedActualIds)[0])
+                                        : handleCloneSelectedToTransaction
+                                    }
+                                    disabled={!cloneTransactionName.trim() || selectedActualIds.size === 0}
+                                >
+                                    Clone
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    {/* Assign to User Modal */}
                     {isAssignToMenuOpen && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
                             <div className="bg-background rounded-lg shadow-lg w-[400px] max-h-[80vh] flex flex-col">
@@ -837,7 +1073,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                                     <h3 className="text-lg font-semibold">Assign to User</h3>
                                     <p className="text-sm text-muted-foreground">Select users for {selectedActualIds.size} actual(s)</p>
                                 </div>
-                                
+
                                 <div className="p-3 border-b">
                                     <Input
                                         placeholder="Search users..."
@@ -846,7 +1082,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                                         className="h-8"
                                     />
                                 </div>
-                                
+
                                 <div className="flex-1 overflow-auto p-2 space-y-1">
                                     {isLoadingUsers ? (
                                         <div className="flex items-center justify-center h-32">
@@ -878,7 +1114,7 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
                                         ))
                                     )}
                                 </div>
-                                
+
                                 <div className="p-3 border-t flex justify-end gap-2">
                                     <Button
                                         variant="outline"
@@ -903,4 +1139,5 @@ export function ProjectActuals({ projectId, active }: ProjectActualsProps) {
     );
 }
 
-export default ProjectActuals;
+// Export TabActuals component as default
+export default TabActuals;

@@ -19,7 +19,7 @@ function actualToResponse(actual: ActualDoc | ActualResponse): ActualResponse {
         amount: actual.amount,
         project: (actual as any).project.toString(),
         budget: (actual as any).budget.toString(),
-        trx: (actual as any).trx.toString(),
+        transaction: (actual as any).transaction ? (actual as any).transaction.toString() : null,
         exDate: (actual as any).exDate,
         assignedTo: (actual as any).assignedTo ? (actual as any).assignedTo.toString() : "000000000000000000000000",
         updatedAt: (actual as any).updatedAt,
@@ -40,7 +40,6 @@ export interface BudgetResponse {
     project: string;
     header: string;
     arrActual: string[];
-    arrTransaction: string[];
     updatedBy: string;
     createdAt: Date;
     updatedAt: Date;
@@ -51,6 +50,9 @@ export interface RegisterActualRequest {
     actualName: string;
     updatedBy: string;
     exDate?: Date;
+    actualAmount?: number;
+    actualType?: 'income' | 'expense';
+    actualTags?: string[];
 }
 
 export interface CloneToTransactionRequest {
@@ -75,7 +77,6 @@ export interface CreateBudgetRequest {
     project: string;
     header?: string;
     arrActual?: string[];
-    arrTransaction?: string[];
     updatedBy?: string;
 }
 
@@ -89,7 +90,6 @@ export interface UpdateBudgetRequest {
     project?: string;
     header?: string;
     arrActual?: string[];
-    arrTransaction?: string[];
     updatedBy?: string;
 }
 
@@ -125,7 +125,6 @@ function budgetToResponse(budget: any): BudgetResponse {
         project: budget.project.toString(),
         header: budget.header.toString(),
         arrActual: budget.arrActual.map((id: any) => id.toString()),
-        arrTransaction: budget.arrTransaction.map((id: any) => id.toString()),
         updatedBy: budget.updatedBy.toString(),
         createdAt: budget.createdAt,
         updatedAt: budget.updatedAt || budget.createdAt,
@@ -201,7 +200,6 @@ export async function createBudget(body: CreateBudgetRequest): Promise<BudgetRes
         project: new mongoose.Types.ObjectId(body.project),
         header: headerId,
         arrActual: (body.arrActual ?? []).map((id: any) => new mongoose.Types.ObjectId(id)),
-        arrTransaction: (body.arrTransaction ?? []).map((id: any) => new mongoose.Types.ObjectId(id)),
         updatedAt: new Date(),
         updatedBy: new mongoose.Types.ObjectId(body.updatedBy || "000000000000000000000000"),
     });
@@ -261,10 +259,6 @@ export async function updateBudget(id: string, body: UpdateBudgetRequest): Promi
         updateFields.arrActual = body.arrActual.map((id: any) => new mongoose.Types.ObjectId(id));
     }
 
-    if (body.arrTransaction !== undefined) {
-        updateFields.arrTransaction = body.arrTransaction.map((id: any) => new mongoose.Types.ObjectId(id));
-    }
-
     if (body.updatedBy !== undefined) {
         updateFields.updatedBy = new mongoose.Types.ObjectId(body.updatedBy);
     }
@@ -322,13 +316,14 @@ export async function registerActual(body: RegisterActualRequest): Promise<Actua
     const actual = new Actual({
         name: body.actualName.trim() || budget.name,
         note: budget.note || '',
-        tags: [...budget.tags],
+        tags: body.actualTags ? body.actualTags : [...budget.tags],
         active: true,
-        type: budget.type,
-        amount: budget.amount,
+        type: body.actualType || budget.type,
+        amount: body.actualAmount || budget.amount,
         project: budget.project,
         budget: budget._id,
-        trx: new mongoose.Types.ObjectId("000000000000000000000000"),
+        transaction: null,
+        assignedTo: null,
         exDate: body.exDate || new Date(),
         updatedBy: new mongoose.Types.ObjectId(body.updatedBy),
     });
@@ -360,7 +355,7 @@ export async function registerToTransaction(body: RegisterToTransactionRequest):
     }
 
     // Link actual to transaction
-    actual.trx = body.transactionId as any;
+    actual.transaction = body.transactionId as any;
     await actual.save();
 
     // Add actual ID to transaction's arrActual if not already present
@@ -423,8 +418,8 @@ export async function cloneToTransaction(body: CloneToTransactionRequest): Promi
         $push: { arrTransaction: transaction._id }
     });
 
-    // Update actual's trx field to point to the new transaction
-    actual.trx = transaction._id as any;
+    // Update actual's transaction field to point to the new transaction
+    actual.transaction = transaction._id as any;
     await actual.save();
 
     // Add actual ID to transaction's arrActual

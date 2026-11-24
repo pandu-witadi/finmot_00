@@ -1,6 +1,7 @@
 import { Actual } from '../model/actual.js';
 import { Budget } from '../model/budget.js';
 import { Project } from '../model/project.js';
+import { Transaction } from '../model/transaction.js';
 import mongoose from 'mongoose';
 
 export interface ActualResponse {
@@ -13,7 +14,7 @@ export interface ActualResponse {
     amount: number;
     project: string;
     budget: string;
-    trx: string;
+    transaction: string | null;
     exDate: Date;
     assignedTo: string;
     updatedAt: Date;
@@ -30,7 +31,7 @@ export interface CreateActualRequest {
     amount: number;
     project: string;
     budget: string;
-    trx: string;
+    transaction?: string;
     exDate: Date;
     updatedBy?: string;
 }
@@ -44,7 +45,7 @@ export interface UpdateActualRequest {
     amount?: number;
     project?: string;
     budget?: string;
-    trx?: string;
+    transaction?: string;
     exDate?: Date;
     assignedTo?: string;
     updatedBy?: string;
@@ -82,7 +83,7 @@ function actualToResponse(actual: any): ActualResponse {
         amount: actual.amount,
         project: actual.project.toString(),
         budget: actual.budget.toString(),
-        trx: actual.trx.toString(),
+        transaction: actual.transaction ? actual.transaction.toString() : null,
         exDate: actual.exDate,
         assignedTo: actual.assignedTo ? actual.assignedTo.toString() : "000000000000000000000000",
         updatedAt: actual.updatedAt,
@@ -152,6 +153,9 @@ export async function getAllActuals(query?: GetActualsQuery): Promise<ActualResp
 }
 
 export async function createActual(body: CreateActualRequest): Promise<ActualResponse> {
+    const transaction = body.transaction && body.transaction !== '' 
+        ? new mongoose.Types.ObjectId(body.transaction)
+        : null;
     const actual = new Actual({
         name: body.name.trim(),
         note: body.note,
@@ -161,12 +165,19 @@ export async function createActual(body: CreateActualRequest): Promise<ActualRes
         amount: body.amount,
         project: new mongoose.Types.ObjectId(body.project),
         budget: new mongoose.Types.ObjectId(body.budget),
-        trx: new mongoose.Types.ObjectId(body.trx),
+        transaction: transaction,
+        assignedTo: null,
         exDate: body.exDate,
         updatedAt: new Date(),
         updatedBy: new mongoose.Types.ObjectId(body.updatedBy || "000000000000000000000000"),
     });
     await actual.save();
+
+    // Add actual ID to project's arrActual
+    await Project.findByIdAndUpdate(body.project, {
+        $push: { arrActual: actual._id }
+    });
+
     return actualToResponse(actual);
 }
 
@@ -203,8 +214,8 @@ export async function updateActual(id: string, body: UpdateActualRequest): Promi
         updateFields.budget = new mongoose.Types.ObjectId(body.budget);
     }
 
-    if (body.trx !== undefined) {
-        updateFields.trx = new mongoose.Types.ObjectId(body.trx);
+    if (body.transaction !== undefined && body.transaction !== '') {
+        updateFields.transaction = new mongoose.Types.ObjectId(body.transaction);
     }
 
     if (body.exDate !== undefined) {
@@ -236,14 +247,81 @@ export async function updateActual(id: string, body: UpdateActualRequest): Promi
     return actualToResponse(actual);
 }
 
+export interface CloneToTransactionRequest {
+    actualId: string;
+    transactionName: string;
+    updatedBy: string;
+}
+
+export async function cloneToTransaction(body: CloneToTransactionRequest): Promise<{actual: ActualResponse, transaction: any}> {
+    const actual = await Actual.findById(body.actualId);
+    if (!actual) {
+        throw new Error('Actual not found');
+    }
+
+    // Create a new transaction
+    const transaction = new Transaction({
+        name: body.transactionName.trim() || actual.name,
+        tags: [...actual.tags],
+        active: actual.active,
+        type: actual.type,
+        amount: actual.amount,
+        project: actual.project,
+        arrActual: [actual._id as any],
+        exDate: actual.exDate || new Date(),
+        assignedTo: actual.assignedTo || undefined,
+        updatedBy: body.updatedBy as any,
+    });
+    await transaction.save();
+
+    // Add transaction ID to project's arrTransaction
+    await Project.findByIdAndUpdate(actual.project, {
+        $push: { arrTransaction: transaction._id }
+    });
+
+    // Add actual ID to project's arrActual (since clone creates new actual)
+    await Project.findByIdAndUpdate(actual.project, {
+        $push: { arrActual: actual._id }
+    });
+
+    // Update actual's transaction field to point to the new transaction
+    actual.transaction = transaction._id as any;
+    await actual.save();
+
+    // Add actual ID to transaction's arrActual
+    await Transaction.findByIdAndUpdate(transaction._id as any, {
+        $push: { arrActual: actual._id as any }
+    });
+
+    return {
+        actual: actualToResponse(actual),
+        transaction: {
+            id: transaction._id.toString(),
+            name: transaction.name,
+            tags: transaction.tags,
+            active: transaction.active,
+            type: transaction.type,
+            amount: transaction.amount,
+            project: transaction.project.toString(),
+            arrActual: [actual._id.toString()],
+            exDate: transaction.exDate,
+            assignedTo: transaction.assignedTo ? transaction.assignedTo.toString() : null,
+            updatedBy: transaction.updatedBy.toString(),
+            createdAt: transaction.createdAt,
+        },
+    };
+}
+
 export async function deleteActual(id: string): Promise<{ success: boolean; error?: string }> {
     const actual = await Actual.findById(id);
     if (!actual) {
         return { success: false, error: 'Actual not found' };
     }
 
-    // Check if actual has a transaction connected (trx is not the default placeholder)
-    const hasTransaction = actual.trx && actual.trx.toString() !== '000000000000000000000000';
+    // Check if actual has a transaction connected
+    const hasTransaction = actual.transaction !== null && 
+                           actual.transaction !== undefined &&
+                           actual.transaction.toString() !== '000000000000000000000000';
     if (hasTransaction) {
         return { success: false, error: 'Cannot delete actual: a transaction is connected to it' };
     }
