@@ -84,6 +84,7 @@ export const budgetApi = {
 
 export const actualApi = {
     getAllByProject: (projectId: string) => api.get(`/actual?filter=${JSON.stringify({ project: projectId })}`),
+    getAll: () => api.get(`/actual`),
     getById: (id: string) => api.get(`/actual/${id}`),
     create: (data: any) => api.post(`/actual`, data),
     update: (id: string, data: any) => api.put(`/actual/${id}`, data),

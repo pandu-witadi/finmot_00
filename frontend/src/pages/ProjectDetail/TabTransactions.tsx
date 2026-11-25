@@ -168,7 +168,7 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
         try {
             const [transactionsRes, actualsRes, projectsRes] = await Promise.all([
                 transactionApi.getAllByProject(projectId),
-                actualApi.getAllByProject(projectId),
+                actualApi.getAll(),
                 api.get('/project')
             ]);
             
@@ -199,6 +199,18 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
                     });
                 }
             });
+
+            // DEBUG: Log transaction and actual counts
+            console.group('TabTransactions Load Summary');
+            console.log('Transactions loaded:', sortedTransactions.length);
+            console.log('Transactions with actuals:', Object.keys(actualsMap).length);
+            console.log('Total actuals across all transactions:', actualsData.length);
+            Object.entries(actualsMap).forEach(([txnId, actuals]) => {
+                console.log(`Transaction ${txnId}: ${actuals.length} actual(s)`, actuals);
+            });
+            console.groupEnd();
+            // END DEBUG
+
             setActualsByTransaction(actualsMap);
         } catch (error: any) {
             const errorMessage = error?.response?.data?.error || "Failed to load data";
@@ -379,7 +391,7 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
                             </TableHead>
                             <TableHead className="w-[35%] px-2 text-left border-b border-gray-200 bg-cyan-50 hover:bg-muted">Name</TableHead>
                             <TableHead className="w-[18%] px-2 text-left border-b border-gray-200 bg-cyan-50 hover:bg-muted">Tags</TableHead>
-                            <TableHead className="w-[12%] px-2 text-center border-b border-gray-200 bg-cyan-50 hover:bg-muted">t</TableHead>
+                            <TableHead className="w-[12%] px-2 text-center border-b border-gray-200 bg-cyan-50 hover:bg-muted">stat</TableHead>
                             <TableHead className="text-right w-[9%] border-b border-gray-200 bg-cyan-50 hover:bg-muted">Amount</TableHead>
                             <TableHead className="text-left w-[28%] border-l-2 border-border bg-cyan-50 hover:bg-muted">actName</TableHead>
                             <TableHead className="text-right w-[10%] bg-cyan-50 hover:bg-muted">actAmount</TableHead>
@@ -388,7 +400,26 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
                     </TableHeader>
                     <SortableContext items={transactions.map((t) => t.id)} strategy={verticalListSortingStrategy}>
                         <TableBody>
-                            {transactions.map((transaction) => renderTransactionRow(transaction))}
+                            {/* DEBUG: Count rows before rendering */}
+                            {(() => {
+                                const totalRows = transactions.reduce((acc, transaction) => {
+                                    const transactionActuals = actualsByTransaction[transaction.id] || [];
+                                    return acc + (transactionActuals.length === 0 ? 1 : transactionActuals.length);
+                                }, 0);
+                                console.log('TabTransactions: Total rows to render =', totalRows);
+                                transactions.forEach((t) => {
+                                    const txnActuals = actualsByTransaction[t.id] || [];
+                                    console.log(`  Row ${t.id}: ${txnActuals.length === 0 ? 1 : txnActuals.length} row(s) (${txnActuals.length} actuals)`);
+                                });
+                                return null;
+                            })()}
+                            {transactions.flatMap((transaction) => {
+                                const transactionActuals = actualsByTransaction[transaction.id] || [];
+                                if (transactionActuals.length === 0) {
+                                    return renderTransactionRow(transaction, null, 0);
+                                }
+                                return transactionActuals.map((actual, index) => renderTransactionRow(transaction, actual, index));
+                            })}
                         </TableBody>
                     </SortableContext>
                 </Table>
@@ -400,12 +431,18 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
     // TRANSACTION TABLE RENDERERS
     // =============================================================================
 
-    // Render a single transaction row - handles transactions with actuals
-    const renderTransactionRow = (transaction: Transaction) => {
+    // Render a single transaction row - handles transactions without actuals and transactions with multiple actuals
+    // When transaction has no actuals: renders a single row with full transaction info
+    // When transaction has actuals: renders multiple rows with shared transaction cells using rowSpan
+    // The `index` parameter tracks which actual row is being rendered (0 = first actual)
+    const renderTransactionRow = (transaction: Transaction, actual: {id: string, name: string, amount: number, exDate: Date, projectName: string, projectId: string} | null, index: number) => {
         const transactionActuals = actualsByTransaction[transaction.id] || [];
-        
-        // If no actuals, show single row with placeholders
-        if (transactionActuals.length === 0) {
+        const isDraggable = index === 0; // Only first row is draggable when actuals exist
+        const rowKey = actual ? `${transaction.id}-${actual.id}` : transaction.id;
+        const hasActuals = transactionActuals.length > 0;
+        console.log(`renderTransactionRow: txn=${transaction.id}, actual=${actual?.id || 'null'}, rowKey=${rowKey}, index=${index}, hasActuals=${hasActuals}`);
+
+        if (!hasActuals) {
             return (
                 <TransactionSortableRow key={transaction.id} id={transaction.id} disabled={false}>
                     <TableCell className="w-10 px-2 py-3 text-left hover:bg-muted">
@@ -473,10 +510,10 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
             );
         }
         
-        // Render single row with first actual (drag-drop compatible)
-        return (
-            <TransactionSortableRow key={transaction.id} id={transaction.id} disabled={false}>
-                <TableCell className="w-10 px-2 py-3 text-left hover:bg-muted">
+        // Shared cells for transaction data that spans across all actual rows
+        const sharedCells = (
+            <>
+                <TableCell rowSpan={transactionActuals.length} className="w-10 px-2 py-3 text-left hover:bg-muted">
                     <input
                         type="checkbox"
                         className="h-4 w-4 accent-primary"
@@ -488,7 +525,7 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
                         onChange={() => {}}
                     />
                 </TableCell>
-                <TableCell className="w-[45%] px-2 text-left border-b border-gray-200 hover:bg-muted">
+                <TableCell rowSpan={transactionActuals.length} className="w-[35%] px-2 text-left border-b border-gray-200 hover:bg-muted">
                     <div className="flex items-center gap-2">
                         <span
                             className="cursor-pointer hover:underline font-medium"
@@ -504,7 +541,7 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
                         </span>
                     </div>
                 </TableCell>
-                <TableCell className="w-[25%] px-2 text-left border-b border-gray-200 hover:bg-muted">
+                <TableCell rowSpan={transactionActuals.length} className="w-[18%] px-2 text-left border-b border-gray-200 hover:bg-muted">
                     {transaction.tags && transaction.tags.length > 0 ? (
                         <div className="flex flex-col gap-0.5">
                             {transaction.tags.map((tag, idx) => (
@@ -517,57 +554,49 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
                         <span className="text-sm text-muted-foreground">—</span>
                     )}
                 </TableCell>
-                <TableCell className="w-[12%] px-2 text-center border-b border-gray-200 hover:bg-muted">
+                <TableCell rowSpan={transactionActuals.length} className="w-[12%] px-2 text-center border-b border-gray-200 hover:bg-muted">
                     <div className="flex items-center justify-center gap-1">
                         <TypeBadge type={transaction.type} />
                         <DoneBadge done={transaction.active} />
                     </div>
                 </TableCell>
-                <TableCell className="w-[12.5%] text-right border-b border-gray-200 hover:bg-muted">
+                <TableCell rowSpan={transactionActuals.length} className="w-[9%] text-right border-b border-gray-200 hover:bg-muted">
                     <span className="text-xs">
                         {formatNumber(transaction.amount)}
                     </span>
                 </TableCell>
-                <TableCell className="w-[40%] text-left border-b border-gray-200 border-l-2 border-border hover:bg-muted">
+            </>
+        );
+
+        const lastRowClass = index === transactionActuals.length - 1 ? "border-b border-gray-200" : "";
+
+        return (
+            <TransactionSortableRow key={rowKey} id={transaction.id} disabled={!isDraggable}>
+                {index === 0 && sharedCells}
+                {/* Actual row cells - only rendered when actuals exist */}
+                <TableCell className={`w-[28%] text-left ${lastRowClass} border-l-2 border-border border-b border-gray-200 hover:bg-muted`}>
                     <div className="flex flex-col gap-0.5">
-                        {transactionActuals.slice(0, 3).map((actual) => (
-                            <div key={actual.id} className="flex flex-col">
-                                <span className="text-xs">{actual.name}</span>
-                                {actual.projectName && (
-                                    <Link
-                                        to={`/projects/${actual.projectId}?tab=actuals`}
-                                        className="text-[10px] italic text-muted-foreground hover:underline"
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        {actual.projectName}
-                                    </Link>
-                                )}
-                            </div>
-                        ))}
-                        {transactionActuals.length > 3 && (
-                            <span className="text-xs text-muted-foreground">
-                                +{transactionActuals.length - 3} more
-                            </span>
+                        <span className="text-xs">{actual?.name}</span>
+                        {actual?.projectName && (
+                            <Link
+                                to={`/projects/${actual?.projectId}?tab=actuals`}
+                                className="text-[10px] italic text-muted-foreground hover:underline"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                {actual?.projectName}
+                            </Link>
                         )}
                     </div>
                 </TableCell>
-                <TableCell className="w-[20%] text-right border-b border-gray-200 hover:bg-muted">
-                    <div className="flex flex-col items-end gap-0.5">
-                        {transactionActuals.slice(0, 3).map((actual) => (
-                            <span key={actual.id} className="text-xs">
-                                {formatNumber(actual.amount)}
-                            </span>
-                        ))}
-                    </div>
+                <TableCell className={`w-[10%] text-right ${lastRowClass} border-b border-gray-200 hover:bg-muted`}>
+                    <span className="text-xs text-muted-foreground">
+                        {formatNumber(actual?.amount || 0)}
+                    </span>
                 </TableCell>
-                <TableCell className="w-[11%] text-left border-b border-gray-200 hover:bg-muted">
-                    <div className="flex flex-col gap-0.5">
-                        {transactionActuals.slice(0, 3).map((actual) => (
-                            <span key={actual.id} className="text-xs">
-                                {formatDate(actual.exDate)}
-                            </span>
-                        ))}
-                    </div>
+                <TableCell className={`w-[11%] text-left ${lastRowClass} border-b border-gray-200 hover:bg-muted`}>
+                    <span className="text-xs text-muted-foreground">
+                        {actual?.exDate ? formatDate(actual.exDate) : '-'}
+                    </span>
                 </TableCell>
             </TransactionSortableRow>
         );
