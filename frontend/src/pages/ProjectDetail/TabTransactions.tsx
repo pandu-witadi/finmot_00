@@ -608,11 +608,7 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
 
     // Render delete confirmation dialog
     const renderDeleteConfirmDialog = () => {
-        const transactionsWithActuals = transactionsToDelete.filter(transactionId => {
-            const transaction = transactions.find(t => t.id === transactionId);
-            return transaction && transaction.id && transactions.find(t => t.id === transactionId)?.id;
-        });
-        const deletableCount = transactionsToDelete.length - transactionsWithActuals.length;
+        const deletableCount = transactionsToDelete.length;
         
         return (
             <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
@@ -621,9 +617,9 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
                         <DialogTitle>Delete Transactions</DialogTitle>
                         <DialogDescription>
                             {deletableCount > 0 ? (
-                                <p>Are you sure you want to delete {deletableCount} transaction{deletableCount !== 1 ? 's' : ''}?</p>
+                                <p>Are you sure you want to delete {deletableCount} transaction{deletableCount !== 1 ? 's' : ''}? Connected actuals will be detached.</p>
                             ) : (
-                                <p>No transactions can be deleted.</p>
+                                <p>No transactions selected for deletion.</p>
                             )}
                         </DialogDescription>
                     </DialogHeader>

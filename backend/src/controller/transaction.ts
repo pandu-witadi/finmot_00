@@ -1,4 +1,6 @@
 import { Transaction } from '../model/transaction.js';
+import { Actual } from '../model/actual.js';
+import { Project } from '../model/project.js';
 import mongoose from 'mongoose';
 
 export interface TransactionResponse {
@@ -229,11 +231,18 @@ export async function deleteTransaction(id: string): Promise<{ success: boolean;
         return { success: false, error: 'Transaction not found' };
     }
 
-    // Check if transaction has actuals connected (arrActual is not empty)
-    if (transaction.arrActual && transaction.arrActual.length > 0) {
-        return { success: false, error: 'Cannot delete transaction: actuals are connected to it' };
-    }
+    // Step 1: Set transaction field to null on all actuals referencing this transaction
+    await Actual.updateMany(
+        { transaction: transaction._id },
+        { $set: { transaction: null } }
+    );
 
+    // Step 2: Remove transaction ID from project's arrTransaction
+    await Project.findByIdAndUpdate(transaction.project, {
+        $pull: { arrTransaction: transaction._id }
+    });
+
+    // Step 3: Delete the transaction
     const result = await Transaction.findByIdAndDelete(id);
     return { success: result !== null };
 }
