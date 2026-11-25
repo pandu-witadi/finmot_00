@@ -208,6 +208,13 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
         }
     };
 
+    // Calculate total amount from selected transactions (income adds, expense subtracts)
+    const totalAmount = Array.from(selectedTransactionIds).reduce((sum, transactionId) => {
+        const transaction = transactions.find(t => t.id === transactionId);
+        const sign = transaction?.type === 'income' ? 1 : -1;
+        return sum + (transaction?.amount || 0) * sign;
+    }, 0);
+
     const handleAddTransaction = async () => {
         if (!transactionForm.name.trim()) {
             toast.error("Transaction name is required");
@@ -622,12 +629,11 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
                         <div className="flex gap-2">
                             {transactions.length > 0 && Array.from(selectedTransactionIds).some(id => transactions.some(t => t.id === id)) && (
                                 <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button size="sm" type="button" className="h-8 px-3" onClick={(e) => {
-                                            e.stopPropagation();
-                                        }}>
-                                            {Array.from(selectedTransactionIds).filter(id => transactions.some(t => t.id === id)).length} selected
-                                        </Button>
+                                    <DropdownMenuTrigger render={<Button size="sm" type="button" className="h-8 px-3" onClick={(e) => {
+                                        e.stopPropagation();
+                                    }}>
+                                        {Array.from(selectedTransactionIds).filter(id => transactions.some(t => t.id === id)).length} selected
+                                    </Button>}>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
                                         <>
@@ -644,8 +650,8 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
                             )}
                         </div>
                         <div className="text-right">
-                            <div className="text-xs font-medium">
-                                {transactions.length} transactions
+                            <div className="text-xs font-semibold">
+                                Total: {formatNumber(totalAmount)}
                             </div>
                         </div>
                     </div>
