@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { actualApi, userApi, api, budgetApi } from "@/services/api";
+import { actualApi, userApi, budgetApi } from "@/services/api";
 import { formatNumber, getTypeLabel } from "@/utils/formatters";
 import { formatDate, formatDateTime } from "@/utils/dateFormatters";
 import { toast } from "react-hot-toast";
@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DoneBadge } from "@/pages/ProjectDetail/components/DoneBadge";
+import { Switch } from "@/components/ui/switch";
 
 interface User {
     id: string;
@@ -172,23 +174,14 @@ function ActualDetail() {
     return (
         <div className="min-h-screen bg-gray-50 px-8 py-8">
             <div className="max-w-4xl mx-auto">
-                <div className="mb-6">
+                <div className="mb-6 flex items-center gap-2">
                     <Button variant="outline" onClick={() => navigate(-1)}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevrons-left">
                             <path d="m11 17-5-5 5-5"/>
                             <path d="m18 17-5-5 5-5"/>
                         </svg>
                     </Button>
-                </div>
-
-                <div className="mb-4">
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                        actual.done 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                    }`}>
-                        done: {actual.done ? 'true' : 'false'}
-                    </span>
+                    <DoneBadge done={actual.done} />
                 </div>
 
                 <Card>
@@ -294,14 +287,16 @@ function ActualDetail() {
                         ) : (
                             <div className="space-y-4">
                                 <div className="flex items-center gap-2">
-                                    <input
-                                        type="checkbox"
+                                    <Label htmlFor="done" className="whitespace-nowrap">Done</Label>
+                                    <Switch
                                         id="done"
                                         checked={editForm.done || false}
-                                        onChange={(e) => setEditForm({ ...editForm, done: e.target.checked })}
-                                        className="h-4 w-4 accent-primary"
+                                        onCheckedChange={(checked) => setEditForm({ ...editForm, done: checked })}
+                                        className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-red-500"
                                     />
-                                    <Label htmlFor="done">Done</Label>
+                                    <span className={`text-sm font-medium ${editForm.done ? 'text-green-700' : 'text-red-600'}`}>
+                                        {editForm.done ? 'Yes' : 'No'}
+                                    </span>
                                 </div>
                                 
                                 <div>
@@ -323,6 +318,34 @@ function ActualDetail() {
                                         min="0"
                                         step="0.01"
                                     />
+                                </div>
+                                
+                                <div>
+                                    <Label>Type *</Label>
+                                    <div className="flex gap-2 mt-1">
+                                        <Button
+                                            type="button"
+                                            onClick={() => setEditForm({ ...editForm, type: 'income' })}
+                                            className={`flex-1 py-2 ${
+                                                editForm.type === 'income'
+                                                    ? 'bg-green-200 border-green-300 text-green-800 hover:bg-green-300'
+                                                    : 'bg-transparent border-gray-300 text-gray-600 hover:bg-gray-50'
+                                            }`}
+                                        >
+                                            Income
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            onClick={() => setEditForm({ ...editForm, type: 'expense' })}
+                                            className={`flex-1 py-2 ${
+                                                editForm.type === 'expense'
+                                                    ? 'bg-red-200 border-red-300 text-red-800 hover:bg-red-300'
+                                                    : 'bg-transparent border-gray-300 text-gray-600 hover:bg-gray-50'
+                                            }`}
+                                        >
+                                            Expense
+                                        </Button>
+                                    </div>
                                 </div>
                                 
                                 <div>

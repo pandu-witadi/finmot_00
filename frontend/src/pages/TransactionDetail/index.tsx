@@ -10,6 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DoneBadge } from "@/pages/ProjectDetail/components/DoneBadge";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface User {
     id: string;
@@ -214,17 +217,7 @@ function TransactionDetail() {
                             <path d="m18 17-5-5 5-5"/>
                         </svg>
                     </Button>
-                    <div className={`w-6 h-6 rounded border flex items-center justify-center ${
-                        transaction.done 
-                            ? 'bg-green-600 border-green-600' 
-                            : 'bg-transparent border-red-500'
-                    }`}>
-                        {transaction.done && (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-white">
-                                <polyline points="20 6 9 17 4 12"/>
-                            </svg>
-                        )}
-                    </div>
+                    <DoneBadge done={transaction.done} />
                 </div>
 
                 <Card>
@@ -339,17 +332,6 @@ function TransactionDetail() {
                             </div>
                         ) : (
                             <div className="space-y-4">
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        type="checkbox"
-                                        id="done"
-                                        checked={editForm.done || false}
-                                        onChange={(e) => setEditForm({ ...editForm, done: e.target.checked })}
-                                        className="h-4 w-4 accent-primary"
-                                    />
-                                    <Label htmlFor="done">Done</Label>
-                                </div>
-                                
                                 <div>
                                     <Label>Name *</Label>
                                     <Input
@@ -359,24 +341,35 @@ function TransactionDetail() {
                                     />
                                 </div>
                                 
+                                <div className="flex items-center gap-2">
+                                    <Label htmlFor="done" className="whitespace-nowrap">Done</Label>
+                                    <Switch
+                                        id="done"
+                                        checked={editForm.done || false}
+                                        onCheckedChange={(checked) => setEditForm({ ...editForm, done: checked })}
+                                        className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-red-500"
+                                    />
+                                    <span className={`text-sm font-medium ${editForm.done ? 'text-green-700' : 'text-red-600'}`}>
+                                        {editForm.done ? 'Yes' : 'No'}
+                                    </span>
+                                </div>
+                                
                                 <div>
                                     <Label>Type *</Label>
-                                    <div className="flex gap-2 mt-1">
-                                        <Button
-                                            type="button"
-                                            variant={editForm.type === 'income' ? 'default' : 'outline'}
-                                            onClick={() => setEditForm({ ...editForm, type: 'income' })}
-                                        >
-                                            Income
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            variant={editForm.type === 'expense' ? 'default' : 'outline'}
-                                            onClick={() => setEditForm({ ...editForm, type: 'expense' })}
-                                        >
-                                            Expense
-                                        </Button>
-                                    </div>
+                                    <Tabs
+                                        value={editForm.type || 'income'}
+                                        onValueChange={(value) => setEditForm({ ...editForm, type: value as 'income' | 'expense' })}
+                                        className="mt-1"
+                                    >
+                                        <TabsList className="grid grid-cols-2">
+                                            <TabsTrigger value="income" className="data-[state=active]:bg-green-200 data-[state=active]:text-green-800 data-[state=active]:border-green-300">
+                                                Income
+                                            </TabsTrigger>
+                                            <TabsTrigger value="expense" className="data-[state=active]:bg-red-200 data-[state=active]:text-red-800 data-[state=active]:border-red-300">
+                                                Expense
+                                            </TabsTrigger>
+                                        </TabsList>
+                                    </Tabs>
                                 </div>
                                 
                                 <div>

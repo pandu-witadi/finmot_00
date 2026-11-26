@@ -20,7 +20,6 @@ import { headerApi, budgetApi, projectApi, actualApi } from "@/services/api";
 import { HeaderAddDialog } from "./HeaderAddDialog";
 import { BudgetAddDialog } from "./BudgetAddDialog";
 import { HeaderEditDialog } from "./HeaderEditDialog";
-import { BudgetEditDialog } from "./BudgetEditDialog";
 import { ActualEditDialog } from "./ActualEditDialog";
 import { ActualRegisterDialog } from "./ActualRegisterDialog";
 import { Header } from "./useBudgetHeaders";
@@ -106,7 +105,6 @@ export function TabBudgets({ projectId }: TabBudgetsProps) {
     const [isAddHeaderDialogOpen, setIsAddHeaderDialogOpen] = useState(false);
     const [isEditHeaderDialogOpen, setIsEditHeaderDialogOpen] = useState(false);
     const [isAddBudgetDialogOpen, setIsAddBudgetDialogOpen] = useState(false);
-    const [isEditBudgetDialogOpen, setIsEditBudgetDialogOpen] = useState(false);
     const [selectedHeaderId, setSelectedHeaderId] = useState<string | null>(null);
 
     // Form state for creating and editing headers
@@ -123,8 +121,8 @@ export function TabBudgets({ projectId }: TabBudgetsProps) {
         tags: ''
     });
 
-    // Form state for creating and editing budgets
-    const [editBudgetForm, setEditBudgetForm] = useState<EditBudgetForm>({
+    // Form state for creating and editing budgets (unused, kept for potential future use)
+    const [_editBudgetForm, _setEditBudgetForm] = useState<EditBudgetForm>({
         id: '',
         name: '',
         note: '',
@@ -174,7 +172,7 @@ export function TabBudgets({ projectId }: TabBudgetsProps) {
         name: '',
         amount: 0,
         exDate: new Date(),
-        tags: [],
+        tags: '',
         assignedTo: '',
         updatedAt: new Date(),
         updatedBy: ''
@@ -396,11 +394,8 @@ export function TabBudgets({ projectId }: TabBudgetsProps) {
     // Reset edit header form to default empty state
     const resetHeaderForm = () => setEditHeaderForm({ id: '', name: '', type: 'expense', tags: '' });
 
-    // Reset edit budget form to default empty state
-    const resetBudgetForm = () => setEditBudgetForm({ id: '', name: '', note: '', type: 'expense', amount: 0, tags: '', done: false, updatedAt: new Date(), updatedBy: '' });
-
     // Reset edit actual form to default empty state
-    const resetActualForm = () => setEditActualForm({ id: '', name: '', amount: 0, exDate: new Date(), tags: [], assignedTo: '', updatedAt: new Date(), updatedBy: '' });
+    const resetActualForm = () => setEditActualForm({ id: '', name: '', amount: 0, exDate: new Date(), tags: '', assignedTo: '', updatedAt: new Date(), updatedBy: '' });
 
     // =============================================================================
     // SINGLE BUDGET OPERATIONS
@@ -623,54 +618,9 @@ export function TabBudgets({ projectId }: TabBudgetsProps) {
     // BUDGET EDIT OPERATIONS
     // =============================================================================
 
-    // Open edit budget dialog and populate form with selected budget data
+    // Open edit budget page and populate form with selected budget data
     const openEditBudget = (budget: Budget) => {
-        setEditBudgetForm({
-            id: budget.id,
-            name: budget.name,
-            note: budget.note || '',
-            type: budget.type,
-            amount: budget.amount,
-            tags: budget.tags.join(', '),
-            done: budget.done,
-            updatedAt: budget.updatedAt ? new Date(budget.updatedAt) : new Date(),
-            updatedBy: budget.updatedBy || ''
-        });
-        setIsEditBudgetDialogOpen(true);
-    };
-
-    const handleDeleteBudget = async (budgetId: string) => {
-        if (!showConfirm("Are you sure you want to delete this budget?")) return;
-        await handleDeleteOperation(
-            async () => {
-                await budgetApi.delete(budgetId);
-                setIsEditBudgetDialogOpen(false);
-            },
-            "Budget deleted successfully",
-            "Failed to delete budget"
-        );
-    };
-
-    const handleEditBudget = async () => {
-        await handleUpdateOperation(
-            budgetApi.update,
-            editBudgetForm.id,
-            {
-                name: editBudgetForm.name.trim(),
-                note: editBudgetForm.note,
-                type: editBudgetForm.type,
-                amount: editBudgetForm.amount,
-                tags: editBudgetForm.tags
-                    .split(/\s*,\s*/)
-                    .map(t => t.trim())
-                    .filter(t => t.length > 0),
-                done: editBudgetForm.done
-            },
-            "Budget updated successfully",
-            "Failed to update budget"
-        );
-        setIsEditBudgetDialogOpen(false);
-        resetBudgetForm();
+        navigate(`/budgets/${budget.id}`);
     };
 
     // =============================================================================
@@ -1049,7 +999,7 @@ export function TabBudgets({ projectId }: TabBudgetsProps) {
     // When budget has no actuals: renders a single row with full budget info
     // When budget has actuals: renders multiple rows with shared budget cells using rowSpan
     // The `index` parameter tracks which actual row is being rendered (0 = first actual)
-    const renderBudgetRow = (budget: Budget, actual: {id: string, name: string, amount: number} | null, index: number) => {
+    const renderBudgetRow = (budget: Budget, actual: {id: string, name: string, amount: number, exDate: Date} | null, index: number) => {
         const budgetActuals = actuals[budget.id] || [];
         const isDraggable = index === 0; // Only first row is draggable when actuals exist
         const rowKey = index === 0 ? budget.id : actual?.id || budget.id;
@@ -1413,16 +1363,6 @@ export function TabBudgets({ projectId }: TabBudgetsProps) {
                 editHeaderForm={editHeaderForm}
                 setEditHeaderForm={setEditHeaderForm}
                 onEditHeader={handleEditHeader}
-            />
-
-            <BudgetEditDialog
-                isOpen={isEditBudgetDialogOpen}
-                onOpenChange={setIsEditBudgetDialogOpen}
-                editBudgetForm={editBudgetForm}
-                setEditBudgetForm={setEditBudgetForm}
-                onEditBudget={handleEditBudget}
-                onDeleteBudget={() => handleDeleteBudget(editBudgetForm.id)}
-                hasActuals={!!actuals[editBudgetForm.id] && actuals[editBudgetForm.id].length > 0}
             />
 
             <ActualEditDialog

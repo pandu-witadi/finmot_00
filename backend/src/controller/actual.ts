@@ -50,6 +50,7 @@ export interface UpdateActualRequest {
     exDate?: Date;
     assignedTo?: string;
     updatedBy?: string;
+    done?: boolean;
 }
 
 export interface ActualFilter {
@@ -234,6 +235,10 @@ export async function updateActual(id: string, body: UpdateActualRequest): Promi
 
     if (body.note !== undefined) {
         updateFields.note = body.note;
+    }
+
+    if (body.done !== undefined) {
+        updateFields.done = body.done;
     }
 
     const actual = await Actual.findByIdAndUpdate(
