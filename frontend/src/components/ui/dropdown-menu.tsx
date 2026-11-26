@@ -17,7 +17,7 @@ const DropdownMenuTrigger = React.forwardRef<HTMLButtonElement, MenuPrimitive.Tr
   }
   if (render) {
     return (
-      <MenuPrimitive.Trigger render={render} data-slot="dropdown-menu-trigger" {...props} />
+      <MenuPrimitive.Trigger render={render} nativeButton={false} data-slot="dropdown-menu-trigger" {...props} />
     )
   }
   return (

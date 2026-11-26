@@ -207,23 +207,24 @@ function TransactionDetail() {
     return (
         <div className="min-h-screen bg-gray-50 px-8 py-8">
             <div className="max-w-4xl mx-auto">
-                <div className="mb-6">
+                <div className="mb-6 flex items-center gap-2">
                     <Button variant="outline" onClick={() => navigate(-1)}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevrons-left">
                             <path d="m11 17-5-5 5-5"/>
                             <path d="m18 17-5-5 5-5"/>
                         </svg>
                     </Button>
-                </div>
-
-                <div className="mb-4">
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                    <div className={`w-6 h-6 rounded border flex items-center justify-center ${
                         transaction.done 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
+                            ? 'bg-green-600 border-green-600' 
+                            : 'bg-transparent border-red-500'
                     }`}>
-                        done: {transaction.done ? 'true' : 'false'}
-                    </span>
+                        {transaction.done && (
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-white">
+                                <polyline points="20 6 9 17 4 12"/>
+                            </svg>
+                        )}
+                    </div>
                 </div>
 
                 <Card>
@@ -305,12 +306,7 @@ function TransactionDetail() {
                                                     </div>
                                                 ))}
                                             </div>
-                                            <div className="mt-2 flex items-center gap-2">
-                                                <span className="text-xs text-muted-foreground">
-                                                    This transaction cannot be deleted while actuals are connected.
-                                                </span>
                                             </div>
-                                        </div>
                                     </div>
                                 )}
                                 
@@ -336,11 +332,9 @@ function TransactionDetail() {
                                     <Button onClick={() => setEditMode(true)}>
                                         Edit
                                     </Button>
-                                    {!transaction.arrActual || transaction.arrActual.length === 0 ? (
-                                        <Button variant="destructive" onClick={handleDelete}>
-                                            Delete
-                                        </Button>
-                                    ) : null}
+                                    <Button variant="destructive" onClick={handleDelete}>
+                                        Delete
+                                    </Button>
                                 </div>
                             </div>
                         ) : (
