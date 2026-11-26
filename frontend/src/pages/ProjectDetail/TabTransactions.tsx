@@ -6,7 +6,7 @@
 // - drag-and-drop utilities
 
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { toast } from "react-hot-toast";
 import { DndContext, DragEndEvent } from "@dnd-kit/core";
@@ -19,7 +19,7 @@ import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableRow, TableHead, TableHeader } from "@/components/ui/table";
 import { transactionApi, actualApi, api } from "@/services/api";
 import { Transaction } from "./useTransactions";
-import { EditTransactionForm, TransactionForm } from "./types";
+import { TransactionForm } from "./types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { formatNumber, parseTags } from "@/utils/formatters";
@@ -67,6 +67,8 @@ function TransactionSortableRow({ id, children, disabled }: { id: string; childr
 // =============================================================================
 // MAIN COMPONENT: TabTransactions
 export function TabTransactions({ projectId }: TabTransactionsProps) {
+    const navigate = useNavigate();
+    
     // Core data state: transactions
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [actualsByTransaction, setActualsByTransaction] = useState<{[transactionId: string]: {id: string, name: string, amount: number, exDate: Date, projectName: string, projectId: string}[]}>({});
@@ -74,7 +76,6 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
 
     // Dialog open/close state management for various operations
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
     // Form state for creating and editing transactions
@@ -86,18 +87,7 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
         active: true,
     });
 
-    const [editTransactionForm, setEditTransactionForm] = useState<EditTransactionForm>({
-        id: '',
-        name: '',
-        type: 'expense' as 'income' | 'expense',
-        amount: 0,
-        tags: '',
-        active: true,
-        exDate: new Date(),
-        assignedTo: '',
-        updatedAt: new Date(),
-        updatedBy: ''
-    });
+    
 
     // UI state for UI interactions: selected transactions, delete confirmations
     const [selectedTransactionIds, setSelectedTransactionIds] = useState<Set<string>>(new Set<string>());
@@ -157,8 +147,7 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
 // FORM RESET HELPERS
 // =============================================================================
 
-    // Reset edit transaction form to default empty state
-    const resetTransactionForm = () => setEditTransactionForm({ id: '', name: '', type: 'expense', amount: 0, tags: '', active: true, exDate: new Date(), assignedTo: '', updatedAt: new Date(), updatedBy: '' });
+    
 
     // =============================================================================
 // SINGLE TRANSACTION OPERATIONS
@@ -199,17 +188,6 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
                     });
                 }
             });
-
-            // DEBUG: Log transaction and actual counts
-            console.group('TabTransactions Load Summary');
-            console.log('Transactions loaded:', sortedTransactions.length);
-            console.log('Transactions with actuals:', Object.keys(actualsMap).length);
-            console.log('Total actuals across all transactions:', actualsData.length);
-            Object.entries(actualsMap).forEach(([txnId, actuals]) => {
-                console.log(`Transaction ${txnId}: ${actuals.length} actual(s)`, actuals);
-            });
-            console.groupEnd();
-            // END DEBUG
 
             setActualsByTransaction(actualsMap);
         } catch (error: any) {
@@ -254,41 +232,7 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
     };
 
     const openEditTransaction = (transaction: Transaction) => {
-        setEditTransactionForm({
-            id: transaction.id,
-            name: transaction.name,
-            type: transaction.type,
-            amount: transaction.amount,
-            tags: transaction.tags.join(', '),
-            active: transaction.active,
-            exDate: transaction.exDate ? new Date(transaction.exDate) : new Date(),
-            assignedTo: transaction.assignedTo || '',
-            updatedAt: transaction.updatedAt ? new Date(transaction.updatedAt) : new Date(),
-            updatedBy: transaction.updatedBy || ''
-        });
-        setIsEditDialogOpen(true);
-    };
-
-    const handleEditTransaction = async () => {
-        try {
-            await transactionApi.update(editTransactionForm.id, {
-                name: editTransactionForm.name.trim(),
-                type: editTransactionForm.type,
-                amount: editTransactionForm.amount,
-                tags: editTransactionForm.tags
-                    .split(/\s*,\s*/)
-                    .map(t => t.trim())
-                    .filter(t => t.length > 0),
-                active: editTransactionForm.active
-            });
-            toast.success("Transaction updated successfully");
-            await loadData();
-        } catch (error: any) {
-            const errorMessage = error?.response?.data?.error || "Failed to update transaction";
-            toast.error(errorMessage);
-        }
-        setIsEditDialogOpen(false);
-        resetTransactionForm();
+        navigate(`/transactions/${transaction.id}`);
     };
 
     // =============================================================================
@@ -400,19 +344,6 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
                     </TableHeader>
                     <SortableContext items={transactions.map((t) => t.id)} strategy={verticalListSortingStrategy}>
                         <TableBody>
-                            {/* DEBUG: Count rows before rendering */}
-                            {(() => {
-                                const totalRows = transactions.reduce((acc, transaction) => {
-                                    const transactionActuals = actualsByTransaction[transaction.id] || [];
-                                    return acc + (transactionActuals.length === 0 ? 1 : transactionActuals.length);
-                                }, 0);
-                                console.log('TabTransactions: Total rows to render =', totalRows);
-                                transactions.forEach((t) => {
-                                    const txnActuals = actualsByTransaction[t.id] || [];
-                                    console.log(`  Row ${t.id}: ${txnActuals.length === 0 ? 1 : txnActuals.length} row(s) (${txnActuals.length} actuals)`);
-                                });
-                                return null;
-                            })()}
                             {transactions.flatMap((transaction) => {
                                 const transactionActuals = actualsByTransaction[transaction.id] || [];
                                 if (transactionActuals.length === 0) {
@@ -440,7 +371,6 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
         const isDraggable = index === 0; // Only first row is draggable when actuals exist
         const rowKey = actual ? `${transaction.id}-${actual.id}` : transaction.id;
         const hasActuals = transactionActuals.length > 0;
-        console.log(`renderTransactionRow: txn=${transaction.id}, actual=${actual?.id || 'null'}, rowKey=${rowKey}, index=${index}, hasActuals=${hasActuals}`);
 
         if (!hasActuals) {
             return (
@@ -489,7 +419,7 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
                     <TableCell className="w-[12%] px-2 text-center border-b border-gray-200 hover:bg-muted">
                         <div className="flex items-center justify-center gap-1">
                             <TypeBadge type={transaction.type} />
-                            <DoneBadge done={transaction.active} />
+                            <DoneBadge done={transaction.done} />
                         </div>
                     </TableCell>
                     <TableCell className="w-[12.5%] text-right border-b border-gray-200 hover:bg-muted">
@@ -557,7 +487,7 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
                 <TableCell rowSpan={transactionActuals.length} className="w-[12%] px-2 text-center border-b border-gray-200 hover:bg-muted">
                     <div className="flex items-center justify-center gap-1">
                         <TypeBadge type={transaction.type} />
-                        <DoneBadge done={transaction.active} />
+                        <DoneBadge done={transaction.done} />
                     </div>
                 </TableCell>
                 <TableCell rowSpan={transactionActuals.length} className="w-[9%] text-right border-b border-gray-200 hover:bg-muted">
@@ -654,11 +584,11 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
                         <div className="flex gap-2">
                             {transactions.length > 0 && Array.from(selectedTransactionIds).some(id => transactions.some(t => t.id === id)) && (
                                 <DropdownMenu>
-                                    <DropdownMenuTrigger render={<Button size="sm" type="button" className="h-8 px-3" onClick={(e) => {
+                                    <DropdownMenuTrigger render={<span className="inline-flex items-center justify-center rounded-lg border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground h-8" onClick={(e) => {
                                         e.stopPropagation();
                                     }}>
                                         {Array.from(selectedTransactionIds).filter(id => transactions.some(t => t.id === id)).length} selected
-                                    </Button>}>
+                                    </span>}>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
                                         <>
@@ -774,111 +704,6 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
                             </Button>
                             <Button onClick={handleAddTransaction}>
                                 Create Transaction
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Edit Transaction Dialog */}
-            {isEditDialogOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                    <div className="bg-background rounded-lg shadow-lg w-[500px] max-h-[90vh] flex flex-col">
-                        <div className="p-4 border-b">
-                            <h3 className="text-lg font-semibold">Edit Transaction</h3>
-                            <p className="text-sm text-muted-foreground">Modify transaction details</p>
-                        </div>
-                        
-                        <div className="flex-1 overflow-auto p-4 space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Name *</label>
-                                <input
-                                    type="text"
-                                    value={editTransactionForm.name}
-                                    onChange={(e) => setEditTransactionForm({ ...editTransactionForm, name: e.target.value })}
-                                    placeholder="Transaction name"
-                                    className="w-full px-3 py-2 border border-input bg-background rounded-md"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Type *</label>
-                                <div className="flex gap-2">
-                                    <Button
-                                        type="button"
-                                        variant={editTransactionForm.type === 'income' ? 'default' : 'outline'}
-                                        onClick={() => setEditTransactionForm({ ...editTransactionForm, type: 'income' })}
-                                        className="flex-1"
-                                    >
-                                        Income
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant={editTransactionForm.type === 'expense' ? 'default' : 'outline'}
-                                        onClick={() => setEditTransactionForm({ ...editTransactionForm, type: 'expense' })}
-                                        className="flex-1"
-                                    >
-                                        Expense
-                                    </Button>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Amount *</label>
-                                <input
-                                    type="number"
-                                    value={editTransactionForm.amount || ''}
-                                    onChange={(e) => setEditTransactionForm({ ...editTransactionForm, amount: parseFloat(e.target.value) || 0 })}
-                                    placeholder="0.00"
-                                    className="w-full px-3 py-2 border border-input bg-background rounded-md"
-                                    min="0"
-                                    step="0.01"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Tags</label>
-                                <input
-                                    type="text"
-                                    value={editTransactionForm.tags}
-                                    onChange={(e) => setEditTransactionForm({ ...editTransactionForm, tags: e.target.value })}
-                                    placeholder="comma,separated,tags"
-                                    className="w-full px-3 py-2 border border-input bg-background rounded-md"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Assigned To</label>
-                                <input
-                                    type="text"
-                                    value={editTransactionForm.assignedTo}
-                                    onChange={(e) => setEditTransactionForm({ ...editTransactionForm, assignedTo: e.target.value })}
-                                    placeholder="User ID"
-                                    className="w-full px-3 py-2 border border-input bg-background rounded-md"
-                                />
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                                <input
-                                    type="checkbox"
-                                    id="active"
-                                    checked={editTransactionForm.active}
-                                    onChange={(e) => setEditTransactionForm({ ...editTransactionForm, active: e.target.checked })}
-                                    className="h-4 w-4 accent-primary"
-                                />
-                                <label htmlFor="active" className="text-sm font-medium">Active</label>
-                            </div>
-                        </div>
-                        
-                        <div className="p-4 border-t flex justify-end gap-2">
-                            <Button
-                                variant="outline"
-                                onClick={() => setIsEditDialogOpen(false)}
-                            >
-                                Cancel
-                            </Button>
-                            <Button onClick={handleEditTransaction}>
-                                Save Changes
                             </Button>
                         </div>
                     </div>

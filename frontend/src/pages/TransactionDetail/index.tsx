@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { transactionApi, actualApi, api } from "@/services/api";
+import { transactionApi, actualApi, userApi, api } from "@/services/api";
 import { Transaction } from "../ProjectDetail/useTransactions";
 import { formatNumber, getTypeLabel } from "@/utils/formatters";
 import { formatDate, formatDateTime } from "@/utils/dateFormatters";
@@ -8,18 +8,35 @@ import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
-export function TransactionDetail() {
+interface User {
+    id: string;
+    name: string;
+    email: string;
+}
+
+const filterUsers = (users: User[], searchTerm: string): User[] => {
+    if (!users || users.length === 0) return [];
+    return users.filter(user =>
+        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+};
+
+function TransactionDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
     const [transaction, setTransaction] = useState<Transaction | null>(null);
-    const [users, setUsers] = useState<{id: string, name: string}[]>([]);
+    const [users, setUsers] = useState<User[]>([]);
     const [actuals, setActuals] = useState<{id: string, name: string, project: string}[]>([]);
     const [loading, setLoading] = useState(true);
     const [editMode, setEditMode] = useState(false);
     const [editForm, setEditForm] = useState<Partial<Transaction>>({});
+    const [isAssignToModalOpen, setIsAssignToModalOpen] = useState(false);
+    const [assignToSearchTerm, setAssignToSearchTerm] = useState("");
+    const [selectedAssignToUser, setSelectedAssignToUser] = useState("");
 
     useEffect(() => {
         if (id) {
@@ -97,6 +114,25 @@ export function TransactionDetail() {
         }
     };
 
+    const handleOpenAssignToModal = () => {
+        setSelectedAssignToUser(editForm.assignedTo || "");
+        setAssignToSearchTerm("");
+        setIsAssignToModalOpen(true);
+    };
+
+    const handleAssignToUserSelect = (userId: string) => {
+        setSelectedAssignToUser(userId);
+    };
+
+    const handleAssignToUserSave = () => {
+        setEditForm({ ...editForm, assignedTo: selectedAssignToUser });
+        setIsAssignToModalOpen(false);
+        setAssignToSearchTerm("");
+        setSelectedAssignToUser("");
+    };
+
+    const filteredUsers = filterUsers(users, assignToSearchTerm);
+
     const handleSave = async () => {
         if (!id || !editForm.name) {
             toast.error("Transaction name is required");
@@ -110,7 +146,7 @@ export function TransactionDetail() {
                 type: editForm.type,
                 amount: editForm.amount,
                 tags: editForm.tags || [],
-                active: editForm.active !== undefined ? editForm.active : true,
+                done: editForm.done,
                 exDate: editForm.exDate,
                 assignedTo: editForm.assignedTo,
             };
@@ -173,8 +209,21 @@ export function TransactionDetail() {
             <div className="max-w-4xl mx-auto">
                 <div className="mb-6">
                     <Button variant="outline" onClick={() => navigate(-1)}>
-                        Back
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevrons-left">
+                            <path d="m11 17-5-5 5-5"/>
+                            <path d="m18 17-5-5 5-5"/>
+                        </svg>
                     </Button>
+                </div>
+
+                <div className="mb-4">
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                        transaction.done 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                    }`}>
+                        done: {transaction.done ? 'true' : 'false'}
+                    </span>
                 </div>
 
                 <Card>
@@ -238,17 +287,6 @@ export function TransactionDetail() {
                                     </div>
                                 )}
                                 
-                                <div className="flex items-center gap-2 pt-2">
-                                    <span className="text-xs text-muted-foreground">Active:</span>
-                                    <span className={`text-xs px-2 py-0.5 rounded ${
-                                        transaction.active 
-                                            ? 'bg-green-100 text-green-700' 
-                                            : 'bg-gray-100 text-gray-600'
-                                    }`}>
-                                        {transaction.active ? "Yes" : "No"}
-                                    </span>
-                                </div>
-                                
                                 {transaction.arrActual && transaction.arrActual.length > 0 && (
                                     <div className="space-y-2">
                                         <div className="pt-4 border-t">
@@ -307,6 +345,17 @@ export function TransactionDetail() {
                             </div>
                         ) : (
                             <div className="space-y-4">
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        id="done"
+                                        checked={editForm.done || false}
+                                        onChange={(e) => setEditForm({ ...editForm, done: e.target.checked })}
+                                        className="h-4 w-4 accent-primary"
+                                    />
+                                    <Label htmlFor="done">Done</Label>
+                                </div>
+                                
                                 <div>
                                     <Label>Name *</Label>
                                     <Input
@@ -357,19 +406,8 @@ export function TransactionDetail() {
                                             tags: e.target.value.split(/\s*,\s*/).map(t => t.trim()).filter(t => t !== '') 
                                         })}
                                         className="mt-1"
-                                        placeholder="comma,separated,tags"
+                                        placeholder="tag1, tag2"
                                     />
-                                </div>
-                                
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        type="checkbox"
-                                        id="active"
-                                        checked={editForm.active !== false}
-                                        onChange={(e) => setEditForm({ ...editForm, active: e.target.checked })}
-                                        className="h-4 w-4 accent-primary"
-                                    />
-                                    <Label htmlFor="active">Active</Label>
                                 </div>
                                 
                                 <div>
@@ -384,22 +422,20 @@ export function TransactionDetail() {
                                 
                                 <div>
                                     <Label>Assigned to</Label>
-                                    <Select
-                                        value={editForm.assignedTo || ''}
-                                        onValueChange={(value) => setEditForm({ ...editForm, assignedTo: value })}
-                                    >
-                                        <SelectTrigger className="mt-1">
-                                            <SelectValue placeholder="Select user (empty for unassigned)" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="">Unassigned</SelectItem>
-                                            {users.map(user => (
-                                                <SelectItem key={user.id} value={user.id}>
-                                                    {user.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <div className="flex gap-2 mt-1">
+                                        <Input
+                                            value={editForm.assignedTo ? getUserById(editForm.assignedTo) : ""}
+                                            readOnly
+                                            className="flex-1"
+                                            placeholder="Click search button to select"
+                                        />
+                                        <Button type="button" variant="outline" onClick={handleOpenAssignToModal} className="h-9 w-9 px-2">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-search">
+                                                <circle cx="11" cy="11" r="8" />
+                                                <path d="m21 21-4.3-4.3" />
+                                            </svg>
+                                        </Button>
+                                    </div>
                                 </div>
 
                                 <div className="pt-4 border-t flex gap-2">
@@ -414,9 +450,74 @@ export function TransactionDetail() {
                         )}
                     </CardContent>
                 </Card>
+
+                {/* Assign to User Modal */}
+                <Dialog open={isAssignToModalOpen} onOpenChange={setIsAssignToModalOpen}>
+                    <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+                        <DialogHeader>
+                            <DialogTitle>Assign to User</DialogTitle>
+                        </DialogHeader>
+                        
+                        <div className="flex-1 overflow-hidden flex flex-col">
+                            <div className="p-3 border-b">
+                                <Input
+                                    placeholder="Search users..."
+                                    value={assignToSearchTerm}
+                                    onChange={(e) => setAssignToSearchTerm(e.target.value)}
+                                    className="h-8"
+                                />
+                            </div>
+                            
+                            <div className="flex-1 overflow-auto p-2 space-y-1">
+                                {users.length === 0 ? (
+                                    <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
+                                        Loading users...
+                                    </div>
+                                ) : (
+                                    filteredUsers.map(user => (
+                                        <div
+                                            key={user.id}
+                                            onClick={() => handleAssignToUserSelect(user.id)}
+                                            className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-accent ${selectedAssignToUser === user.id ? 'bg-accent' : ''}`}
+                                        >
+                                            <div className={`w-4 h-4 border rounded flex items-center justify-center ${selectedAssignToUser === user.id ? 'border-primary bg-primary text-primary-foreground' : 'border-input'}`}>
+                                                {selectedAssignToUser === user.id && (
+                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                )}
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="font-medium text-sm">{user.name}</div>
+                                                <div className="text-xs text-muted-foreground">{user.email}</div>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                        
+                        <DialogFooter>
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setIsAssignToModalOpen(false);
+                                    setAssignToSearchTerm("");
+                                    setSelectedAssignToUser(editForm.assignedTo || "");
+                                }}
+                            >
+                                Cancel
+                            </Button>
+                            <Button onClick={handleAssignToUserSave} disabled={!selectedAssignToUser}>
+                                Select User
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
         </div>
     );
 }
 
+export { TransactionDetail };
 export default TransactionDetail;

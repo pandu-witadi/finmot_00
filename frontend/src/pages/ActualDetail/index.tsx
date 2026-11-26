@@ -113,6 +113,7 @@ function ActualDetail() {
                 exDate: editForm.exDate,
                 tags: editForm.tags || [],
                 assignedTo: editForm.assignedTo,
+                done: editForm.done,
             };
             
             const res = await actualApi.update(id, updateData);
@@ -173,8 +174,21 @@ function ActualDetail() {
             <div className="max-w-4xl mx-auto">
                 <div className="mb-6">
                     <Button variant="outline" onClick={() => navigate(-1)}>
-                        Back
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevrons-left">
+                            <path d="m11 17-5-5 5-5"/>
+                            <path d="m18 17-5-5 5-5"/>
+                        </svg>
                     </Button>
+                </div>
+
+                <div className="mb-4">
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                        actual.done 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                    }`}>
+                        done: {actual.done ? 'true' : 'false'}
+                    </span>
                 </div>
 
                 <Card>
@@ -279,6 +293,17 @@ function ActualDetail() {
                             </div>
                         ) : (
                             <div className="space-y-4">
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        id="done"
+                                        checked={editForm.done || false}
+                                        onChange={(e) => setEditForm({ ...editForm, done: e.target.checked })}
+                                        className="h-4 w-4 accent-primary"
+                                    />
+                                    <Label htmlFor="done">Done</Label>
+                                </div>
+                                
                                 <div>
                                     <Label>Name *</Label>
                                     <Input

@@ -25,7 +25,7 @@ export function ProjectHeader({ onAddProject, onDeleteSelected, selectedProjects
             <div className="flex items-center gap-2">
                 {/* Projects Dropdown */}
                 <DropdownMenu>
-                    <DropdownMenuTrigger render={<Button variant="outline" className="h-8 px-3"><span>Projects</span></Button>}>
+                    <DropdownMenuTrigger render={<span className="inline-flex items-center justify-center rounded-lg border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground h-8">Projects</span>}>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="w-48">
                         <DropdownMenuGroup>
@@ -63,7 +63,7 @@ export function ProjectHeader({ onAddProject, onDeleteSelected, selectedProjects
             <div className="flex items-center gap-2 ml-auto">
                 {/* Filter by Type */}
                 <DropdownMenu>
-                    <DropdownMenuTrigger render={<Button variant="outline" className="h-8 px-3"><span>Filter by Type</span></Button>}>
+                    <DropdownMenuTrigger render={<span className="inline-flex items-center justify-center rounded-lg border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground h-8">Filter by Type</span>}>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
                         <DropdownMenuGroup>

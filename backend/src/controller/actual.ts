@@ -20,6 +20,7 @@ export interface ActualResponse {
     updatedAt: Date;
     updatedBy: string;
     createdAt: Date;
+    done: boolean;
 }
 
 export interface CreateActualRequest {
@@ -89,6 +90,7 @@ function actualToResponse(actual: any): ActualResponse {
         updatedAt: actual.updatedAt,
         updatedBy: actual.updatedBy.toString(),
         createdAt: actual.createdAt,
+        done: actual.done ?? false,
     };
 }
 

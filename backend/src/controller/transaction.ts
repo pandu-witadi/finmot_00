@@ -18,6 +18,7 @@ export interface TransactionResponse {
     updatedBy: string;
     createdAt: Date;
     updatedAt: Date;
+    done: boolean;
 }
 
 export interface CreateTransactionRequest {
@@ -37,7 +38,6 @@ export interface CreateTransactionRequest {
 export interface UpdateTransactionRequest {
     name?: string;
     tags?: string[];
-    active?: boolean;
     note?: string;
     type?: 'income' | 'expense';
     amount?: number;
@@ -47,6 +47,7 @@ export interface UpdateTransactionRequest {
     assignedTo?: string;
     position?: number;
     updatedBy?: string;
+    done?: boolean;
 }
 
 export interface TransactionFilter {
@@ -85,6 +86,7 @@ function transactionToResponse(transaction: any): TransactionResponse {
         updatedBy: transaction.updatedBy.toString(),
         createdAt: transaction.createdAt,
         updatedAt: transaction.updatedAt || transaction.createdAt,
+        done: transaction.done ?? false,
     };
 }
 
@@ -176,10 +178,6 @@ export async function updateTransaction(id: string, body: UpdateTransactionReque
         updateFields.tags = body.tags;
     }
 
-    if (body.active !== undefined) {
-        updateFields.active = body.active;
-    }
-
     if (body.type !== undefined) {
         updateFields.type = body.type;
     }
@@ -212,6 +210,14 @@ export async function updateTransaction(id: string, body: UpdateTransactionReque
         updateFields.updatedBy = new mongoose.Types.ObjectId(body.updatedBy);
     }
 
+    if (body.done !== undefined) {
+        updateFields.done = body.done;
+    }
+
+    // Check if done field is being updated
+    const isDoneUpdated = body.done !== undefined;
+    const newDoneValue = body.done;
+
     const transaction = await Transaction.findByIdAndUpdate(
         id,
         { $set: updateFields },
@@ -220,6 +226,14 @@ export async function updateTransaction(id: string, body: UpdateTransactionReque
 
     if (!transaction) {
         return null;
+    }
+
+    // If done field was updated, propagate to connected actuals
+    if (isDoneUpdated && transaction.arrActual && transaction.arrActual.length > 0) {
+        await Actual.updateMany(
+            { _id: { $in: transaction.arrActual } },
+            { $set: { done: newDoneValue } }
+        );
     }
 
     return transactionToResponse(transaction);
@@ -231,10 +245,10 @@ export async function deleteTransaction(id: string): Promise<{ success: boolean;
         return { success: false, error: 'Transaction not found' };
     }
 
-    // Step 1: Set transaction field to null on all actuals referencing this transaction
+    // Step 1: Set transaction field to null and done to false on all actuals referencing this transaction
     await Actual.updateMany(
         { transaction: transaction._id },
-        { $set: { transaction: null } }
+        { $set: { transaction: null, done: false } }
     );
 
     // Step 2: Remove transaction ID from project's arrTransaction

@@ -925,11 +925,11 @@ export function TabBudgets({ projectId }: TabBudgetsProps) {
                                     return (
                                         <DropdownMenu>
                                             <DropdownMenuTrigger render={
-                                                <Button size="sm" type="button" className="h-8 px-3" onClick={(e) => {
+                                                <span className="inline-flex items-center justify-center rounded-lg border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground h-8" onClick={(e) => {
                                                     e.stopPropagation();
                                                 }}>
                                                     {selectedCount} selected
-                                                </Button>
+                                                </span>
                                             }>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
