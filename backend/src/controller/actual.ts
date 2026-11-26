@@ -129,6 +129,10 @@ export async function getAllActuals(query?: GetActualsQuery): Promise<ActualResp
             mongoQuery.tags = { $in: filter.tags };
         }
 
+        if (filter.transaction !== undefined) {
+            mongoQuery.transaction = new mongoose.Types.ObjectId(filter.transaction);
+        }
+
         if (filter.search) {
             const searchRegex = new RegExp(filter.search, 'i');
             mongoQuery.$or = [

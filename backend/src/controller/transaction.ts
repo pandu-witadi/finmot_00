@@ -162,10 +162,23 @@ export async function createTransaction(body: CreateTransactionRequest): Promise
         updatedBy: new mongoose.Types.ObjectId(body.updatedBy || "000000000000000000000000"),
     });
     await transaction.save();
+
+    // Set transaction field on linked actuals
+    if (transaction.arrActual && transaction.arrActual.length > 0) {
+        await Actual.updateMany(
+            { _id: { $in: transaction.arrActual } },
+            { $set: { transaction: transaction._id } }
+        );
+    }
+
     return transactionToResponse(transaction);
 }
 
 export async function updateTransaction(id: string, body: UpdateTransactionRequest): Promise<TransactionResponse | null> {
+    // Step 1: Get the current transaction to know which actuals were previously linked
+    const currentTransaction = await Transaction.findById(id);
+    const prevActualIds = currentTransaction?.arrActual.map((id: any) => new mongoose.Types.ObjectId(id)) || [];
+
     const updateFields: any = {
         updatedAt: new Date()
     };
@@ -190,8 +203,10 @@ export async function updateTransaction(id: string, body: UpdateTransactionReque
         updateFields.project = new mongoose.Types.ObjectId(body.project);
     }
 
+    let newActualIds: mongoose.Types.ObjectId[] = prevActualIds;
     if (body.arrActual !== undefined) {
-        updateFields.arrActual = body.arrActual.map((id: any) => new mongoose.Types.ObjectId(id));
+        newActualIds = body.arrActual.map((id: any) => new mongoose.Types.ObjectId(id));
+        updateFields.arrActual = newActualIds;
     }
 
     if (body.exDate !== undefined) {
@@ -226,6 +241,23 @@ export async function updateTransaction(id: string, body: UpdateTransactionReque
 
     if (!transaction) {
         return null;
+    }
+
+    // Step 2: Remove transaction reference from actuals that are no longer linked
+    const idsToRemove = prevActualIds.filter((id: any) => !newActualIds.includes(id));
+    if (idsToRemove.length > 0) {
+        await Actual.updateMany(
+            { _id: { $in: idsToRemove } },
+            { $set: { transaction: null } }
+        );
+    }
+
+    // Step 3: Add transaction reference to new actuals that are now linked
+    if (newActualIds.length > 0) {
+        await Actual.updateMany(
+            { _id: { $in: newActualIds } },
+            { $set: { transaction: transaction._id } }
+        );
     }
 
     // If done field was updated, propagate to connected actuals

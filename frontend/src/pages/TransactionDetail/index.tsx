@@ -33,7 +33,7 @@ function TransactionDetail() {
     const navigate = useNavigate();
     const [transaction, setTransaction] = useState<Transaction | null>(null);
     const [users, setUsers] = useState<User[]>([]);
-    const [actuals, setActuals] = useState<{id: string, name: string, project: string}[]>([]);
+    const [actuals, setActuals] = useState<{id: string, name: string, project: string, amount: number}[]>([]);
     const [loading, setLoading] = useState(true);
     const [editMode, setEditMode] = useState(false);
     const [editForm, setEditForm] = useState<Partial<Transaction>>({});
@@ -45,9 +45,14 @@ function TransactionDetail() {
         if (id) {
             loadTransaction();
             loadUsers();
-            loadActuals();
         }
     }, [id]);
+
+    useEffect(() => {
+        if (id && transaction) {
+            loadActuals();
+        }
+    }, [transaction]);
 
     const loadTransaction = async () => {
         if (!id) return;
@@ -80,36 +85,19 @@ function TransactionDetail() {
     const loadActuals = async () => {
         if (!transaction) return;
         
-        const actualIds = transaction.arrActual || [];
-        if (actualIds.length === 0) {
-            setActuals([]);
-            return;
-        }
-        
         try {
-            const res = await api.get('/actual');
-            const allActuals = Array.isArray(res.data) ? res.data : [];
-            
-            const actualsMap: {[id: string]: any} = {};
-            allActuals.forEach((a: any) => {
-                const id = a.id || a._id;
-                const idStr = String(id);
-                if (idStr) {
-                    actualsMap[idStr] = a;
+            const res = await api.get('/actual', {
+                params: {
+                    filter: JSON.stringify({ transaction: transaction.id })
                 }
             });
+            const allActuals = Array.isArray(res.data) ? res.data : [];
             
-            const connectedActuals = [];
-            for (const actualId of actualIds) {
-                const idStr = String(actualId);
-                const found = actualsMap[idStr];
-                if (found) connectedActuals.push(found);
-            }
-            
-            setActuals(connectedActuals.map(a => ({
+            setActuals(allActuals.map(a => ({
                 id: a.id || a._id || '',
                 name: a.name || '',
-                project: a.project || ''
+                project: a.project || '',
+                amount: a.amount || 0
             })));
         } catch (error: any) {
             console.error("Failed to load actuals:", error);
@@ -282,24 +270,20 @@ function TransactionDetail() {
                                 )}
                                 
                                 {transaction.arrActual && transaction.arrActual.length > 0 && (
-                                    <div className="space-y-2">
-                                        <div className="pt-4 border-t">
-                                            <Label className="text-sm font-medium">Connected actuals</Label>
-                                            <div className="mt-2 space-y-2">
-                                                {actuals.map((actual, idx) => (
-                                                    <div key={actual.id} className="text-sm border rounded-lg p-3 bg-muted/30">
-                                                        <div className="flex items-center justify-between">
-                                                            <span className="font-medium">{idx + 1}. {actual.name}</span>
-                                                            {actual.project && (
-                                                                <span className="text-xs text-muted-foreground">
-                                                                    Project: {actual.project}
-                                                                </span>
-                                                            )}
-                                                        </div>
+                                    <div className="pt-4 border-t space-y-2">
+                                        <Label className="text-xs text-muted-foreground">Connected actuals</Label>
+                                        <div className="mt-2 space-y-2">
+                                            {actuals.map((actual) => (
+                                                <div key={actual.id} className="text-sm border rounded-lg p-3 bg-muted/30">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="font-medium">{actual.name}</span>
+                                                        <span className="text-sm text-muted-foreground">
+                                                            {formatNumber(actual.amount)}
+                                                        </span>
                                                     </div>
-                                                ))}
-                                            </div>
-                                            </div>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 )}
                                 
