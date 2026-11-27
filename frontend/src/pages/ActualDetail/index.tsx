@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { actualApi, userApi, budgetApi } from "@/services/api";
+import { useNavigate, useParams, Link } from "react-router-dom";
+import { actualApi, userApi, budgetApi, api } from "@/services/api";
 import { formatNumber, getTypeLabel } from "@/utils/formatters";
 import { formatDate, formatDateTime } from "@/utils/dateFormatters";
 import { toast } from "react-hot-toast";
@@ -11,6 +11,7 @@ import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DoneBadge } from "@/pages/ProjectDetail/components/DoneBadge";
 import { Switch } from "@/components/ui/switch";
+import { TypeBadge } from "@/pages/ProjectDetail/components/TypeBadge";
 
 interface User {
     id: string;
@@ -31,6 +32,7 @@ function ActualDetail() {
     const navigate = useNavigate();
     const [actual, setActual] = useState<any>(null);
     const [budget, setBudget] = useState<any>(null);
+    const [transaction, setTransaction] = useState<any>(null);
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [editMode, setEditMode] = useState(false);
@@ -38,6 +40,7 @@ function ActualDetail() {
     const [isAssignToModalOpen, setIsAssignToModalOpen] = useState(false);
     const [assignToSearchTerm, setAssignToSearchTerm] = useState("");
     const [selectedAssignToUser, setSelectedAssignToUser] = useState<string>("");
+    const [selectedTransaction, setSelectedTransaction] = useState<string>("");
 
     useEffect(() => {
         if (id) {
@@ -50,16 +53,28 @@ function ActualDetail() {
         if (!id) return;
         setLoading(true);
         try {
-            const [actualRes, budgetRes] = await Promise.all([
+            const [actualRes, budgetRes, transactionRes, projectsRes] = await Promise.all([
                 actualApi.getById(id),
                 actualApi.getById(id).then(res => {
                     // Get budget info from the actual
                     return budgetApi.getById(res.data.budget);
-                }).catch(() => null)
+                }).catch(() => null),
+                api.get('/transaction', { params: { filter: JSON.stringify({ actual: id }) } }),
+                api.get('/project')
             ]);
             const data = actualRes.data;
             setActual(data);
             setBudget(budgetRes?.data || null);
+            const projectsMap = new Map(projectsRes.data.map((p: any) => [String(p.id), p.name]));
+            const transactions = Array.isArray(transactionRes.data) ? transactionRes.data : [];
+            if (transactions.length > 0) {
+                setTransaction({
+                    ...transactions[0],
+                    projectName: projectsMap.get(String(transactions[0].project)) || 'Unknown'
+                });
+            } else {
+                setTransaction(null);
+            }
             setEditForm(data);
             setLoading(false);
         } catch (error: any) {
@@ -260,6 +275,22 @@ function ActualDetail() {
                                             {budget ? budget.name : '—'}
                                         </div>
                                     </div>
+                                    
+                                    {transaction && (
+                                        <div className="pt-4 border-t space-y-2">
+                                            <Label className="text-xs text-muted-foreground">Connected transaction</Label>
+                                            <div className="text-sm">
+                                                <Link to={`/transactions/${transaction.id}`} className="text-primary hover:underline font-medium">
+                                                    {transaction.name}
+                                                </Link>
+                                                <div className="text-xs text-muted-foreground mt-1">
+                                                    <Link to={`/projects/${transaction.project}`} className="text-muted-foreground hover:text-primary hover:underline">
+                                                        {transaction.projectName}
+                                                    </Link> • {getTypeLabel(transaction.type)} • {formatNumber(transaction.amount)}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                     
                                     <div className="pt-4 border-t space-y-2">
                                     <div className="flex items-center justify-between text-xs text-muted-foreground">

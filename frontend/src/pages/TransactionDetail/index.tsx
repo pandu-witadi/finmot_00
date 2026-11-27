@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Link } from "react-router-dom";
 import { transactionApi, actualApi, userApi, api } from "@/services/api";
 import { Transaction } from "../ProjectDetail/useTransactions";
 import { formatNumber, getTypeLabel } from "@/utils/formatters";
@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DoneBadge } from "@/pages/ProjectDetail/components/DoneBadge";
+import { TypeBadge } from "@/pages/ProjectDetail/components/TypeBadge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -18,6 +19,11 @@ interface User {
     id: string;
     name: string;
     email: string;
+}
+
+interface Project {
+    id: string;
+    name: string;
 }
 
 const filterUsers = (users: User[], searchTerm: string): User[] => {
@@ -33,7 +39,8 @@ function TransactionDetail() {
     const navigate = useNavigate();
     const [transaction, setTransaction] = useState<Transaction | null>(null);
     const [users, setUsers] = useState<User[]>([]);
-    const [actuals, setActuals] = useState<{id: string, name: string, project: string, amount: number}[]>([]);
+    const [actuals, setActuals] = useState<{id: string, name: string, project: string, projectId: string, projectName: string, type: 'income' | 'expense', amount: number}[]>([]);
+    const [selectedActuals, setSelectedActuals] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
     const [editMode, setEditMode] = useState(false);
     const [editForm, setEditForm] = useState<Partial<Transaction>>({});
@@ -86,17 +93,26 @@ function TransactionDetail() {
         if (!transaction) return;
         
         try {
-            const res = await api.get('/actual', {
-                params: {
-                    filter: JSON.stringify({ transaction: transaction.id })
-                }
-            });
-            const allActuals = Array.isArray(res.data) ? res.data : [];
+            const [actualsRes, projectsRes] = await Promise.all([
+                api.get('/actual', {
+                    params: {
+                        filter: JSON.stringify({ transaction: transaction.id })
+                    }
+                }),
+                api.get('/project')
+            ]);
+            
+            const allActuals = Array.isArray(actualsRes.data) ? actualsRes.data : [];
+            const allProjects = Array.isArray(projectsRes.data) ? projectsRes.data : [];
+            const projectsMap = new Map(allProjects.map((p: any) => [String(p.id), p.name]));
             
             setActuals(allActuals.map(a => ({
                 id: a.id || a._id || '',
                 name: a.name || '',
                 project: a.project || '',
+                projectId: a.project,
+                projectName: projectsMap.get(String(a.project)) || 'Unknown',
+                type: a.type || 'expense',
                 amount: a.amount || 0
             })));
         } catch (error: any) {
@@ -181,6 +197,26 @@ function TransactionDetail() {
         if (!userId || userId === "000000000000000000000000") return "—";
         const user = users.find(u => String(u.id) === String(userId));
         return user ? user.name : "Unknown";
+    };
+
+    const toggleSelectActual = (actualId: string) => {
+        setSelectedActuals(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(actualId)) {
+                newSet.delete(actualId);
+            } else {
+                newSet.add(actualId);
+            }
+            return newSet;
+        });
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedActuals.size === actuals.length) {
+            setSelectedActuals(new Set());
+        } else {
+            setSelectedActuals(new Set(actuals.map(a => a.id)));
+        }
     };
 
     if (loading) {
@@ -272,17 +308,65 @@ function TransactionDetail() {
                                 {transaction.arrActual && transaction.arrActual.length > 0 && (
                                     <div className="pt-4 border-t space-y-2">
                                         <Label className="text-xs text-muted-foreground">Connected actuals</Label>
-                                        <div className="mt-2 space-y-2">
-                                            {actuals.map((actual) => (
-                                                <div key={actual.id} className="text-sm border rounded-lg p-3 bg-muted/30">
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="font-medium">{actual.name}</span>
-                                                        <span className="text-sm text-muted-foreground">
-                                                            {formatNumber(actual.amount)}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            ))}
+                                        <div className="text-right text-sm font-medium">
+                                            {(() => {
+                                                const selectedAmounts = Array.from(selectedActuals)
+                                                    .map(id => actuals.find(a => a.id === id))
+                                                    .filter(a => a !== undefined) as typeof actuals;
+                                                const total = selectedAmounts.reduce((sum, a) => 
+                                                    a.type === 'income' ? sum + a.amount : sum - a.amount, 0);
+                                                return formatNumber(total);
+                                            })()}
+                                        </div>
+                                        <div className="border rounded-lg overflow-hidden">
+                                            <table className="w-full text-sm text-left">
+                                                <thead className="bg-muted/50 text-xs font-medium text-muted-foreground">
+                                                    <tr>
+                                                        <th className="px-2 py-2 border-b w-10">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedActuals.size > 0 && selectedActuals.size === actuals.length && actuals.length > 0}
+                                                                onChange={toggleSelectAll}
+                                                                className="rounded border-gray-300 text-primary focus:ring-primary"
+                                                            />
+                                                        </th>
+                                                        <th className="px-3 py-2 border-b">name</th>
+                                                        <th className="px-3 py-2 border-b">project</th>
+                                                        <th className="px-3 py-2 border-b text-center">type</th>
+                                                        <th className="px-3 py-2 border-b text-right">amount</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-border">
+                                                    {actuals.map((actual) => (
+                                                        <tr key={actual.id} className={`hover:bg-muted/30 ${selectedActuals.has(actual.id) ? 'bg-primary/5' : ''}`}>
+                                                            <td className="px-2 py-2">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={selectedActuals.has(actual.id)}
+                                                                    onChange={() => toggleSelectActual(actual.id)}
+                                                                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                                                                />
+                                                            </td>
+                                                            <td className="px-3 py-2 font-medium">
+                                                                <Link to={`/actuals/${actual.id}`} className="text-primary hover:underline">
+                                                                    {actual.name}
+                                                                </Link>
+                                                            </td>
+                                                            <td className="px-3 py-2 text-muted-foreground">
+                                                                <Link to={`/projects/${actual.projectId}`} className="text-muted-foreground hover:text-primary hover:underline">
+                                                                    {actual.projectName}
+                                                                </Link>
+                                                            </td>
+                                                            <td className="px-3 py-2 text-center">
+                                                                <TypeBadge type={actual.type} size="sm" />
+                                                            </td>
+                                                            <td className="px-3 py-2 text-right font-medium">
+                                                                {formatNumber(actual.amount)}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
                                         </div>
                                     </div>
                                 )}

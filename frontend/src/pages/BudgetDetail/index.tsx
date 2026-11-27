@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { budgetApi, actualApi, userApi, headerApi } from "@/services/api";
+import { useState, useEffect, useMemo } from "react";
+import { useNavigate, useParams, Link } from "react-router-dom";
+import { budgetApi, actualApi, userApi, api } from "@/services/api";
 import { formatNumber, getTypeLabel } from "@/utils/formatters";
 import { formatDateTime } from "@/utils/dateFormatters";
 import { toast } from "react-hot-toast";
@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { DoneBadge } from "@/pages/ProjectDetail/components/DoneBadge";
+import { TypeBadge } from "@/pages/ProjectDetail/components/TypeBadge";
 
 export function BudgetDetail() {
     const { id } = useParams();
@@ -18,9 +19,28 @@ export function BudgetDetail() {
     const [_header, setHeader] = useState<any>(null);
     const [users, setUsers] = useState<{id: string, name: string}[]>([]);
     const [actuals, setActuals] = useState<any[]>([]);
+    const [selectedActuals, setSelectedActuals] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
     const [editMode, setEditMode] = useState(false);
     const [editForm, setEditForm] = useState<Partial<any>>({});
+
+    const toggleSelectAll = () => {
+        if (selectedActuals.size === actuals.length && actuals.length > 0) {
+            setSelectedActuals(new Set());
+        } else {
+            setSelectedActuals(new Set(actuals.map(a => a.id)));
+        }
+    };
+
+    const toggleSelectActual = (id: string) => {
+        const newSet = new Set(selectedActuals);
+        if (newSet.has(id)) {
+            newSet.delete(id);
+        } else {
+            newSet.add(id);
+        }
+        setSelectedActuals(newSet);
+    };
 
     useEffect(() => {
         if (id) {
@@ -33,7 +53,7 @@ export function BudgetDetail() {
         if (!id) return;
         setLoading(true);
         try {
-            const [budgetRes, headerRes, actualsRes] = await Promise.all([
+            const [budgetRes, headerRes, actualsRes, projectsRes] = await Promise.all([
                 budgetApi.getById(id),
                 budgetApi.getById(id).then(res => {
                     return headerApi.getById(res.data.header);
@@ -43,12 +63,17 @@ export function BudgetDetail() {
                         const allActuals = projRes.data || [];
                         return { data: allActuals.filter((a: any) => a.budget === res.data.id) };
                     });
-                }).catch(() => ({ data: [] }))
+                }).catch(() => ({ data: [] })),
+                api.get('/project')
             ]);
             const data = budgetRes.data;
             setBudget(data);
             setHeader(headerRes?.data || null);
-            setActuals(actualsRes.data || []);
+            const projectsMap = new Map(projectsRes.data.map((p: any) => [String(p.id), p.name]));
+            setActuals(actualsRes.data?.map((a: any) => ({
+                ...a,
+                projectName: projectsMap.get(String(a.project)) || 'Unknown'
+            })) || []);
             setEditForm(data);
             setLoading(false);
         } catch (error: any) {
@@ -205,17 +230,57 @@ export function BudgetDetail() {
                                 {actuals && actuals.length > 0 && (
                                     <div className="pt-4 border-t space-y-2">
                                         <Label className="text-xs text-muted-foreground">Connected actuals</Label>
-                                        <div className="mt-2 space-y-2">
-                                            {actuals.map((actual: any) => (
-                                                <div key={actual.id} className="text-sm border rounded-lg p-3 bg-muted/30">
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="font-medium">{actual.name}</span>
-                                                        <span className="text-sm text-muted-foreground">
-                                                            {formatNumber(actual.amount)}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            ))}
+                                        <div className="text-right text-sm font-medium">
+                                            {(() => {
+                                                const selectedAmounts = actuals.filter(a => selectedActuals.has(a.id));
+                                                const total = selectedAmounts.reduce((sum, a) => 
+                                                    a.type === 'income' ? sum + a.amount : sum - a.amount, 0);
+                                                return formatNumber(total);
+                                            })()}
+                                        </div>
+                                        <div className="border rounded-lg overflow-hidden">
+                                            <table className="w-full text-sm text-left">
+                                                <thead className="bg-muted/50 text-xs font-medium text-muted-foreground">
+                                                    <tr>
+                                                        <th className="px-2 py-2 border-b w-10">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedActuals.size > 0 && selectedActuals.size === actuals.length && actuals.length > 0}
+                                                                onChange={toggleSelectAll}
+                                                                className="rounded border-gray-300 text-primary focus:ring-primary"
+                                                            />
+                                                        </th>
+                                                        <th className="px-3 py-2 border-b">name</th>
+                                                        <th className="px-3 py-2 border-b text-center">type</th>
+                                                        <th className="px-3 py-2 border-b text-right">amount</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-border">
+                                                    {actuals.map((actual) => (
+                                                        <tr key={actual.id} className={`hover:bg-muted/30 ${selectedActuals.has(actual.id) ? 'bg-primary/5' : ''}`}>
+                                                            <td className="px-2 py-2">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={selectedActuals.has(actual.id)}
+                                                                    onChange={() => toggleSelectActual(actual.id)}
+                                                                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                                                                />
+                                                            </td>
+                                                            <td className="px-3 py-2 font-medium">
+                                                                <Link to={`/actuals/${actual.id}`} className="text-primary hover:underline">
+                                                                    {actual.name}
+                                                                </Link>
+                                                            </td>
+                                                            <td className="px-3 py-2 text-center">
+                                                                <TypeBadge type={actual.type} size="sm" />
+                                                            </td>
+                                                            <td className="px-3 py-2 text-right font-medium">
+                                                                {formatNumber(actual.amount)}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
                                         </div>
                                     </div>
                                 )}
