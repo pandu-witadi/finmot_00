@@ -98,6 +98,7 @@ export interface Transaction {
     assignedTo: string | null;
     arrActual: string[];
     position: number;
+    done: boolean;
     updatedBy: string;
     createdAt: Date;
     updatedAt: Date;

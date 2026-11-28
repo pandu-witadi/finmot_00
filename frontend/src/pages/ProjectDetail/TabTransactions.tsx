@@ -16,11 +16,17 @@ import { CSS } from "@dnd-kit/utilities";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableRow, TableHead, TableHeader } from "@/components/ui/table";
-import { transactionApi, actualApi, api } from "@/services/api";
+import { transactionApi, actualApi, api, userApi } from "@/services/api";
 import { Transaction } from "./useTransactions";
 import { TransactionForm } from "./types";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { formatNumber, parseTags } from "@/utils/formatters";
 import { formatDate } from "@/utils/dateFormatters";
@@ -37,8 +43,9 @@ import { DoneBadge } from "./components/DoneBadge";
 // - Transaction drag-and-drop sorting
 // - Bulk transaction selection with batch operations (delete)
 // - Position persistence for transactions via API
-// - Filters: type, search by name/tags/assignedTo
-// - Date sorting
+// - Search by name, tags, exDate
+// - Filter by type (income/expense)
+// - Sort by date
 
 // Props interface for TabTransactions component
 // projectId: The ID of the project whose transactions are being managed
@@ -89,9 +96,17 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
 
     
 
-    // UI state for UI interactions: selected transactions, delete confirmations
+    // UI state for UI interactions: selected transactions, delete confirmations, user lookup
     const [selectedTransactionIds, setSelectedTransactionIds] = useState<Set<string>>(new Set<string>());
     const [transactionsToDelete, setTransactionsToDelete] = useState<string[]>([]);
+    const [allUsers, setAllUsers] = useState<{id: string, name: string, email: string}[]>([]);
+
+    // Filter and sort state
+    const [searchNameTerm, setSearchNameTerm] = useState("");
+    const [searchTagTerm, setSearchTagTerm] = useState("");
+    const [searchAssignedToTerm, setSearchAssignedToTerm] = useState("");
+    const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
+    const [sortByDate, setSortByDate] = useState<'none' | 'asc' | 'desc'>('none');
 
     // =============================================================================
     // BULK SELECTION HELPERS
@@ -155,13 +170,19 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
 
     const loadData = async () => {
         try {
-            const [transactionsRes, actualsRes, projectsRes] = await Promise.all([
+            const [transactionsRes, actualsRes, projectsRes, usersRes] = await Promise.all([
                 transactionApi.getAllByProject(projectId),
                 actualApi.getAll(),
-                api.get('/project')
+                api.get('/project'),
+                userApi.getAll()
             ]);
             
             const transactionsData = Array.isArray(transactionsRes.data) ? transactionsRes.data : [];
+            
+            // Load users for assignedTo name lookup
+            const allUsersData = Array.isArray(usersRes.data) ? usersRes.data : [];
+            setAllUsers(allUsersData);
+            
             const sortedTransactions = transactionsData.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
             setTransactions(sortedTransactions);
             
@@ -198,12 +219,79 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
         }
     };
 
+    // =============================================================================
+    // FILTERING AND SORTING
+    // =============================================================================
+
+    // Apply filters: search name/tags/assignedTo, type filter, and date sorting
+    const filteredTransactions = sortTransactionsByDate(
+        filterTransactionsByType(
+            filterTransactionsByNameTagAssignedToType(transactions, searchNameTerm, searchTagTerm, searchAssignedToTerm, filterType),
+            filterType
+        ),
+        sortByDate
+    );
+
     // Calculate total amount from selected transactions (income adds, expense subtracts)
     const totalAmount = Array.from(selectedTransactionIds).reduce((sum, transactionId) => {
-        const transaction = transactions.find(t => t.id === transactionId);
+        const transaction = filteredTransactions.find(t => t.id === transactionId);
         const sign = transaction?.type === 'income' ? 1 : -1;
         return sum + (transaction?.amount || 0) * sign;
     }, 0);
+
+    // =============================================================================
+    // FILTERING AND SORTING HELPERS
+    // =============================================================================
+
+    // Filter transactions by name, tags, assignedTo, and type
+    function filterTransactionsByNameTagAssignedToType(
+        transactions: Transaction[],
+        searchNameTerm: string,
+        searchTagTerm: string,
+        searchAssignedToTerm: string,
+        filterType: 'all' | 'income' | 'expense'
+    ): Transaction[] {
+        return transactions.filter(transaction => {
+            const nameMatch = searchNameTerm === '' || transaction.name.toLowerCase().includes(searchNameTerm.toLowerCase());
+            const tagMatch = searchTagTerm === '' || transaction.tags.some((tag: string) => tag.toLowerCase().includes(searchTagTerm.toLowerCase()));
+            const assignedToMatch = searchAssignedToTerm === '' || (transaction.assignedTo !== null && transaction.assignedTo.toLowerCase().includes(searchAssignedToTerm.toLowerCase()));
+            const typeMatch = filterType === 'all' || transaction.type === filterType;
+            return nameMatch && tagMatch && assignedToMatch && typeMatch;
+        });
+    }
+
+    // Get user name by ID, fallback to '—' if not found or null
+    function getAssignedToName(userId: string | null): string {
+        if (!userId) return '—';
+        const user = allUsers.find(u => String(u.id) === String(userId));
+        return user ? user.name : '—';
+    }
+
+    // Filter transactions by type (income/expense/all)
+    function filterTransactionsByType(
+        transactions: Transaction[],
+        filterType: 'all' | 'income' | 'expense'
+    ): Transaction[] {
+        if (filterType === 'all') {
+            return transactions;
+        }
+        return transactions.filter(transaction => transaction.type === filterType);
+    }
+
+    // Sort transactions by date
+    function sortTransactionsByDate(
+        transactions: Transaction[],
+        sortByDate: 'none' | 'asc' | 'desc'
+    ): Transaction[] {
+        if (sortByDate === 'none') {
+            return transactions;
+        }
+        return [...transactions].sort((a, b) => {
+            const dateA = new Date(a.exDate).getTime();
+            const dateB = new Date(b.exDate).getTime();
+            return sortByDate === 'asc' ? dateA - dateB : dateB - dateA;
+        });
+    }
 
     const handleAddTransaction = async () => {
         if (!transactionForm.name.trim()) {
@@ -325,10 +413,10 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
                                 <input
                                     type="checkbox"
                                     className="h-4 w-4 accent-primary"
-                                    checked={transactions.length > 0 && transactions.every(t => selectedTransactionIds.has(t.id))}
+                                    checked={filteredTransactions.length > 0 && filteredTransactions.every(t => selectedTransactionIds.has(t.id))}
                                     onPointerDown={(e) => {
                                         e.stopPropagation();
-                                        toggleSelectAllTransactions(transactions);
+                                        toggleSelectAllTransactions(filteredTransactions);
                                     }}
                                     onChange={() => {}}
                                 />
@@ -337,14 +425,16 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
                             <TableHead className="w-[18%] px-2 text-left border-b border-gray-200 bg-cyan-50 hover:bg-muted">Tags</TableHead>
                             <TableHead className="w-[12%] px-2 text-center border-b border-gray-200 bg-cyan-50 hover:bg-muted">stat</TableHead>
                             <TableHead className="text-right w-[9%] border-b border-gray-200 bg-cyan-50 hover:bg-muted">Amount</TableHead>
+                            <TableHead className="w-[6%] text-right border-b border-gray-200 bg-cyan-50 hover:bg-muted">exDate</TableHead>
+                            <TableHead className="w-[9%] text-left border-b border-gray-200 bg-cyan-50 hover:bg-muted">asgTo</TableHead>
                             <TableHead className="text-left w-[28%] border-l-2 border-border bg-cyan-50 hover:bg-muted">actName</TableHead>
                             <TableHead className="text-right w-[10%] bg-cyan-50 hover:bg-muted">actAmount</TableHead>
                             <TableHead className="text-left w-[11%] bg-cyan-50 hover:bg-muted">actDate</TableHead>
                         </TableRow>
                     </TableHeader>
-                    <SortableContext items={transactions.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                    <SortableContext items={filteredTransactions.map((t) => t.id)} strategy={verticalListSortingStrategy}>
                         <TableBody>
-                            {transactions.flatMap((transaction) => {
+                            {filteredTransactions.flatMap((transaction) => {
                                 const transactionActuals = actualsByTransaction[transaction.id] || [];
                                 if (transactionActuals.length === 0) {
                                     return renderTransactionRow(transaction, null, 0);
@@ -387,7 +477,7 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
                             onChange={() => {}}
                         />
                     </TableCell>
-                    <TableCell className="w-[45%] px-2 text-left border-b border-gray-200 hover:bg-muted">
+                    <TableCell className="w-[15%] px-2 text-left border-b border-gray-200 hover:bg-muted">
                         <div className="flex items-center gap-2">
                             <span
                                 className="cursor-pointer hover:underline font-medium"
@@ -403,7 +493,7 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
                             </span>
                         </div>
                     </TableCell>
-                    <TableCell className="w-[25%] px-2 text-left border-b border-gray-200 hover:bg-muted">
+                    <TableCell className="w-[5%] px-2 text-left border-b border-gray-200 hover:bg-muted">
                         {transaction.tags && transaction.tags.length > 0 ? (
                             <div className="flex flex-col gap-0.5">
                                 {transaction.tags.map((tag, idx) => (
@@ -416,24 +506,32 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
                             <span className="text-sm text-muted-foreground">—</span>
                         )}
                     </TableCell>
-                    <TableCell className="w-[12%] px-2 text-center border-b border-gray-200 hover:bg-muted">
+                    <TableCell className="w-[8%] px-2 text-center border-b border-gray-200 hover:bg-muted">
                         <div className="flex items-center justify-center gap-1">
                             <TypeBadge type={transaction.type} />
                             <DoneBadge done={transaction.done} />
                         </div>
                     </TableCell>
-                    <TableCell className="w-[12.5%] text-right border-b border-gray-200 hover:bg-muted">
+                    <TableCell className="w-[25%] text-right border-b border-gray-200 hover:bg-muted">
                         <span className="text-xs">
                             {formatNumber(transaction.amount)}
                         </span>
                     </TableCell>
-                    <TableCell className="w-[40%] text-left border-b border-gray-200 border-l-2 border-border hover:bg-muted">
+                    <TableCell className="w-[5%] text-right text-sm text-muted-foreground border-b border-gray-200 hover:bg-muted">
+                        <span className="text-xs">{formatDate(transaction.exDate)}</span>
+                    </TableCell>
+                    <TableCell className="w-[10%] text-left border-b border-gray-200 hover:bg-muted">
+                        <span className="text-xs text-muted-foreground">
+                            {getAssignedToName(transaction.assignedTo)}
+                        </span>
+                    </TableCell>
+                    <TableCell rowSpan={transactionActuals.length} className="w-[12%] text-left border-b border-gray-200 border-l-2 border-border hover:bg-muted">
                         <span className="text-sm text-muted-foreground">—</span>
                     </TableCell>
-                    <TableCell className="w-[20%] text-right border-b border-gray-200 hover:bg-muted">
+                    <TableCell className="w-[8%] text-right border-b border-gray-200 hover:bg-muted">
                         <span className="text-sm text-muted-foreground">—</span>
                     </TableCell>
-                    <TableCell className="w-[11%] text-left border-b border-gray-200 hover:bg-muted">
+                    <TableCell className="w-[1%] text-left border-b border-gray-200 hover:bg-muted">
                         <span className="text-xs text-muted-foreground">-</span>
                     </TableCell>
                 </TransactionSortableRow>
@@ -455,7 +553,7 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
                         onChange={() => {}}
                     />
                 </TableCell>
-                <TableCell rowSpan={transactionActuals.length} className="w-[35%] px-2 text-left border-b border-gray-200 hover:bg-muted">
+                <TableCell rowSpan={transactionActuals.length} className="w-[15%] px-2 text-left border-b border-gray-200 hover:bg-muted">
                     <div className="flex items-center gap-2">
                         <span
                             className="cursor-pointer hover:underline font-medium"
@@ -471,7 +569,7 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
                         </span>
                     </div>
                 </TableCell>
-                <TableCell rowSpan={transactionActuals.length} className="w-[18%] px-2 text-left border-b border-gray-200 hover:bg-muted">
+                <TableCell rowSpan={transactionActuals.length} className="w-[5%] px-2 text-left border-b border-gray-200 hover:bg-muted">
                     {transaction.tags && transaction.tags.length > 0 ? (
                         <div className="flex flex-col gap-0.5">
                             {transaction.tags.map((tag, idx) => (
@@ -484,15 +582,23 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
                         <span className="text-sm text-muted-foreground">—</span>
                     )}
                 </TableCell>
-                <TableCell rowSpan={transactionActuals.length} className="w-[12%] px-2 text-center border-b border-gray-200 hover:bg-muted">
+                <TableCell rowSpan={transactionActuals.length} className="w-[8%] px-2 text-center border-b border-gray-200 hover:bg-muted">
                     <div className="flex items-center justify-center gap-1">
                         <TypeBadge type={transaction.type} />
                         <DoneBadge done={transaction.done} />
                     </div>
                 </TableCell>
-                <TableCell rowSpan={transactionActuals.length} className="w-[9%] text-right border-b border-gray-200 hover:bg-muted">
+                <TableCell rowSpan={transactionActuals.length} className="w-[25%] text-right border-b border-gray-200 hover:bg-muted">
                     <span className="text-xs">
                         {formatNumber(transaction.amount)}
+                    </span>
+                </TableCell>
+                <TableCell rowSpan={transactionActuals.length} className="w-[5%] text-right text-sm text-muted-foreground border-b border-gray-200 hover:bg-muted">
+                    <span className="text-xs">{formatDate(transaction.exDate)}</span>
+                </TableCell>
+                <TableCell rowSpan={transactionActuals.length} className="w-[10%] text-left border-b border-gray-200 hover:bg-muted">
+                    <span className="text-xs text-muted-foreground">
+                        {getAssignedToName(transaction.assignedTo)}
                     </span>
                 </TableCell>
             </>
@@ -504,7 +610,7 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
             <TransactionSortableRow key={rowKey} id={transaction.id} disabled={!isDraggable}>
                 {index === 0 && sharedCells}
                 {/* Actual row cells - only rendered when actuals exist */}
-                <TableCell className={`w-[28%] text-left ${lastRowClass} border-l-2 border-border border-b border-gray-200 hover:bg-muted`}>
+                <TableCell className={`w-[20%] text-left ${lastRowClass} border-l-2 border-border border-b border-gray-200 hover:bg-muted`}>
                     <div className="flex flex-col gap-0.5">
                         <span className="text-xs">{actual?.name}</span>
                         {actual?.projectName && (
@@ -518,12 +624,12 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
                         )}
                     </div>
                 </TableCell>
-                <TableCell className={`w-[10%] text-right ${lastRowClass} border-b border-gray-200 hover:bg-muted`}>
+                <TableCell className={`w-[8%] text-right ${lastRowClass} border-b border-gray-200 hover:bg-muted`}>
                     <span className="text-xs text-muted-foreground">
                         {formatNumber(actual?.amount || 0)}
                     </span>
                 </TableCell>
-                <TableCell className={`w-[11%] text-left ${lastRowClass} border-b border-gray-200 hover:bg-muted`}>
+                <TableCell className={`w-[4%] text-left ${lastRowClass} border-b border-gray-200 hover:bg-muted`}>
                     <span className="text-xs text-muted-foreground">
                         {actual?.exDate ? formatDate(actual.exDate) : '-'}
                     </span>
@@ -603,6 +709,68 @@ export function TabTransactions({ projectId }: TabTransactionsProps) {
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-4">
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    placeholder="Name"
+                                    value={searchNameTerm}
+                                    onChange={(e) => setSearchNameTerm(e.target.value)}
+                                    className="h-8 w-24"
+                                />
+                                <Input
+                                    placeholder="Tags"
+                                    value={searchTagTerm}
+                                    onChange={(e) => setSearchTagTerm(e.target.value)}
+                                    className="h-8 w-24"
+                                />
+                                <Input
+                                    placeholder="asgTo"
+                                    value={searchAssignedToTerm}
+                                    onChange={(e) => setSearchAssignedToTerm(e.target.value)}
+                                    className="h-8 w-24"
+                                />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                {/* Type filter dropdown */}
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild={true}>
+                                        <div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background px-3 py-1.5 hover:bg-accent hover:text-accent-foreground h-8 px-3 cursor-pointer">
+                                            Type: {filterType === 'all' ? 'All' : filterType === 'income' ? 'Income' : 'Expense'}
+                                        </div>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => setFilterType('all')}>
+                                            All Types
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setFilterType('income')}>
+                                            Income
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setFilterType('expense')}>
+                                            Expense
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                                {/* Date sort dropdown */}
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild={true}>
+                                        <div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background px-3 py-1.5 hover:bg-accent hover:text-accent-foreground h-8 px-3 cursor-pointer">
+                                            Sort: {sortByDate === 'none' ? 'None' : sortByDate === 'asc' ? 'Oldest' : 'Newest'}
+                                        </div>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => setSortByDate('none')}>
+                                            None
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setSortByDate('asc')}>
+                                            Oldest
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setSortByDate('desc')}>
+                                            Newest
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
                         </div>
                         <div className="text-right">
                             <div className="text-xs font-semibold">

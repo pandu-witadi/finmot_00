@@ -1,21 +1,15 @@
 interface TypeBadgeProps {
     type: 'income' | 'expense';
-    size?: 'sm' | 'md';
 }
 
-export function TypeBadge({ type, size = 'md' }: TypeBadgeProps) {
-    const sizeClasses = {
-        sm: 'w-6 h-6 text-[8px]',
-        md: 'w-7 h-7 text-[10px]'
-    };
-    
+export function TypeBadge({ type }: TypeBadgeProps) {
     return (
-        <span className={`${sizeClasses[size]} rounded-full inline-flex items-center justify-center ${
-            type === 'income' 
-                ? 'bg-green-100 text-green-700' 
-                : 'bg-red-100 text-red-700'
+        <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+            type === 'income'
+                ? 'bg-green-100 border-green-100 text-green-700 text-[9px]'
+                : 'bg-red-100 border-red-100 text-red-700 text-[9px]'
         }`}>
             {type === 'income' ? 'i' : 'e'}
-        </span>
+        </div>
     );
 }
